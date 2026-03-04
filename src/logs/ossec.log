@@ -1,0 +1,1063 @@
+2025/11/27 14:04:39 wazuh-logcollector: ERROR: (1226): Error reading XML file 'etc/ossec.conf':  (line 0).
+2025/11/27 14:04:51 wazuh-logcollector: ERROR: (1226): Error reading XML file 'etc/ossec.conf':  (line 0).
+2025/11/27 14:05:08 wazuh-logcollector: ERROR: (1103): Could not open file 'etc/internal_options.conf' due to [(2)-(No such file or directory)].
+2025/11/27 14:05:08 wazuh-logcollector: CRITICAL: (2301): Definition not found for: 'logcollector.debug'.
+2025/11/27 14:05:25 wazuh-logcollector[68738] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2025/11/27 14:05:25 wazuh-logcollector[68738] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2025/11/27 14:05:25 wazuh-logcollector[68738] main.c:106 at main(): CRITICAL: (1203): Invalid user '' or group 'wazuh' given: Success (0)
+2025/11/27 14:08:32 wazuh-logcollector[69335] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2025/11/27 14:08:32 wazuh-logcollector[69335] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2025/11/27 14:08:32 wazuh-logcollector[69335] main.c:126 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2025/11/27 14:08:32 wazuh-logcollector[69335] mq_op.c:41 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Can't connect to 'queue/sockets/queue': No such file or directory (2). Attempt: 1
+2025/11/27 14:08:42 wazuh-logcollector[69335] mq_op.c:41 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Can't connect to 'queue/sockets/queue': No such file or directory (2). Attempt: 2
+2025/11/27 14:08:57 wazuh-logcollector[69335] mq_op.c:41 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Can't connect to 'queue/sockets/queue': No such file or directory (2). Attempt: 3
+2025/11/27 14:09:17 wazuh-logcollector[69335] mq_op.c:41 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Can't connect to 'queue/sockets/queue': No such file or directory (2). Attempt: 4
+2025/11/27 14:09:42 wazuh-logcollector[69335] mq_op.c:41 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Can't connect to 'queue/sockets/queue': No such file or directory (2). Attempt: 5
+2025/11/27 14:10:12 wazuh-logcollector[69335] mq_op.c:41 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Can't connect to 'queue/sockets/queue': No such file or directory (2). Attempt: 6
+2025/11/27 14:10:17 wazuh-logcollector[69335] sig_op.c:39 at HandleSIG(): INFO: (1225): SIGNAL [(2)-(Interrupt)] Received. Exit Cleaning...
+2025/11/27 14:11:11 wazuh-agentd[69928] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2025/11/27 14:11:11 wazuh-agentd[69928] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2025/11/27 14:11:11 wazuh-agentd[69928] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2025/11/27 14:11:11 wazuh-agentd[69928] main.c:189 at main(): DEBUG: Started (pid: 69928).
+2025/11/27 14:11:33 wazuh-logcollector[70017] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2025/11/27 14:11:33 wazuh-logcollector[70017] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2025/11/27 14:11:33 wazuh-logcollector[70017] main.c:126 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2025/11/27 14:11:33 wazuh-logcollector[70017] mq_op.c:41 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Can't connect to 'queue/sockets/queue': No such file or directory (2). Attempt: 1
+2025/11/27 14:11:43 wazuh-logcollector[70017] mq_op.c:41 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Can't connect to 'queue/sockets/queue': No such file or directory (2). Attempt: 2
+2025/11/27 14:11:55 wazuh-agentd[69928] client-config.c:613 at Validate_IPv6_Link_Local_Interface(): DEBUG: Could not resolve hostname 'IP'
+2025/11/27 14:11:58 wazuh-logcollector[70017] mq_op.c:41 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Can't connect to 'queue/sockets/queue': No such file or directory (2). Attempt: 3
+2025/11/27 14:12:06 wazuh-agentd[70066] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2025/11/27 14:12:06 wazuh-agentd[70066] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2025/11/27 14:12:06 wazuh-agentd[70066] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2025/11/27 14:12:06 wazuh-agentd[70066] main.c:189 at main(): DEBUG: Started (pid: 70066).
+2025/11/27 14:12:18 wazuh-logcollector[70017] mq_op.c:41 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Can't connect to 'queue/sockets/queue': No such file or directory (2). Attempt: 4
+2025/11/27 14:12:43 wazuh-logcollector[70017] mq_op.c:41 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Can't connect to 'queue/sockets/queue': No such file or directory (2). Attempt: 5
+2025/11/27 14:12:50 wazuh-agentd[70066] client-config.c:613 at Validate_IPv6_Link_Local_Interface(): DEBUG: Could not resolve hostname 'IP'
+2025/11/27 14:12:56 wazuh-agentd[70331] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2025/11/27 14:12:56 wazuh-agentd[70331] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2025/11/27 14:12:56 wazuh-agentd[70331] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2025/11/27 14:12:56 wazuh-agentd[70331] main.c:189 at main(): DEBUG: Started (pid: 70331).
+2025/11/27 14:12:59 wazuh-logcollector[70017] sig_op.c:39 at HandleSIG(): INFO: (1225): SIGNAL [(2)-(Interrupt)] Received. Exit Cleaning...
+2025/11/27 14:13:01 wazuh-logcollector[70347] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2025/11/27 14:13:01 wazuh-logcollector[70347] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2025/11/27 14:13:01 wazuh-logcollector[70347] main.c:126 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2025/11/27 14:13:01 wazuh-logcollector[70347] mq_op.c:41 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Can't connect to 'queue/sockets/queue': No such file or directory (2). Attempt: 1
+2025/11/27 14:13:11 wazuh-logcollector[70347] mq_op.c:41 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Can't connect to 'queue/sockets/queue': No such file or directory (2). Attempt: 2
+2025/11/27 14:13:26 wazuh-logcollector[70347] mq_op.c:41 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Can't connect to 'queue/sockets/queue': No such file or directory (2). Attempt: 3
+2025/11/27 14:13:40 wazuh-agentd[70331] client-config.c:613 at Validate_IPv6_Link_Local_Interface(): DEBUG: Could not resolve hostname 'IP'
+2025/11/27 14:13:46 wazuh-logcollector[70347] mq_op.c:41 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Can't connect to 'queue/sockets/queue': No such file or directory (2). Attempt: 4
+2025/11/27 14:14:11 wazuh-logcollector[70347] mq_op.c:41 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Can't connect to 'queue/sockets/queue': No such file or directory (2). Attempt: 5
+2025/11/27 14:14:41 wazuh-logcollector[70347] mq_op.c:41 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Can't connect to 'queue/sockets/queue': No such file or directory (2). Attempt: 6
+2025/11/27 14:15:16 wazuh-logcollector[70347] mq_op.c:41 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Can't connect to 'queue/sockets/queue': No such file or directory (2). Attempt: 7
+2025/11/27 14:15:56 wazuh-logcollector[70347] mq_op.c:41 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Can't connect to 'queue/sockets/queue': No such file or directory (2). Attempt: 8
+2025/11/27 14:16:41 wazuh-logcollector[70347] mq_op.c:41 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Can't connect to 'queue/sockets/queue': No such file or directory (2). Attempt: 9
+2025/11/27 14:16:56 wazuh-agentd[71374] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2025/11/27 14:16:56 wazuh-agentd[71374] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2025/11/27 14:16:56 wazuh-agentd[71374] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2025/11/27 14:16:56 wazuh-agentd[71374] main.c:189 at main(): DEBUG: Started (pid: 71374).
+2025/11/27 14:17:20 wazuh-logcollector[71463] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2025/11/27 14:17:20 wazuh-logcollector[71463] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2025/11/27 14:17:20 wazuh-logcollector[71463] main.c:126 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2025/11/27 14:17:20 wazuh-logcollector[71463] mq_op.c:41 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Can't connect to 'queue/sockets/queue': No such file or directory (2). Attempt: 1
+2025/11/27 14:17:30 wazuh-logcollector[71463] mq_op.c:41 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Can't connect to 'queue/sockets/queue': No such file or directory (2). Attempt: 2
+2025/11/27 14:17:31 wazuh-logcollector[70347] mq_op.c:41 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Can't connect to 'queue/sockets/queue': No such file or directory (2). Attempt: 10
+2025/11/27 14:17:40 wazuh-agentd[71374] client-config.c:613 at Validate_IPv6_Link_Local_Interface(): DEBUG: Could not resolve hostname 'IP'
+2025/11/27 14:17:40 wazuh-agentd[71374] agentd.c:65 at AgentdStart(): INFO: (1410): Reading authentication keys file.
+2025/11/27 14:17:40 wazuh-agentd[71374] keys.c:337 at OS_ReadKeys(): DEBUG: (1751): File client.keys not found or empty.
+2025/11/27 14:17:40 wazuh-agentd[71374] agentd.c:68 at AgentdStart(): INFO: Using notify time: 20
+2025/11/27 14:17:40 wazuh-agentd[71374] agentd.c:73 at AgentdStart(): INFO: Version detected -> Linux |LAPTOP-M9GQ2F87 |6.6.87.2-microsoft-standard-WSL2 |#1 SMP PREEMPT_DYNAMIC Thu Jun  5 18:30:46 UTC 2025 |x86_64 [Kali GNU/Linux|kali: 2025.3] - Wazuh v5.0.0
+2025/11/27 14:17:40 wazuh-agentd[71374] agentd.c:93 at AgentdStart(): INFO: Started (pid: 71374).
+2025/11/27 14:17:40 wazuh-agentd[71374] buffer.c:96 at buffer_init(): DEBUG: Agent buffer created.
+2025/11/27 14:17:40 wazuh-agentd[71374] rotate_log.c:44 at w_rotate_log_thread(): DEBUG: Log rotating thread started.
+2025/11/27 14:17:40 wazuh-agentd[71374] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: IP
+2025/11/27 14:17:40 wazuh-agentd[71374] state.c:50 at state_main(): DEBUG: State file updating thread started.
+2025/11/27 14:17:45 wazuh-logcollector[71463] mq_op.c:52 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Connected succesfully to 'queue/sockets/queue' after 2 attempts
+2025/11/27 14:17:45 wazuh-logcollector[71463] mq_op.c:53 at StartMQWithSpecificOwnerAndPerms(): DEBUG: (unix_domain) Maximum send buffer set to: '212992'.
+2025/11/27 14:17:45 wazuh-logcollector[71463] logcollector.c:261 at LogCollectorStart(): DEBUG: Entering LogCollectorStart().
+2025/11/27 14:17:45 wazuh-logcollector[71463] logcollector.c:1016 at handle_file(): ERROR: (1103): Could not open file '/var/ossec/logs/active-responses.log' due to [(2)-(No such file or directory)].
+2025/11/27 14:17:45 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:17:45 wazuh-logcollector[71463] logcollector.c:1220 at set_read(): DEBUG: Socket target for '/var/ossec/logs/active-responses.log' -> agent
+2025/11/27 14:17:45 wazuh-logcollector[71463] logcollector.c:423 at LogCollectorStart(): INFO: (1950): Analyzing file: '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:17:45 wazuh-logcollector[71463] logcollector.c:1016 at handle_file(): ERROR: (1103): Could not open file '/var/log/messages' due to [(2)-(No such file or directory)].
+2025/11/27 14:17:45 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:17:45 wazuh-logcollector[71463] logcollector.c:1220 at set_read(): DEBUG: Socket target for '/var/log/messages' -> agent
+2025/11/27 14:17:45 wazuh-logcollector[71463] logcollector.c:423 at LogCollectorStart(): INFO: (1950): Analyzing file: '/var/log/messages'.
+2025/11/27 14:17:45 wazuh-logcollector[71463] logcollector.c:1016 at handle_file(): ERROR: (1103): Could not open file '/var/log/auth.log' due to [(2)-(No such file or directory)].
+2025/11/27 14:17:45 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:17:45 wazuh-logcollector[71463] logcollector.c:1220 at set_read(): DEBUG: Socket target for '/var/log/auth.log' -> agent
+2025/11/27 14:17:45 wazuh-logcollector[71463] logcollector.c:423 at LogCollectorStart(): INFO: (1950): Analyzing file: '/var/log/auth.log'.
+2025/11/27 14:17:45 wazuh-logcollector[71463] logcollector.c:1016 at handle_file(): ERROR: (1103): Could not open file '/var/log/syslog' due to [(2)-(No such file or directory)].
+2025/11/27 14:17:45 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:17:45 wazuh-logcollector[71463] logcollector.c:1220 at set_read(): DEBUG: Socket target for '/var/log/syslog' -> agent
+2025/11/27 14:17:45 wazuh-logcollector[71463] logcollector.c:423 at LogCollectorStart(): INFO: (1950): Analyzing file: '/var/log/syslog'.
+2025/11/27 14:17:45 wazuh-logcollector[71463] logcollector.c:330 at LogCollectorStart(): INFO: Monitoring output of command(360): df -P
+2025/11/27 14:17:45 wazuh-logcollector[71463] logcollector.c:334 at LogCollectorStart(): DEBUG: Socket target for 'df -P' -> agent
+2025/11/27 14:17:45 wazuh-logcollector[71463] logcollector.c:358 at LogCollectorStart(): INFO: Monitoring full output of command(360): netstat -tan |grep LISTEN |grep -v 127.0.0.1 | sort
+2025/11/27 14:17:45 wazuh-logcollector[71463] logcollector.c:362 at LogCollectorStart(): DEBUG: Socket target for 'netstat -tan |grep LISTEN |grep -v 127.0.0.1 | sort' -> agent
+2025/11/27 14:17:45 wazuh-logcollector[71463] logcollector.c:358 at LogCollectorStart(): INFO: Monitoring full output of command(360): last -n 5
+2025/11/27 14:17:45 wazuh-logcollector[71463] logcollector.c:362 at LogCollectorStart(): DEBUG: Socket target for 'last -n 5' -> agent
+2025/11/27 14:17:45 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:17:45 wazuh-logcollector[71463] logcollector.c:474 at LogCollectorStart(): INFO: Started (pid: 71463).
+2025/11/27 14:17:45 wazuh-logcollector[71463] logcollector.c:475 at LogCollectorStart(): DEBUG: (1961): Files being monitored: 4/1000.
+2025/11/27 14:17:45 wazuh-logcollector[71463] lccom.c:511 at lccom_main(): DEBUG: Local requests thread ready
+2025/11/27 14:17:47 wazuh-logcollector[71463] wait_op.c:117 at os_wait_primitive(): DEBUG: Process locked due to agent is offline. Waiting for connection...
+2025/11/27 14:18:24 wazuh-agentd[71374] enrollment_op.c:213 at w_enrollment_connect(): ERROR: Could not resolve hostname: IP
+
+2025/11/27 14:18:24 wazuh-agentd[71374] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 5 seconds before trying to enroll again
+2025/11/27 14:18:26 wazuh-logcollector[70347] mq_op.c:52 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Connected succesfully to 'queue/sockets/queue' after 10 attempts
+2025/11/27 14:18:26 wazuh-logcollector[70347] mq_op.c:53 at StartMQWithSpecificOwnerAndPerms(): DEBUG: (unix_domain) Maximum send buffer set to: '212992'.
+2025/11/27 14:18:26 wazuh-logcollector[70347] logcollector.c:261 at LogCollectorStart(): DEBUG: Entering LogCollectorStart().
+2025/11/27 14:18:26 wazuh-logcollector[70347] logcollector.c:1016 at handle_file(): ERROR: (1103): Could not open file '/var/ossec/logs/active-responses.log' due to [(2)-(No such file or directory)].
+2025/11/27 14:18:26 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:18:26 wazuh-logcollector[70347] logcollector.c:1220 at set_read(): DEBUG: Socket target for '/var/ossec/logs/active-responses.log' -> agent
+2025/11/27 14:18:26 wazuh-logcollector[70347] logcollector.c:423 at LogCollectorStart(): INFO: (1950): Analyzing file: '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:18:26 wazuh-logcollector[70347] logcollector.c:1016 at handle_file(): ERROR: (1103): Could not open file '/var/log/messages' due to [(2)-(No such file or directory)].
+2025/11/27 14:18:26 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:18:26 wazuh-logcollector[70347] logcollector.c:1220 at set_read(): DEBUG: Socket target for '/var/log/messages' -> agent
+2025/11/27 14:18:26 wazuh-logcollector[70347] logcollector.c:423 at LogCollectorStart(): INFO: (1950): Analyzing file: '/var/log/messages'.
+2025/11/27 14:18:26 wazuh-logcollector[70347] logcollector.c:1016 at handle_file(): ERROR: (1103): Could not open file '/var/log/auth.log' due to [(2)-(No such file or directory)].
+2025/11/27 14:18:26 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:18:26 wazuh-logcollector[70347] logcollector.c:1220 at set_read(): DEBUG: Socket target for '/var/log/auth.log' -> agent
+2025/11/27 14:18:26 wazuh-logcollector[70347] logcollector.c:423 at LogCollectorStart(): INFO: (1950): Analyzing file: '/var/log/auth.log'.
+2025/11/27 14:18:26 wazuh-logcollector[70347] logcollector.c:1016 at handle_file(): ERROR: (1103): Could not open file '/var/log/syslog' due to [(2)-(No such file or directory)].
+2025/11/27 14:18:26 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:18:26 wazuh-logcollector[70347] logcollector.c:1220 at set_read(): DEBUG: Socket target for '/var/log/syslog' -> agent
+2025/11/27 14:18:26 wazuh-logcollector[70347] logcollector.c:423 at LogCollectorStart(): INFO: (1950): Analyzing file: '/var/log/syslog'.
+2025/11/27 14:18:26 wazuh-logcollector[70347] logcollector.c:330 at LogCollectorStart(): INFO: Monitoring output of command(360): df -P
+2025/11/27 14:18:26 wazuh-logcollector[70347] logcollector.c:334 at LogCollectorStart(): DEBUG: Socket target for 'df -P' -> agent
+2025/11/27 14:18:26 wazuh-logcollector[70347] logcollector.c:358 at LogCollectorStart(): INFO: Monitoring full output of command(360): netstat -tan |grep LISTEN |grep -v 127.0.0.1 | sort
+2025/11/27 14:18:26 wazuh-logcollector[70347] logcollector.c:362 at LogCollectorStart(): DEBUG: Socket target for 'netstat -tan |grep LISTEN |grep -v 127.0.0.1 | sort' -> agent
+2025/11/27 14:18:26 wazuh-logcollector[70347] logcollector.c:358 at LogCollectorStart(): INFO: Monitoring full output of command(360): last -n 5
+2025/11/27 14:18:26 wazuh-logcollector[70347] logcollector.c:362 at LogCollectorStart(): DEBUG: Socket target for 'last -n 5' -> agent
+2025/11/27 14:18:26 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:18:26 wazuh-logcollector[70347] logcollector.c:474 at LogCollectorStart(): INFO: Started (pid: 70347).
+2025/11/27 14:18:26 wazuh-logcollector[70347] logcollector.c:475 at LogCollectorStart(): DEBUG: (1961): Files being monitored: 4/1000.
+2025/11/27 14:18:26 wazuh-logcollector[70347] lccom.c:511 at lccom_main(): DEBUG: Local requests thread ready
+2025/11/27 14:18:28 wazuh-logcollector[70347] wait_op.c:117 at os_wait_primitive(): DEBUG: Process locked due to agent is offline. Waiting for connection...
+2025/11/27 14:18:29 wazuh-agentd[71374] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: IP
+2025/11/27 14:18:49 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:18:49 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:18:49 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:18:49 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:18:49 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:18:49 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:19:13 wazuh-agentd[71374] enrollment_op.c:213 at w_enrollment_connect(): ERROR: Could not resolve hostname: IP
+
+2025/11/27 14:19:13 wazuh-agentd[71374] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 10 seconds before trying to enroll again
+2025/11/27 14:19:23 wazuh-agentd[71374] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: IP
+2025/11/27 14:19:30 wazuh-logcollector[70347] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:19:30 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:19:30 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:19:30 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:19:30 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:19:30 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:19:53 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:19:53 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:19:53 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:19:53 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:19:53 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:19:53 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:20:07 wazuh-agentd[71374] enrollment_op.c:213 at w_enrollment_connect(): ERROR: Could not resolve hostname: IP
+
+2025/11/27 14:20:07 wazuh-agentd[71374] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 15 seconds before trying to enroll again
+2025/11/27 14:20:22 wazuh-agentd[71374] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: IP
+2025/11/27 14:20:34 wazuh-logcollector[70347] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:20:34 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:20:34 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:20:34 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:20:34 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:20:34 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:20:57 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:20:57 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:20:57 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:20:57 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:20:57 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:20:57 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:21:06 wazuh-agentd[71374] enrollment_op.c:213 at w_enrollment_connect(): ERROR: Could not resolve hostname: IP
+
+2025/11/27 14:21:06 wazuh-agentd[71374] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 20 seconds before trying to enroll again
+2025/11/27 14:21:26 wazuh-agentd[71374] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: IP
+2025/11/27 14:21:38 wazuh-logcollector[70347] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:21:38 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:21:38 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:21:38 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:21:38 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:21:38 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:22:01 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:22:01 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:22:01 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:22:01 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:22:01 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:22:01 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:22:10 wazuh-agentd[71374] enrollment_op.c:213 at w_enrollment_connect(): ERROR: Could not resolve hostname: IP
+
+2025/11/27 14:22:10 wazuh-agentd[71374] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 25 seconds before trying to enroll again
+2025/11/27 14:22:35 wazuh-agentd[71374] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: IP
+2025/11/27 14:22:42 wazuh-logcollector[70347] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:22:42 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:22:42 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:22:42 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:22:42 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:22:42 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:23:05 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:23:05 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:23:05 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:23:05 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:23:05 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:23:05 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:23:19 wazuh-agentd[71374] enrollment_op.c:213 at w_enrollment_connect(): ERROR: Could not resolve hostname: IP
+
+2025/11/27 14:23:19 wazuh-agentd[71374] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 30 seconds before trying to enroll again
+2025/11/27 14:23:46 wazuh-logcollector[70347] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:23:46 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:23:46 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:23:46 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:23:46 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:23:46 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:23:49 wazuh-agentd[71374] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: IP
+2025/11/27 14:24:09 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:24:09 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:24:09 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:24:09 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:24:09 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:24:09 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:24:33 wazuh-agentd[71374] enrollment_op.c:213 at w_enrollment_connect(): ERROR: Could not resolve hostname: IP
+
+2025/11/27 14:24:33 wazuh-agentd[71374] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 35 seconds before trying to enroll again
+2025/11/27 14:24:50 wazuh-logcollector[70347] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:24:50 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:24:50 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:24:50 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:24:50 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:24:50 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:25:08 wazuh-agentd[71374] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: IP
+2025/11/27 14:25:13 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:25:13 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:25:13 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:25:13 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:25:13 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:25:13 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:25:52 wazuh-agentd[71374] enrollment_op.c:213 at w_enrollment_connect(): ERROR: Could not resolve hostname: IP
+
+2025/11/27 14:25:52 wazuh-agentd[71374] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 40 seconds before trying to enroll again
+2025/11/27 14:25:54 wazuh-logcollector[70347] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:25:54 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:25:54 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:25:54 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:25:54 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:25:54 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:26:17 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:26:17 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:26:17 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:26:17 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:26:17 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:26:17 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:26:32 wazuh-agentd[71374] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: IP
+2025/11/27 14:26:58 wazuh-logcollector[70347] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:26:58 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:26:58 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:26:58 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:26:58 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:26:58 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:27:16 wazuh-agentd[71374] enrollment_op.c:213 at w_enrollment_connect(): ERROR: Could not resolve hostname: IP
+
+2025/11/27 14:27:16 wazuh-agentd[71374] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 45 seconds before trying to enroll again
+2025/11/27 14:27:21 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:27:21 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:27:21 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:27:21 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:27:21 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:27:21 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:28:01 wazuh-agentd[71374] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: IP
+2025/11/27 14:28:03 wazuh-logcollector[70347] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:28:03 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:28:03 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:28:03 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:28:03 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:28:03 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:28:25 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:28:25 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:28:25 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:28:25 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:28:25 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:28:25 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:28:46 wazuh-agentd[71374] enrollment_op.c:213 at w_enrollment_connect(): ERROR: Could not resolve hostname: IP
+
+2025/11/27 14:28:46 wazuh-agentd[71374] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 50 seconds before trying to enroll again
+2025/11/27 14:29:07 wazuh-logcollector[70347] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:29:07 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:29:07 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:29:07 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:29:07 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:29:07 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:29:29 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:29:29 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:29:29 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:29:29 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:29:29 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:29:29 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:29:36 wazuh-agentd[71374] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: IP
+2025/11/27 14:30:11 wazuh-logcollector[70347] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:30:11 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:30:11 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:30:11 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:30:11 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:30:11 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:30:20 wazuh-agentd[71374] enrollment_op.c:213 at w_enrollment_connect(): ERROR: Could not resolve hostname: IP
+
+2025/11/27 14:30:20 wazuh-agentd[71374] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 55 seconds before trying to enroll again
+2025/11/27 14:30:33 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:30:33 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:30:33 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:30:33 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:30:33 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:30:33 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:31:15 wazuh-agentd[71374] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: IP
+2025/11/27 14:31:15 wazuh-logcollector[70347] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:31:15 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:31:15 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:31:15 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:31:15 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:31:15 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:31:37 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:31:37 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:31:37 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:31:37 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:31:37 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:31:37 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:31:59 wazuh-agentd[71374] enrollment_op.c:213 at w_enrollment_connect(): ERROR: Could not resolve hostname: IP
+
+2025/11/27 14:31:59 wazuh-agentd[71374] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2025/11/27 14:32:19 wazuh-logcollector[70347] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:32:19 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:32:19 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:32:19 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:32:19 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:32:19 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:32:41 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:32:41 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:32:41 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:32:41 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:32:41 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:32:41 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:32:59 wazuh-agentd[71374] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: IP
+2025/11/27 14:33:23 wazuh-logcollector[70347] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:33:23 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:33:23 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:33:23 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:33:23 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:33:23 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:33:43 wazuh-agentd[71374] enrollment_op.c:213 at w_enrollment_connect(): ERROR: Could not resolve hostname: IP
+
+2025/11/27 14:33:43 wazuh-agentd[71374] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2025/11/27 14:33:45 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:33:45 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:33:45 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:33:45 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:33:45 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:33:45 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:34:27 wazuh-logcollector[70347] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:34:27 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:34:27 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:34:27 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:34:27 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:34:27 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:34:43 wazuh-agentd[71374] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: IP
+2025/11/27 14:34:49 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:34:49 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:34:49 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:34:49 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:34:49 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:34:49 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:35:27 wazuh-agentd[71374] enrollment_op.c:213 at w_enrollment_connect(): ERROR: Could not resolve hostname: IP
+
+2025/11/27 14:35:27 wazuh-agentd[71374] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2025/11/27 14:35:31 wazuh-logcollector[70347] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:35:31 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:35:31 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:35:31 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:35:31 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:35:31 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:35:53 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:35:53 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:35:53 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:35:53 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:35:53 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:35:53 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:36:27 wazuh-agentd[71374] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: IP
+2025/11/27 14:36:35 wazuh-logcollector[70347] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:36:35 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:36:35 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:36:35 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:36:35 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:36:35 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:36:57 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:36:57 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:36:57 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:36:57 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:36:57 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:36:57 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:37:11 wazuh-agentd[71374] enrollment_op.c:213 at w_enrollment_connect(): ERROR: Could not resolve hostname: IP
+
+2025/11/27 14:37:11 wazuh-agentd[71374] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2025/11/27 14:37:39 wazuh-logcollector[70347] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:37:39 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:37:39 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:37:39 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:37:39 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:37:39 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:38:01 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:38:01 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:38:01 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:38:01 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:38:01 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:38:01 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:38:11 wazuh-agentd[71374] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: IP
+2025/11/27 14:38:43 wazuh-logcollector[70347] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:38:43 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:38:43 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:38:43 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:38:43 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:38:43 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:38:55 wazuh-agentd[71374] enrollment_op.c:213 at w_enrollment_connect(): ERROR: Could not resolve hostname: IP
+
+2025/11/27 14:38:55 wazuh-agentd[71374] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2025/11/27 14:39:05 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:39:05 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:39:05 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:39:05 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:39:05 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:39:05 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:39:47 wazuh-logcollector[70347] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:39:47 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:39:47 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:39:47 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:39:47 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:39:47 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:39:55 wazuh-agentd[71374] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: IP
+2025/11/27 14:40:09 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:40:09 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:40:09 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:40:09 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:40:09 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:40:09 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:40:39 wazuh-agentd[71374] enrollment_op.c:213 at w_enrollment_connect(): ERROR: Could not resolve hostname: IP
+
+2025/11/27 14:40:39 wazuh-agentd[71374] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2025/11/27 14:40:51 wazuh-logcollector[70347] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:40:51 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:40:51 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:40:51 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:40:51 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:40:51 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:41:13 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:41:13 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:41:13 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:41:13 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:41:13 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:41:13 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:41:39 wazuh-agentd[71374] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: IP
+2025/11/27 14:41:55 wazuh-logcollector[70347] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:41:55 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:41:55 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:41:55 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:41:55 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:41:55 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:42:17 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:42:17 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:42:17 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:42:17 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:42:17 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:42:17 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:42:23 wazuh-agentd[71374] enrollment_op.c:213 at w_enrollment_connect(): ERROR: Could not resolve hostname: IP
+
+2025/11/27 14:42:23 wazuh-agentd[71374] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2025/11/27 14:42:59 wazuh-logcollector[70347] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:42:59 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:42:59 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:42:59 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:42:59 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:42:59 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:43:21 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:43:21 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:43:21 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:43:21 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:43:21 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:43:21 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:43:23 wazuh-agentd[71374] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: IP
+2025/11/27 14:44:03 wazuh-logcollector[70347] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:44:03 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:44:03 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:44:03 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:44:03 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:44:03 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:44:07 wazuh-agentd[71374] enrollment_op.c:213 at w_enrollment_connect(): ERROR: Could not resolve hostname: IP
+
+2025/11/27 14:44:07 wazuh-agentd[71374] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2025/11/27 14:44:25 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:44:25 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:44:25 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:44:25 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:44:25 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:44:25 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:45:07 wazuh-logcollector[70347] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:45:07 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:45:07 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:45:07 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:45:07 wazuh-logcollector[70347] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:45:07 wazuh-logcollector[70347] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2025/11/27 14:45:07 wazuh-agentd[71374] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: IP
+2025/11/27 14:45:29 wazuh-logcollector[71463] logcollector.c:519 at LogCollectorStart(): DEBUG: Performing file check.
+2025/11/27 14:45:29 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/ossec/logs/active-responses.log'.
+2025/11/27 14:45:29 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2025/11/27 14:45:29 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2025/11/27 14:45:29 wazuh-logcollector[71463] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2025/11/27 14:45:29 wazuh-logcollector[71463] log_builder.c:270 at log_builder_update_host_ip(): DEBUG: Cannot update host IP: The control module is not available: No such file or directory (2)
+2026/01/13 14:02:36 wazuh-agentd[3290] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/01/13 14:02:36 wazuh-agentd[3290] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/01/13 14:02:36 wazuh-agentd[3290] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/01/13 14:02:36 wazuh-agentd[3290] main.c:189 at main(): DEBUG: Started (pid: 3290).
+2026/01/13 14:02:36 wazuh-agentd[3290] agentd.c:65 at AgentdStart(): INFO: (1410): Reading authentication keys file.
+2026/01/13 14:02:36 wazuh-agentd[3290] keys.c:337 at OS_ReadKeys(): DEBUG: (1751): File client.keys not found or empty.
+2026/01/13 14:02:36 wazuh-agentd[3290] agentd.c:68 at AgentdStart(): INFO: Using notify time: 20
+2026/01/13 14:02:36 wazuh-agentd[3290] agentd.c:73 at AgentdStart(): INFO: Version detected -> Linux |LAPTOP-M9GQ2F87 |6.6.87.2-microsoft-standard-WSL2 |#1 SMP PREEMPT_DYNAMIC Thu Jun  5 18:30:46 UTC 2025 |x86_64 [Kali GNU/Linux|kali: 2025.3] - Wazuh v5.0.0
+2026/01/13 14:02:36 wazuh-agentd[3290] agentd.c:93 at AgentdStart(): INFO: Started (pid: 3290).
+2026/01/13 14:02:36 wazuh-agentd[3290] buffer.c:96 at buffer_init(): DEBUG: Agent buffer created.
+2026/01/13 14:02:36 wazuh-agentd[3290] rotate_log.c:44 at w_rotate_log_thread(): DEBUG: Log rotating thread started.
+2026/01/13 14:02:36 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:02:36 wazuh-agentd[3290] state.c:50 at state_main(): DEBUG: State file updating thread started.
+2026/01/13 14:02:36 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:02:36 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:02:36 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 5 seconds before trying to enroll again
+2026/01/13 14:02:41 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:02:41 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:02:41 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:02:41 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 10 seconds before trying to enroll again
+2026/01/13 14:02:51 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:02:51 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:02:51 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:02:51 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 15 seconds before trying to enroll again
+2026/01/13 14:03:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:03:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:03:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:03:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 20 seconds before trying to enroll again
+2026/01/13 14:03:08 wazuh-logcollector[3346] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/01/13 14:03:08 wazuh-logcollector[3346] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/01/13 14:03:08 wazuh-logcollector[3346] main.c:126 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/01/13 14:03:08 wazuh-logcollector[3346] mq_op.c:52 at StartMQWithSpecificOwnerAndPerms(): DEBUG: Connected succesfully to 'queue/sockets/queue' after 0 attempts
+2026/01/13 14:03:08 wazuh-logcollector[3346] mq_op.c:53 at StartMQWithSpecificOwnerAndPerms(): DEBUG: (unix_domain) Maximum send buffer set to: '212992'.
+2026/01/13 14:03:08 wazuh-logcollector[3346] logcollector.c:261 at LogCollectorStart(): DEBUG: Entering LogCollectorStart().
+2026/01/13 14:03:08 wazuh-logcollector[3346] logcollector.c:1220 at set_read(): DEBUG: Socket target for '/var/ossec/logs/active-responses.log' -> agent
+2026/01/13 14:03:08 wazuh-logcollector[3346] logcollector.c:423 at LogCollectorStart(): INFO: (1950): Analyzing file: '/var/ossec/logs/active-responses.log'.
+2026/01/13 14:03:08 wazuh-logcollector[3346] logcollector.c:1016 at handle_file(): ERROR: (1103): Could not open file '/var/log/messages' due to [(2)-(No such file or directory)].
+2026/01/13 14:03:08 wazuh-logcollector[3346] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/messages'.
+2026/01/13 14:03:08 wazuh-logcollector[3346] logcollector.c:1220 at set_read(): DEBUG: Socket target for '/var/log/messages' -> agent
+2026/01/13 14:03:08 wazuh-logcollector[3346] logcollector.c:423 at LogCollectorStart(): INFO: (1950): Analyzing file: '/var/log/messages'.
+2026/01/13 14:03:08 wazuh-logcollector[3346] logcollector.c:1016 at handle_file(): ERROR: (1103): Could not open file '/var/log/auth.log' due to [(2)-(No such file or directory)].
+2026/01/13 14:03:08 wazuh-logcollector[3346] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/auth.log'.
+2026/01/13 14:03:08 wazuh-logcollector[3346] logcollector.c:1220 at set_read(): DEBUG: Socket target for '/var/log/auth.log' -> agent
+2026/01/13 14:03:08 wazuh-logcollector[3346] logcollector.c:423 at LogCollectorStart(): INFO: (1950): Analyzing file: '/var/log/auth.log'.
+2026/01/13 14:03:08 wazuh-logcollector[3346] logcollector.c:1016 at handle_file(): ERROR: (1103): Could not open file '/var/log/syslog' due to [(2)-(No such file or directory)].
+2026/01/13 14:03:08 wazuh-logcollector[3346] logcollector.c:1092 at handle_file(): DEBUG: (1963): Unable to open file '/var/log/syslog'.
+2026/01/13 14:03:08 wazuh-logcollector[3346] logcollector.c:1220 at set_read(): DEBUG: Socket target for '/var/log/syslog' -> agent
+2026/01/13 14:03:08 wazuh-logcollector[3346] logcollector.c:423 at LogCollectorStart(): INFO: (1950): Analyzing file: '/var/log/syslog'.
+2026/01/13 14:03:08 wazuh-logcollector[3346] logcollector.c:330 at LogCollectorStart(): INFO: Monitoring output of command(360): df -P
+2026/01/13 14:03:08 wazuh-logcollector[3346] logcollector.c:334 at LogCollectorStart(): DEBUG: Socket target for 'df -P' -> agent
+2026/01/13 14:03:08 wazuh-logcollector[3346] logcollector.c:358 at LogCollectorStart(): INFO: Monitoring full output of command(360): netstat -tan |grep LISTEN |grep -v 127.0.0.1 | sort
+2026/01/13 14:03:08 wazuh-logcollector[3346] logcollector.c:362 at LogCollectorStart(): DEBUG: Socket target for 'netstat -tan |grep LISTEN |grep -v 127.0.0.1 | sort' -> agent
+2026/01/13 14:03:08 wazuh-logcollector[3346] logcollector.c:358 at LogCollectorStart(): INFO: Monitoring full output of command(360): last -n 5
+2026/01/13 14:03:08 wazuh-logcollector[3346] logcollector.c:362 at LogCollectorStart(): DEBUG: Socket target for 'last -n 5' -> agent
+2026/01/13 14:03:08 wazuh-logcollector[3346] logcollector.c:2623 at w_save_file_status(): CRITICAL: (1103): Could not open file 'queue/logcollector/file_status.json' due to [(2)-(No such file or directory)].
+2026/01/13 14:03:08 wazuh-logcollector[3346] logcollector.c:2623 at w_save_file_status(): CRITICAL: (1103): Could not open file 'queue/logcollector/file_status.json' due to [(2)-(No such file or directory)].
+2026/01/13 14:03:26 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:03:26 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:03:26 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:03:26 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 25 seconds before trying to enroll again
+2026/01/13 14:03:51 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:03:51 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:03:51 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:03:51 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 30 seconds before trying to enroll again
+2026/01/13 14:04:21 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:04:21 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:04:21 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:04:21 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 35 seconds before trying to enroll again
+2026/01/13 14:04:56 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:04:56 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:04:56 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:04:56 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 40 seconds before trying to enroll again
+2026/01/13 14:05:36 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:05:36 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:05:36 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:05:36 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 45 seconds before trying to enroll again
+2026/01/13 14:06:21 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:06:21 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:06:21 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:06:21 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 50 seconds before trying to enroll again
+2026/01/13 14:07:11 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:07:11 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:07:11 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:07:11 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 55 seconds before trying to enroll again
+2026/01/13 14:08:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:08:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:08:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:08:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:09:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:09:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:09:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:09:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:10:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:10:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:10:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:10:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:11:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:11:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:11:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:11:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:12:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:12:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:12:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:12:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:13:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:13:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:13:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:13:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:14:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:14:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:14:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:14:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:14:08 wazuh-agentd[4520] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/01/13 14:14:08 wazuh-agentd[4520] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/01/13 14:14:08 wazuh-agentd[4520] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/01/13 14:14:08 wazuh-agentd[4520] main.c:189 at main(): DEBUG: Started (pid: 4520).
+2026/01/13 14:14:08 wazuh-agentd[4520] agentd.c:65 at AgentdStart(): INFO: (1410): Reading authentication keys file.
+2026/01/13 14:14:08 wazuh-agentd[4520] agentd.c:68 at AgentdStart(): INFO: Using notify time: 20
+2026/01/13 14:14:08 wazuh-agentd[4520] agentd.c:73 at AgentdStart(): INFO: Version detected -> Linux |LAPTOP-M9GQ2F87 |6.6.87.2-microsoft-standard-WSL2 |#1 SMP PREEMPT_DYNAMIC Thu Jun  5 18:30:46 UTC 2025 |x86_64 [Kali GNU/Linux|kali: 2025.3] - Wazuh v5.0.0
+2026/01/13 14:14:08 wazuh-agentd[4520] agentd.c:93 at AgentdStart(): INFO: Started (pid: 4520).
+2026/01/13 14:14:08 wazuh-agentd[4520] buffer.c:96 at buffer_init(): DEBUG: Agent buffer created.
+2026/01/13 14:14:08 wazuh-agentd[4520] rotate_log.c:44 at w_rotate_log_thread(): DEBUG: Log rotating thread started.
+2026/01/13 14:14:08 wazuh-agentd[4520] msgs.c:83 at OS_StartCounter(): DEBUG: OS_StartCounter: keysize: 1
+2026/01/13 14:14:08 wazuh-agentd[4520] state.c:50 at state_main(): DEBUG: State file updating thread started.
+2026/01/13 14:14:08 wazuh-agentd[4520] start_agent.c:225 at w_agentd_keys_init(): INFO: Using AES as encryption method.
+2026/01/13 14:14:08 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:14:08 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:14:18 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:14:18 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:14:28 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:14:28 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:14:38 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:14:38 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:14:48 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:14:48 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:14:48 wazuh-agentd[4520] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:14:48 wazuh-agentd[4520] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:14:48 wazuh-agentd[4520] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:14:58 wazuh-agentd[4520] start_agent.c:161 at start_agent(): WARNING: (4101): Waiting for server reply (not started). Tried: '127.0.0.1'. Ensure that the manager version is 'v5.0.0' or higher.
+2026/01/13 14:14:58 wazuh-agentd[4520] start_agent.c:169 at start_agent(): WARNING: Unable to connect to any server.
+2026/01/13 14:14:58 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:14:58 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:15:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:15:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:15:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:15:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:15:08 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:15:08 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:15:18 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:15:18 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:15:28 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:15:28 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:15:38 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:15:38 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:15:38 wazuh-agentd[4520] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:15:38 wazuh-agentd[4520] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:15:38 wazuh-agentd[4520] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:15:48 wazuh-agentd[4520] start_agent.c:161 at start_agent(): WARNING: (4101): Waiting for server reply (not started). Tried: '127.0.0.1'. Ensure that the manager version is 'v5.0.0' or higher.
+2026/01/13 14:15:48 wazuh-agentd[4520] start_agent.c:169 at start_agent(): WARNING: Unable to connect to any server.
+2026/01/13 14:15:48 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:15:48 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:15:58 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:15:58 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:16:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:16:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:16:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:16:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:16:08 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:16:08 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:16:18 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:16:18 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:16:28 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:16:28 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:16:28 wazuh-agentd[4520] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:16:28 wazuh-agentd[4520] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:16:28 wazuh-agentd[4520] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:16:38 wazuh-agentd[4520] start_agent.c:161 at start_agent(): WARNING: (4101): Waiting for server reply (not started). Tried: '127.0.0.1'. Ensure that the manager version is 'v5.0.0' or higher.
+2026/01/13 14:16:38 wazuh-agentd[4520] start_agent.c:169 at start_agent(): WARNING: Unable to connect to any server.
+2026/01/13 14:16:38 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:16:38 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:16:48 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:16:48 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:16:58 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:16:58 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:17:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:17:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:17:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:17:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:17:08 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:17:08 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:17:18 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:17:18 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:17:18 wazuh-agentd[4520] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:17:18 wazuh-agentd[4520] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:17:18 wazuh-agentd[4520] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:17:28 wazuh-agentd[4520] start_agent.c:161 at start_agent(): WARNING: (4101): Waiting for server reply (not started). Tried: '127.0.0.1'. Ensure that the manager version is 'v5.0.0' or higher.
+2026/01/13 14:17:28 wazuh-agentd[4520] start_agent.c:169 at start_agent(): WARNING: Unable to connect to any server.
+2026/01/13 14:17:28 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:17:28 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:17:38 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:17:38 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:17:48 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:17:48 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:17:58 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:17:58 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:18:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:18:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:18:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:18:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:18:08 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:18:08 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:18:08 wazuh-agentd[4520] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:18:08 wazuh-agentd[4520] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:18:08 wazuh-agentd[4520] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:18:18 wazuh-agentd[4520] start_agent.c:161 at start_agent(): WARNING: (4101): Waiting for server reply (not started). Tried: '127.0.0.1'. Ensure that the manager version is 'v5.0.0' or higher.
+2026/01/13 14:18:18 wazuh-agentd[4520] start_agent.c:169 at start_agent(): WARNING: Unable to connect to any server.
+2026/01/13 14:18:18 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:18:18 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:18:28 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:18:28 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:18:38 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:18:38 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:18:48 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:18:48 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:18:58 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:18:58 wazuh-agentd[4520] start_agent.c:106 at connect_server(): ERROR: (1216): Unable to connect to '[127.0.0.1]:1514/tcp': 'Transport endpoint is not connected'.
+2026/01/13 14:18:58 wazuh-agentd[4520] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:18:58 wazuh-agentd[4520] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:18:58 wazuh-agentd[4520] enrollment_op.c:255 at w_enrollment_connect(): DEBUG: (1209): Connected to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:18:58 wazuh-agentd[4520] enrollment_op.c:497 at w_enrollment_verify_ca_certificate(): DEBUG: Registering agent to unverified manager
+2026/01/13 14:18:58 wazuh-agentd[4520] enrollment_op.c:633 at w_enrollment_load_pass(): INFO: No authentication password provided
+2026/01/13 14:18:58 wazuh-agentd[4520] enrollment_op.c:284 at w_enrollment_send_message(): INFO: Using agent name as: LAPTOP-M9GQ2F87
+2026/01/13 14:18:58 wazuh-agentd[4520] enrollment_op.c:328 at w_enrollment_send_message(): DEBUG: Request sent to manager
+2026/01/13 14:18:58 wazuh-agentd[4520] enrollment_op.c:353 at w_enrollment_process_response(): INFO: Waiting for server reply
+2026/01/13 14:18:58 wazuh-agentd[4520] enrollment_op.c:364 at w_enrollment_process_response(): ERROR: Agent version must be lower or equal to manager version. Unable to add agent (from manager)
+2026/01/13 14:18:58 wazuh-agentd[4520] enrollment_op.c:379 at w_enrollment_process_response(): DEBUG: Connection closed.
+2026/01/13 14:19:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:19:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:19:06 wazuh-agentd[3290] enrollment_op.c:255 at w_enrollment_connect(): DEBUG: (1209): Connected to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:19:06 wazuh-agentd[3290] enrollment_op.c:497 at w_enrollment_verify_ca_certificate(): DEBUG: Registering agent to unverified manager
+2026/01/13 14:19:06 wazuh-agentd[3290] enrollment_op.c:633 at w_enrollment_load_pass(): INFO: No authentication password provided
+2026/01/13 14:19:06 wazuh-agentd[3290] enrollment_op.c:284 at w_enrollment_send_message(): INFO: Using agent name as: LAPTOP-M9GQ2F87
+2026/01/13 14:19:06 wazuh-agentd[3290] enrollment_op.c:328 at w_enrollment_send_message(): DEBUG: Request sent to manager
+2026/01/13 14:19:06 wazuh-agentd[3290] enrollment_op.c:353 at w_enrollment_process_response(): INFO: Waiting for server reply
+2026/01/13 14:19:06 wazuh-agentd[3290] enrollment_op.c:364 at w_enrollment_process_response(): ERROR: Agent version must be lower or equal to manager version. Unable to add agent (from manager)
+2026/01/13 14:19:06 wazuh-agentd[3290] enrollment_op.c:379 at w_enrollment_process_response(): DEBUG: Connection closed.
+2026/01/13 14:19:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:19:08 wazuh-agentd[4520] start_agent.c:161 at start_agent(): WARNING: (4101): Waiting for server reply (not started). Tried: '127.0.0.1'. Ensure that the manager version is 'v5.0.0' or higher.
+2026/01/13 14:19:08 wazuh-agentd[4520] start_agent.c:169 at start_agent(): WARNING: Unable to connect to any server.
+2026/01/13 14:19:08 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:19:08 wazuh-agentd[4520] start_agent.c:270 at receive_message(): DEBUG: Connection socket: Success (0)
+2026/01/13 14:19:18 wazuh-agentd[4520] start_agent.c:59 at connect_server(): INFO: Closing connection to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:19:18 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:19:18 wazuh-agentd[4520] start_agent.c:270 at receive_message(): DEBUG: Connection socket: Success (0)
+2026/01/13 14:19:28 wazuh-agentd[4520] start_agent.c:59 at connect_server(): INFO: Closing connection to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:19:28 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:19:28 wazuh-agentd[4520] start_agent.c:270 at receive_message(): DEBUG: Connection socket: Success (0)
+2026/01/13 14:19:38 wazuh-agentd[4520] start_agent.c:59 at connect_server(): INFO: Closing connection to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:19:38 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:19:38 wazuh-agentd[4520] start_agent.c:270 at receive_message(): DEBUG: Connection socket: Success (0)
+2026/01/13 14:19:48 wazuh-agentd[4520] start_agent.c:59 at connect_server(): INFO: Closing connection to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:19:48 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:19:48 wazuh-agentd[4520] start_agent.c:270 at receive_message(): DEBUG: Connection socket: Success (0)
+2026/01/13 14:19:48 wazuh-agentd[4520] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:19:48 wazuh-agentd[4520] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:19:48 wazuh-agentd[4520] enrollment_op.c:255 at w_enrollment_connect(): DEBUG: (1209): Connected to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:19:48 wazuh-agentd[4520] enrollment_op.c:497 at w_enrollment_verify_ca_certificate(): DEBUG: Registering agent to unverified manager
+2026/01/13 14:19:48 wazuh-agentd[4520] enrollment_op.c:633 at w_enrollment_load_pass(): INFO: No authentication password provided
+2026/01/13 14:19:48 wazuh-agentd[4520] enrollment_op.c:284 at w_enrollment_send_message(): INFO: Using agent name as: LAPTOP-M9GQ2F87
+2026/01/13 14:19:48 wazuh-agentd[4520] enrollment_op.c:328 at w_enrollment_send_message(): DEBUG: Request sent to manager
+2026/01/13 14:19:48 wazuh-agentd[4520] enrollment_op.c:353 at w_enrollment_process_response(): INFO: Waiting for server reply
+2026/01/13 14:19:48 wazuh-agentd[4520] enrollment_op.c:364 at w_enrollment_process_response(): ERROR: Agent version must be lower or equal to manager version. Unable to add agent (from manager)
+2026/01/13 14:19:48 wazuh-agentd[4520] enrollment_op.c:379 at w_enrollment_process_response(): DEBUG: Connection closed.
+2026/01/13 14:19:58 wazuh-agentd[4520] start_agent.c:161 at start_agent(): WARNING: (4101): Waiting for server reply (not started). Tried: '127.0.0.1'. Ensure that the manager version is 'v5.0.0' or higher.
+2026/01/13 14:19:58 wazuh-agentd[4520] start_agent.c:169 at start_agent(): WARNING: Unable to connect to any server.
+2026/01/13 14:19:58 wazuh-agentd[4520] start_agent.c:59 at connect_server(): INFO: Closing connection to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:19:58 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:19:58 wazuh-agentd[4520] start_agent.c:270 at receive_message(): DEBUG: Connection socket: Success (0)
+2026/01/13 14:20:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:20:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:20:06 wazuh-agentd[3290] enrollment_op.c:255 at w_enrollment_connect(): DEBUG: (1209): Connected to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:20:06 wazuh-agentd[3290] enrollment_op.c:497 at w_enrollment_verify_ca_certificate(): DEBUG: Registering agent to unverified manager
+2026/01/13 14:20:06 wazuh-agentd[3290] enrollment_op.c:633 at w_enrollment_load_pass(): INFO: No authentication password provided
+2026/01/13 14:20:06 wazuh-agentd[3290] enrollment_op.c:284 at w_enrollment_send_message(): INFO: Using agent name as: LAPTOP-M9GQ2F87
+2026/01/13 14:20:06 wazuh-agentd[3290] enrollment_op.c:328 at w_enrollment_send_message(): DEBUG: Request sent to manager
+2026/01/13 14:20:06 wazuh-agentd[3290] enrollment_op.c:353 at w_enrollment_process_response(): INFO: Waiting for server reply
+2026/01/13 14:20:06 wazuh-agentd[3290] enrollment_op.c:364 at w_enrollment_process_response(): ERROR: Agent version must be lower or equal to manager version. Unable to add agent (from manager)
+2026/01/13 14:20:06 wazuh-agentd[3290] enrollment_op.c:379 at w_enrollment_process_response(): DEBUG: Connection closed.
+2026/01/13 14:20:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:20:08 wazuh-agentd[4520] start_agent.c:59 at connect_server(): INFO: Closing connection to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:20:08 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:20:08 wazuh-agentd[4520] start_agent.c:270 at receive_message(): DEBUG: Connection socket: Success (0)
+2026/01/13 14:20:18 wazuh-agentd[4520] start_agent.c:59 at connect_server(): INFO: Closing connection to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:20:18 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:20:18 wazuh-agentd[4520] start_agent.c:270 at receive_message(): DEBUG: Connection socket: Success (0)
+2026/01/13 14:20:28 wazuh-agentd[4520] start_agent.c:59 at connect_server(): INFO: Closing connection to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:20:28 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:20:28 wazuh-agentd[4520] start_agent.c:270 at receive_message(): DEBUG: Connection socket: Success (0)
+2026/01/13 14:20:38 wazuh-agentd[4520] start_agent.c:59 at connect_server(): INFO: Closing connection to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:20:38 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:20:38 wazuh-agentd[4520] start_agent.c:270 at receive_message(): DEBUG: Connection socket: Success (0)
+2026/01/13 14:20:38 wazuh-agentd[4520] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:20:38 wazuh-agentd[4520] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:20:38 wazuh-agentd[4520] enrollment_op.c:255 at w_enrollment_connect(): DEBUG: (1209): Connected to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:20:38 wazuh-agentd[4520] enrollment_op.c:497 at w_enrollment_verify_ca_certificate(): DEBUG: Registering agent to unverified manager
+2026/01/13 14:20:38 wazuh-agentd[4520] enrollment_op.c:633 at w_enrollment_load_pass(): INFO: No authentication password provided
+2026/01/13 14:20:38 wazuh-agentd[4520] enrollment_op.c:284 at w_enrollment_send_message(): INFO: Using agent name as: LAPTOP-M9GQ2F87
+2026/01/13 14:20:38 wazuh-agentd[4520] enrollment_op.c:328 at w_enrollment_send_message(): DEBUG: Request sent to manager
+2026/01/13 14:20:38 wazuh-agentd[4520] enrollment_op.c:353 at w_enrollment_process_response(): INFO: Waiting for server reply
+2026/01/13 14:20:38 wazuh-agentd[4520] enrollment_op.c:364 at w_enrollment_process_response(): ERROR: Agent version must be lower or equal to manager version. Unable to add agent (from manager)
+2026/01/13 14:20:38 wazuh-agentd[4520] enrollment_op.c:379 at w_enrollment_process_response(): DEBUG: Connection closed.
+2026/01/13 14:20:48 wazuh-agentd[4520] start_agent.c:161 at start_agent(): WARNING: (4101): Waiting for server reply (not started). Tried: '127.0.0.1'. Ensure that the manager version is 'v5.0.0' or higher.
+2026/01/13 14:20:48 wazuh-agentd[4520] start_agent.c:169 at start_agent(): WARNING: Unable to connect to any server.
+2026/01/13 14:20:48 wazuh-agentd[4520] start_agent.c:59 at connect_server(): INFO: Closing connection to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:20:48 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:20:48 wazuh-agentd[4520] start_agent.c:270 at receive_message(): DEBUG: Connection socket: Success (0)
+2026/01/13 14:20:58 wazuh-agentd[4520] start_agent.c:59 at connect_server(): INFO: Closing connection to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:20:58 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:20:58 wazuh-agentd[4520] start_agent.c:270 at receive_message(): DEBUG: Connection socket: Success (0)
+2026/01/13 14:21:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:21:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:21:06 wazuh-agentd[3290] enrollment_op.c:255 at w_enrollment_connect(): DEBUG: (1209): Connected to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:21:06 wazuh-agentd[3290] enrollment_op.c:497 at w_enrollment_verify_ca_certificate(): DEBUG: Registering agent to unverified manager
+2026/01/13 14:21:06 wazuh-agentd[3290] enrollment_op.c:633 at w_enrollment_load_pass(): INFO: No authentication password provided
+2026/01/13 14:21:06 wazuh-agentd[3290] enrollment_op.c:284 at w_enrollment_send_message(): INFO: Using agent name as: LAPTOP-M9GQ2F87
+2026/01/13 14:21:06 wazuh-agentd[3290] enrollment_op.c:328 at w_enrollment_send_message(): DEBUG: Request sent to manager
+2026/01/13 14:21:06 wazuh-agentd[3290] enrollment_op.c:353 at w_enrollment_process_response(): INFO: Waiting for server reply
+2026/01/13 14:21:06 wazuh-agentd[3290] enrollment_op.c:364 at w_enrollment_process_response(): ERROR: Agent version must be lower or equal to manager version. Unable to add agent (from manager)
+2026/01/13 14:21:06 wazuh-agentd[3290] enrollment_op.c:379 at w_enrollment_process_response(): DEBUG: Connection closed.
+2026/01/13 14:21:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:21:08 wazuh-agentd[4520] start_agent.c:59 at connect_server(): INFO: Closing connection to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:21:08 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:21:08 wazuh-agentd[4520] start_agent.c:270 at receive_message(): DEBUG: Connection socket: Success (0)
+2026/01/13 14:21:18 wazuh-agentd[4520] start_agent.c:59 at connect_server(): INFO: Closing connection to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:21:18 wazuh-agentd[4520] start_agent.c:91 at connect_server(): INFO: Trying to connect to server ([127.0.0.1]:1514/tcp).
+2026/01/13 14:21:18 wazuh-agentd[4520] start_agent.c:270 at receive_message(): DEBUG: Connection socket: Success (0)
+2026/01/13 14:21:21 wazuh-agentd[4520] sig_op.c:39 at HandleSIG(): INFO: (1225): SIGNAL [(2)-(Interrupt)] Received. Exit Cleaning...
+2026/01/13 14:22:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:22:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:22:06 wazuh-agentd[3290] enrollment_op.c:255 at w_enrollment_connect(): DEBUG: (1209): Connected to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:22:06 wazuh-agentd[3290] enrollment_op.c:497 at w_enrollment_verify_ca_certificate(): DEBUG: Registering agent to unverified manager
+2026/01/13 14:22:06 wazuh-agentd[3290] enrollment_op.c:633 at w_enrollment_load_pass(): INFO: No authentication password provided
+2026/01/13 14:22:06 wazuh-agentd[3290] enrollment_op.c:284 at w_enrollment_send_message(): INFO: Using agent name as: LAPTOP-M9GQ2F87
+2026/01/13 14:22:06 wazuh-agentd[3290] enrollment_op.c:328 at w_enrollment_send_message(): DEBUG: Request sent to manager
+2026/01/13 14:22:06 wazuh-agentd[3290] enrollment_op.c:353 at w_enrollment_process_response(): INFO: Waiting for server reply
+2026/01/13 14:22:06 wazuh-agentd[3290] enrollment_op.c:364 at w_enrollment_process_response(): ERROR: Agent version must be lower or equal to manager version. Unable to add agent (from manager)
+2026/01/13 14:22:06 wazuh-agentd[3290] enrollment_op.c:379 at w_enrollment_process_response(): DEBUG: Connection closed.
+2026/01/13 14:22:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:23:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:23:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:23:06 wazuh-agentd[3290] enrollment_op.c:255 at w_enrollment_connect(): DEBUG: (1209): Connected to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:23:06 wazuh-agentd[3290] enrollment_op.c:497 at w_enrollment_verify_ca_certificate(): DEBUG: Registering agent to unverified manager
+2026/01/13 14:23:06 wazuh-agentd[3290] enrollment_op.c:633 at w_enrollment_load_pass(): INFO: No authentication password provided
+2026/01/13 14:23:06 wazuh-agentd[3290] enrollment_op.c:284 at w_enrollment_send_message(): INFO: Using agent name as: LAPTOP-M9GQ2F87
+2026/01/13 14:23:06 wazuh-agentd[3290] enrollment_op.c:328 at w_enrollment_send_message(): DEBUG: Request sent to manager
+2026/01/13 14:23:06 wazuh-agentd[3290] enrollment_op.c:353 at w_enrollment_process_response(): INFO: Waiting for server reply
+2026/01/13 14:23:06 wazuh-agentd[3290] enrollment_op.c:364 at w_enrollment_process_response(): ERROR: Agent version must be lower or equal to manager version. Unable to add agent (from manager)
+2026/01/13 14:23:06 wazuh-agentd[3290] enrollment_op.c:379 at w_enrollment_process_response(): DEBUG: Connection closed.
+2026/01/13 14:23:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:24:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:24:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:24:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:24:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:25:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:25:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:25:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:25:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:26:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:26:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:26:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:26:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:27:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:27:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:27:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:27:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:28:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:28:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:28:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:28:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:29:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:29:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:29:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:29:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:30:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:30:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:30:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:30:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:31:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:31:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:31:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:31:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:32:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:32:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:32:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:32:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:33:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:33:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:33:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:33:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:34:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:34:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:34:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:34:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:35:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:35:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:35:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:35:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:36:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:36:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:36:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:36:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:37:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:37:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:37:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:37:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:38:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:38:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:38:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:38:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:39:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:39:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:39:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:39:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:40:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:40:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:40:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:40:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:41:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:41:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:41:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:41:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:42:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:42:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:42:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:42:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:43:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:43:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:43:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:43:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:44:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:44:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:44:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:44:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:45:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:45:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:45:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:45:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:46:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:46:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:46:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:46:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/01/13 14:47:06 wazuh-agentd[3290] enrollment_op.c:129 at w_enrollment_request_key(): INFO: Requesting a key from server: 127.0.0.1
+2026/01/13 14:47:06 wazuh-agentd[3290] ssl.c:85 at os_ssl_keys(): DEBUG: Returning CTX for client.
+2026/01/13 14:47:06 wazuh-agentd[3290] enrollment_op.c:229 at w_enrollment_connect(): ERROR: (1208): Unable to connect to enrollment service at '[127.0.0.1]:1515'
+2026/01/13 14:47:06 wazuh-agentd[3290] start_agent.c:205 at w_agentd_keys_init(): DEBUG: Sleeping 60 seconds before trying to enroll again
+2026/02/13 00:49:58 wazuh-agentd[8747] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/02/13 00:49:58 wazuh-agentd[8747] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/02/13 00:49:58 wazuh-agentd[8747] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/02/13 00:49:58 wazuh-agentd[8747] main.c:189 at main(): DEBUG: Started (pid: 8747).
+2026/02/13 00:49:58 wazuh-agentd[8747] agentd.c:47 at AgentdStart(): CRITICAL: (1130): Unable to switch to group 'wazuh' due to [(1)-(Operation not permitted)].
+2026/02/13 01:03:52 wazuh-agentd[9434] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/02/13 01:03:52 wazuh-agentd[9434] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/02/13 01:03:52 wazuh-agentd[9434] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/02/13 01:03:52 wazuh-agentd[9434] main.c:189 at main(): DEBUG: Started (pid: 9434).
+2026/02/13 01:03:52 wazuh-agentd[9434] agentd.c:47 at AgentdStart(): CRITICAL: (1130): Unable to switch to group 'wazuh' due to [(1)-(Operation not permitted)].
+2026/02/13 01:08:38 wazuh-agentd[9971] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/02/13 01:08:38 wazuh-agentd[9971] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/02/13 01:08:38 wazuh-agentd[9971] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/02/13 01:08:38 wazuh-agentd[9971] main.c:189 at main(): DEBUG: Started (pid: 9971).
+2026/02/13 01:08:38 wazuh-agentd[9971] agentd.c:47 at AgentdStart(): CRITICAL: (1130): Unable to switch to group 'wazuh' due to [(1)-(Operation not permitted)].
+2026/02/13 01:10:00 wazuh-agentd[10130] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/02/13 01:10:00 wazuh-agentd[10130] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/02/13 01:10:00 wazuh-agentd[10130] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/02/13 01:10:00 wazuh-agentd[10130] main.c:189 at main(): DEBUG: Started (pid: 10130).
+2026/02/13 01:10:00 wazuh-agentd[10130] agentd.c:47 at AgentdStart(): CRITICAL: (1130): Unable to switch to group 'sek' due to [(1)-(Operation not permitted)].
+2026/02/13 01:14:47 wazuh-agentd[10616] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/02/13 01:14:47 wazuh-agentd[10616] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/02/13 01:14:47 wazuh-agentd[10616] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/02/13 01:14:47 wazuh-agentd[10616] main.c:189 at main(): DEBUG: Started (pid: 10616).
+2026/02/13 01:14:47 wazuh-agentd[10616] agentd.c:47 at AgentdStart(): CRITICAL: (1130): Unable to switch to group 'sek' due to [(1)-(Operation not permitted)].
+2026/02/13 01:15:57 wazuh-agentd[10647] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/02/13 01:15:57 wazuh-agentd[10647] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/02/13 01:15:57 wazuh-agentd[10647] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/02/13 01:15:57 wazuh-agentd[10647] main.c:189 at main(): DEBUG: Started (pid: 10647).
+2026/02/13 01:16:05 wazuh-agentd[10663] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/02/13 01:16:05 wazuh-agentd[10663] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/02/13 01:16:05 wazuh-agentd[10663] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/02/13 01:16:05 wazuh-agentd[10663] main.c:189 at main(): DEBUG: Started (pid: 10663).
+2026/02/13 01:24:31 wazuh-agentd[11101] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/02/13 01:24:31 wazuh-agentd[11101] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/02/13 01:24:31 wazuh-agentd[11101] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/02/13 01:24:31 wazuh-agentd[11101] main.c:189 at main(): DEBUG: Started (pid: 11101).
+2026/02/13 01:24:43 wazuh-agentd[11126] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/02/13 01:24:43 wazuh-agentd[11126] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/02/13 01:24:43 wazuh-agentd[11126] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/02/13 01:24:43 wazuh-agentd[11126] main.c:189 at main(): DEBUG: Started (pid: 11126).
+2026/02/13 01:29:56 wazuh-agentd[11653] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/02/13 01:29:56 wazuh-agentd[11653] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/02/13 01:29:56 wazuh-agentd[11653] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/02/13 01:29:56 wazuh-agentd[11653] main.c:189 at main(): DEBUG: Started (pid: 11653).
+2026/02/13 01:31:17 wazuh-agentd[11774] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/02/13 01:31:17 wazuh-agentd[11774] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/02/13 01:31:17 wazuh-agentd[11774] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/02/13 01:31:17 wazuh-agentd[11774] main.c:189 at main(): DEBUG: Started (pid: 11774).
+2026/02/13 20:54:10 wazuh-agentd[4028] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/02/13 20:54:10 wazuh-agentd[4028] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/02/13 20:54:10 wazuh-agentd[4028] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/02/13 20:54:10 wazuh-agentd[4028] main.c:189 at main(): DEBUG: Started (pid: 4028).
+2026/02/15 16:28:29 wazuh-agentd[5290] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/02/15 16:28:29 wazuh-agentd[5290] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/02/15 16:28:29 wazuh-agentd[5290] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/02/15 16:28:29 wazuh-agentd[5290] main.c:189 at main(): DEBUG: Started (pid: 5290).
+2026/02/16 13:29:49 wazuh-agentd[4080] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/02/16 13:29:49 wazuh-agentd[4080] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/02/16 13:29:49 wazuh-agentd[4080] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/02/16 13:29:49 wazuh-agentd[4080] main.c:189 at main(): DEBUG: Started (pid: 4080).
+2026/02/16 20:25:08 wazuh-agentd[4395] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/02/16 20:25:08 wazuh-agentd[4395] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/02/16 20:25:08 wazuh-agentd[4395] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/02/16 20:25:08 wazuh-agentd[4395] main.c:189 at main(): DEBUG: Started (pid: 4395).
+2026/02/18 11:25:52 wazuh-agentd[2505] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/02/18 11:25:52 wazuh-agentd[2505] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/02/18 11:25:52 wazuh-agentd[2505] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/02/18 11:25:52 wazuh-agentd[2505] main.c:189 at main(): DEBUG: Started (pid: 2505).
+2026/02/18 11:26:21 wazuh-agentd[4051] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/02/18 11:26:21 wazuh-agentd[4051] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/02/18 11:26:21 wazuh-agentd[4051] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/02/18 11:26:21 wazuh-agentd[4051] main.c:189 at main(): DEBUG: Started (pid: 4051).
+2026/02/21 15:38:59 wazuh-agentd[4825] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/02/21 15:38:59 wazuh-agentd[4825] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/02/21 15:38:59 wazuh-agentd[4825] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/02/21 15:38:59 wazuh-agentd[4825] main.c:189 at main(): DEBUG: Started (pid: 4825).
+2026/02/22 22:38:26 wazuh-agentd[5196] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/02/22 22:38:26 wazuh-agentd[5196] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/02/22 22:38:26 wazuh-agentd[5196] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/02/22 22:38:26 wazuh-agentd[5196] main.c:189 at main(): DEBUG: Started (pid: 5196).
+2026/02/23 12:06:55 wazuh-agentd[13203] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/02/23 12:06:55 wazuh-agentd[13203] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/02/23 12:06:55 wazuh-agentd[13203] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/02/23 12:06:55 wazuh-agentd[13203] main.c:189 at main(): DEBUG: Started (pid: 13203).
+2026/03/03 16:32:01 wazuh-agentd[6424] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/03/03 16:32:01 wazuh-agentd[6424] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/03/03 16:32:01 wazuh-agentd[6424] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/03/03 16:32:01 wazuh-agentd[6424] main.c:189 at main(): DEBUG: Started (pid: 6424).
+2026/03/04 22:13:58 wazuh-agentd[23885] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/03/04 22:13:58 wazuh-agentd[23885] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/03/04 22:13:58 wazuh-agentd[23885] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/03/04 22:13:58 wazuh-agentd[23885] main.c:189 at main(): DEBUG: Started (pid: 23885).

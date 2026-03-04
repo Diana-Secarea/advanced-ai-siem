@@ -42,13 +42,15 @@ void AgentdStart(int uid, int gid, const char *user, const char *group)
         goDaemon();
     }
 
-    /* Set group ID */
-    if (Privsep_SetGroup(gid) < 0) {
-        merror_exit(SETGID_ERROR, group, errno, strerror(errno));
-    }
+    /* Set group/user only when running as root (otherwise we're already the target user) */
+    if (getuid() == 0) {
+        if (Privsep_SetGroup(gid) < 0) {
+            merror_exit(SETGID_ERROR, group, errno, strerror(errno));
+        }
 
-    if (Privsep_SetUser(uid) < 0) {
-        merror_exit(SETUID_ERROR, user, errno, strerror(errno));
+        if (Privsep_SetUser(uid) < 0) {
+            merror_exit(SETUID_ERROR, user, errno, strerror(errno));
+        }
     }
 
     if (agt->enrollment_cfg && agt->enrollment_cfg->enabled) {

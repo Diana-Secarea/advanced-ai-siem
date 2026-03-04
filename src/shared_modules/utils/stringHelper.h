@@ -18,6 +18,7 @@
 #include <memory>
 #include <regex>
 #include <map>
+#include <cstdint>
 #include <sstream>
 #include <string>
 #include <vector>

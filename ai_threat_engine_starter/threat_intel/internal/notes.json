@@ -1,0 +1,16 @@
+{
+  "notes": [
+    {
+      "id": "INTERNAL-EXAMPLE-001",
+      "title": "Example Internal Threat Note",
+      "content": "This is a template for internal threat intelligence notes. Add your own notes here.",
+      "tags": [
+        "example",
+        "template"
+      ],
+      "created_at": "2026-01-19T22:34:48.512964",
+      "source": "internal"
+    }
+  ],
+  "last_updated": "2026-01-19T22:34:48.513533"
+}

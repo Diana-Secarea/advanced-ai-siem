@@ -1,0 +1,37 @@
+<!--
+  Example configuration for AI Threat Engine Wazuh Module
+  
+  Add this to your /var/ossec/etc/ossec.conf file
+-->
+
+<wodle name="ai-threat-engine">
+    <!-- Enable or disable the AI Threat Engine -->
+    <enabled>yes</enabled>
+    
+    <!-- Tag for identifying AI-generated alerts -->
+    <tag>ai-threat-detection</tag>
+    
+    <!-- Path to Python interpreter -->
+    <python_path>/usr/bin/python3</python_path>
+    
+    <!-- Path to AI engine main script -->
+    <ai_engine_script>/var/ossec/ai_engine/main.py</ai_engine_script>
+    
+    <!-- Path where ML models are stored -->
+    <model_path>/var/ossec/ai_models</model_path>
+    
+    <!-- Path to vector database for threat intelligence -->
+    <vector_db_path>/var/ossec/ai_models/vector_db</vector_db_path>
+    
+    <!-- Anomaly score threshold (0-100). Events above this will trigger alerts -->
+    <anomaly_threshold>70</anomaly_threshold>
+    
+    <!-- Number of events to batch before processing (for performance) -->
+    <batch_size>100</batch_size>
+    
+    <!-- Port for LLM API (if using Ollama or other LLM service) -->
+    <api_port>8000</api_port>
+    
+    <!-- Interval in seconds between processing cycles -->
+    <interval>5</interval>
+</wodle>

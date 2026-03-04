@@ -283,14 +283,22 @@ void os_logging_config(){
   char * logformat;
   char ** parts = NULL;
   int i;
+  const char *conf_path = OSSECCONF;
+  char abs_path[PATH_MAX];
 
   pid = (int)getpid();
 
-  if (OS_ReadXML(OSSECCONF, &xml) < 0){
+  /* Use WAZUH_HOME when set (e.g. when running with sudo so cwd may be wrong) */
+  if (getenv(WAZUH_HOME_ENV)) {
+    snprintf(abs_path, sizeof(abs_path), "%s/etc/ossec.conf", getenv(WAZUH_HOME_ENV));
+    conf_path = abs_path;
+  }
+
+  if (OS_ReadXML(conf_path, &xml) < 0){
     flags.log_plain = 1;
     flags.log_json = 0;
     OS_ClearXML(&xml);
-    mlerror_exit(LOGLEVEL_ERROR, XML_ERROR, OSSECCONF, xml.err, xml.err_line);
+    mlerror_exit(LOGLEVEL_ERROR, XML_ERROR, conf_path, xml.err, xml.err_line);
   }
 
   logformat = OS_GetOneContentforElement(&xml, xmlf);

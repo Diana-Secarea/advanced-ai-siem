@@ -14,6 +14,7 @@
 #include <sqlite3.h>
 #include <memory>
 #include <math.h>
+#include <cstdint>
 #include "db_exception.h"
 
 namespace SQLite

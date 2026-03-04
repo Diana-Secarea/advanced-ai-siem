@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIEM System - AI Threat Hunting Copilot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0f1419;
+            color: #e4e4e4;
+            overflow-x: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a2332 0%, #0f1419 100%);
+            padding: 1rem 2rem;
+            border-bottom: 2px solid #2d3748;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #4fd1c7;
+        }
+
+        .user-menu {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .notification {
+            position: relative;
+            cursor: pointer;
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ef4444;
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            height: calc(100vh - 70px);
+        }
+
+        .sidebar {
+            background: #1a2332;
+            padding: 1.5rem;
+            border-right: 2px solid #2d3748;
+        }
+
+        .nav-item {
+            padding: 0.8rem;
+            margin: 0.5rem 0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-item:hover {
+            background: #2d3748;
+            transform: translateX(5px);
+        }
+
+        .nav-item.active {
+            background: #4fd1c7;
+            color: #0f1419;
+            font-weight: bold;
+        }
+
+        .main-content {
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .overview-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: linear-gradient(135deg, #1a2332 0%, #2d3748 100%);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid #374151;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            transition: transform 0.3s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 12px rgba(0,0,0,0.3);
+        }
+
+        .card-title {
+            font-size: 0.9rem;
+            color: #9ca3af;
+            margin-bottom: 0.5rem;
+        }
+
+        .card-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #4fd1c7;
+        }
+
+        .card-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .alerts-section {
+            background: #1a2332;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border: 1px solid #374151;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            color: #4fd1c7;
+        }
+
+        .alert-item {
+            background: #2d3748;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            border-radius: 8px;
+            border-left: 4px solid #ef4444;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+        }
+
+        .alert-item:hover {
+            background: #374151;
+            transform: translateX(5px);
+        }
+
+        .alert-severity {
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .severity-high {
+            background: #ef4444;
+            color: white;
+        }
+
+        .severity-medium {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .severity-low {
+            background: #10b981;
+            color: white;
+        }
+
+        .ai-copilot-panel {
+            background: linear-gradient(135deg, #1a2332 0%, #2d3748 100%);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid #4fd1c7;
+            margin-top: 2rem;
+        }
+
+        .ai-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            color: #4fd1c7;
+        }
+
+        .chat-input {
+            width: 100%;
+            padding: 1rem;
+            background: #0f1419;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            color: #e4e4e4;
+            font-size: 1rem;
+            margin-top: 1rem;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: #4fd1c7;
+        }
+
+        .btn {
+            padding: 0.8rem 1.5rem;
+            background: #4fd1c7;
+            color: #0f1419;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            margin-top: 0.5rem;
+        }
+
+        .btn:hover {
+            background: #38b2ac;
+            transform: scale(1.05);
+        }
+
+        .threat-map {
+            background: #1a2332;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border: 1px solid #374151;
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #9ca3af;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+            .sidebar {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">🛡️ SIEM System - AI Threat Hunting Copilot</div>
+        <div class="user-menu">
+            <div class="notification">
+                🔔
+                <span class="notification-badge">3</span>
+            </div>
+            <div>👤 Admin</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <div class="nav-item active">📊 Dashboard</div>
+            <div class="nav-item">🚨 Alerts</div>
+            <div class="nav-item">🔍 Threat Hunting</div>
+            <div class="nav-item">🤖 AI Copilot</div>
+            <div class="nav-item">💻 Agents</div>
+            <div class="nav-item">📈 Reports</div>
+            <div class="nav-item">⚙️ Settings</div>
+        </div>
+
+        <div class="main-content">
+            <div class="overview-cards">
+                <div class="card">
+                    <div class="card-icon">🚨</div>
+                    <div class="card-title">Total Alerts</div>
+                    <div class="card-value">247</div>
+                </div>
+                <div class="card">
+                    <div class="card-icon">⚠️</div>
+                    <div class="card-title">Active Threats</div>
+                    <div class="card-value">12</div>
+                </div>
+                <div class="card">
+                    <div class="card-icon">💻</div>
+                    <div class="card-title">Agents Online</div>
+                    <div class="card-value">45/50</div>
+                </div>
+                <div class="card">
+                    <div class="card-icon">🤖</div>
+                    <div class="card-title">AI Insights</div>
+                    <div class="card-value">89%</div>
+                </div>
+            </div>
+
+            <div class="alerts-section">
+                <h2 class="section-title">Recent Security Alerts</h2>
+                <div class="alert-item">
+                    <div>
+                        <strong>Intrusion Attempt Detected</strong>
+                        <p style="color: #9ca3af; margin-top: 0.3rem;">IP: 192.168.1.100 | Agent: WSL-Agent</p>
+                    </div>
+                    <span class="alert-severity severity-high">HIGH</span>
+                </div>
+                <div class="alert-item">
+                    <div>
+                        <strong>Suspicious File Modification</strong>
+                        <p style="color: #9ca3af; margin-top: 0.3rem;">/etc/passwd modified | Agent: Server-01</p>
+                    </div>
+                    <span class="alert-severity severity-high">HIGH</span>
+                </div>
+                <div class="alert-item">
+                    <div>
+                        <strong>Anomalous Network Activity</strong>
+                        <p style="color: #9ca3af; margin-top: 0.3rem;">Multiple failed connections | Agent: Workstation-05</p>
+                    </div>
+                    <span class="alert-severity severity-medium">MEDIUM</span>
+                </div>
+                <div class="alert-item">
+                    <div>
+                        <strong>AI Copilot Analysis Available</strong>
+                        <p style="color: #9ca3af; margin-top: 0.3rem;">Threat pattern identified with 92% confidence</p>
+                    </div>
+                    <span class="alert-severity severity-low">AI</span>
+                </div>
+            </div>
+
+            <div class="threat-map">
+                <div style="text-align: center;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">🌍</div>
+                    <div>Threat Map Visualization</div>
+                    <div style="font-size: 0.9rem; margin-top: 0.5rem;">Real-time threat distribution across endpoints</div>
+                </div>
+            </div>
+
+            <div class="ai-copilot-panel">
+                <div class="ai-header">
+                    <span style="font-size: 1.5rem;">🤖</span>
+                    <h2 class="section-title" style="margin: 0;">AI Threat Hunting Copilot</h2>
+                </div>
+                <p style="color: #9ca3af; margin-bottom: 1rem;">
+                    Ask questions about security events, threats, or request analysis in natural language.
+                </p>
+                <input type="text" class="chat-input" placeholder="Example: What threats were detected today? Analyze this alert...">
+                <button class="btn">Send Query</button>
+                <div style="margin-top: 1rem; padding: 1rem; background: #0f1419; border-radius: 8px; color: #9ca3af;">
+                    <strong style="color: #4fd1c7;">AI Response:</strong>
+                    <p style="margin-top: 0.5rem;">Based on the analysis of 247 alerts, I've identified 3 high-priority threats requiring immediate attention. The intrusion attempt from IP 192.168.1.100 shows characteristics of a known attack pattern with 92% confidence.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simple interactivity
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', function() {
+                document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        document.querySelector('.btn').addEventListener('click', function() {
+            const input = document.querySelector('.chat-input');
+            if (input.value.trim()) {
+                alert('Query sent to AI Copilot: ' + input.value);
+                input.value = '';
+            }
+        });
+
+        // Update notification badge
+        setInterval(() => {
+            const badge = document.querySelector('.notification-badge');
+            const count = parseInt(badge.textContent);
+            badge.textContent = Math.max(0, count - 1);
+        }, 10000);
+    </script>
+</body>
+</html>

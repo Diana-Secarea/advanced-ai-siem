@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wazuh Alerts Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #0f1419;
+      color: #c9d1d9;
+      min-height: 100vh;
+    }
+
+    .header {
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      padding: 16px 24px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 { font-size: 20px; font-weight: 600; color: #58a6ff; }
+
+    .header-right { display: flex; gap: 12px; align-items: center; }
+
+    .hdr-btn {
+      color: #c9d1d9;
+      text-decoration: none;
+      font-size: 13px;
+      padding: 6px 14px;
+      border-radius: 6px;
+      background: #21262d;
+      border: 1px solid #30363d;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .hdr-btn:hover { background: #30363d; border-color: #58a6ff; }
+
+    .status { font-size: 13px; padding: 4px 12px; border-radius: 12px; font-weight: 500; }
+    .status.connected { background: #238636; color: #fff; }
+    .status.connecting { background: #6e7681; color: #fff; }
+    .status.error { background: #da3633; color: #fff; }
+
+    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+
+    /* ---- Alert Cards ---- */
+    .alert-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      padding: 16px;
+      transition: border-color 0.2s;
+    }
+    .alert-card:hover { border-color: #58a6ff; }
+
+    .alert-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+    .timestamp { font-size: 12px; color: #8b949e; font-family: "SFMono-Regular", Consolas, monospace; }
+
+    .level-badge {
+      padding: 4px 10px; border-radius: 12px; font-size: 11px;
+      font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .level-0,.level-1,.level-2,.level-3 { background: #388bfd20; color: #58a6ff; }
+    .level-4,.level-5 { background: #d2991520; color: #d29922; }
+    .level-6,.level-7,.level-8 { background: #f8581420; color: #f85149; }
+    .level-9,.level-10,.level-11,.level-12,.level-13,.level-14,.level-15 { background: #da363320; color: #da3633; font-weight: 700; }
+
+    .rule-info { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+    .rule-id { background: #21262d; padding: 3px 8px; border-radius: 4px; font-family: "SFMono-Regular", Consolas, monospace; color: #79c0ff; font-weight: 600; }
+    .rule-description { color: #8b949e; flex: 1; }
+
+    .alert-main { display: grid; grid-template-columns: auto 1fr; gap: 12px; margin-bottom: 12px; align-items: start; }
+    .alert-meta { display: flex; flex-direction: column; gap: 4px; min-width: 200px; }
+    .meta-item { font-size: 12px; }
+    .meta-label { color: #6e7681; display: inline-block; min-width: 70px; }
+    .meta-value { color: #c9d1d9; font-family: "SFMono-Regular", Consolas, monospace; }
+    .hostname { color: #79c0ff; }
+    .program { color: #a5d6ff; }
+
+    .message {
+      background: #0d1117; padding: 12px; border-radius: 4px;
+      font-family: "SFMono-Regular", Consolas, monospace; font-size: 13px;
+      line-height: 1.6; color: #e6edf3; border-left: 3px solid #58a6ff; word-break: break-word;
+    }
+
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .tag { background: #21262d; color: #8b949e; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-family: "SFMono-Regular", Consolas, monospace; }
+    .tag.compliance { background: #6e40c920; color: #a371f7; }
+
+    .alert-footer { display: flex; justify-content: flex-end; margin-top: 10px; }
+    .investigate-btn {
+      background: #21262d; color: #58a6ff; border: 1px solid #30363d;
+      padding: 5px 14px; border-radius: 6px; cursor: pointer;
+      font-size: 12px; font-weight: 600; transition: background 0.2s, border-color 0.2s;
+    }
+    .investigate-btn:hover { background: #30363d; border-color: #58a6ff; }
+
+    .empty-state { text-align: center; padding: 60px 20px; color: #6e7681; }
+    .empty-state svg { width: 64px; height: 64px; margin-bottom: 16px; opacity: 0.5; }
+
+    /* ---- Chat Slide-over Panel ---- */
+    .chat-overlay {
+      display: none;
+      position: fixed; top: 0; right: 0; bottom: 0;
+      width: 480px; max-width: 100vw;
+      background: #0f1419;
+      border-left: 1px solid #30363d;
+      z-index: 200;
+      flex-direction: column;
+      box-shadow: -4px 0 24px rgba(0,0,0,0.5);
+    }
+    .chat-overlay.open { display: flex; }
+
+    .chat-header {
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      padding: 14px 16px;
+      display: flex; justify-content: space-between; align-items: center;
+      flex-shrink: 0;
+    }
+    .chat-header h2 { font-size: 16px; color: #58a6ff; font-weight: 600; }
+    .chat-header-actions { display: flex; gap: 8px; }
+    .chat-btn {
+      background: #21262d; color: #c9d1d9; border: 1px solid #30363d;
+      padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;
+      transition: background 0.2s;
+    }
+    .chat-btn:hover { background: #30363d; }
+    .chat-close { font-size: 18px; line-height: 1; padding: 4px 8px; }
+
+    .chat-messages {
+      flex: 1; overflow-y: auto; padding: 16px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+
+    .chat-welcome { text-align: center; padding: 30px 16px; color: #6e7681; }
+    .chat-welcome h3 { color: #c9d1d9; margin-bottom: 8px; font-size: 16px; }
+    .chat-suggestions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 12px; }
+    .chat-suggestion {
+      background: #21262d; border: 1px solid #30363d; color: #8b949e;
+      padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 12px;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .chat-suggestion:hover { border-color: #58a6ff; color: #c9d1d9; }
+
+    .chat-msg { display: flex; gap: 8px; max-width: 100%; }
+    .chat-msg.user { align-self: flex-end; flex-direction: row-reverse; }
+    .chat-msg.assistant { align-self: flex-start; }
+
+    .chat-avatar {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; flex-shrink: 0;
+    }
+    .chat-msg.user .chat-avatar { background: #388bfd; color: #fff; }
+    .chat-msg.assistant .chat-avatar { background: #238636; color: #fff; }
+
+    .chat-bubble {
+      padding: 10px 14px; border-radius: 10px; line-height: 1.5;
+      font-size: 13px; word-break: break-word; max-width: 85%;
+    }
+    .chat-msg.user .chat-bubble { background: #388bfd; color: #fff; border-bottom-right-radius: 3px; }
+    .chat-msg.assistant .chat-bubble { background: #161b22; border: 1px solid #30363d; border-bottom-left-radius: 3px; }
+    .chat-bubble code { background: #0d1117; padding: 1px 5px; border-radius: 3px; font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; }
+    .chat-bubble pre { background: #0d1117; padding: 10px; border-radius: 5px; overflow-x: auto; margin: 6px 0; border: 1px solid #30363d; }
+    .chat-bubble pre code { background: none; padding: 0; }
+    .chat-bubble strong { color: #58a6ff; }
+    .chat-bubble ul, .chat-bubble ol { padding-left: 18px; margin: 4px 0; }
+    .chat-bubble li { margin: 3px 0; }
+
+    .chat-sources { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .src-tag { padding: 2px 6px; border-radius: 3px; font-size: 10px; font-family: "SFMono-Regular", Consolas, monospace; }
+    .src-tag.mitre { color: #f85149; background: #f8514920; }
+    .src-tag.yara { color: #a371f7; background: #a371f720; }
+    .src-tag.vendor { color: #d29922; background: #d2992220; }
+    .src-tag.wazuh { color: #3fb950; background: #3fb95020; }
+
+    .chat-typing { display: none; padding: 10px 14px; background: #161b22; border: 1px solid #30363d; border-radius: 10px; border-bottom-left-radius: 3px; margin-left: 36px; align-self: flex-start; }
+    .chat-typing.visible { display: flex; gap: 4px; }
+    .typing-dot { width: 6px; height: 6px; background: #6e7681; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out; }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-5px)} }
+
+    .chat-input-area { padding: 12px; border-top: 1px solid #30363d; flex-shrink: 0; }
+    .chat-input-row { display: flex; gap: 6px; align-items: flex-end; }
+    .chat-input {
+      flex: 1; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9;
+      padding: 10px 12px; border-radius: 6px; font-size: 13px; font-family: inherit;
+      resize: none; outline: none; min-height: 38px; max-height: 100px; line-height: 1.4;
+    }
+    .chat-input:focus { border-color: #58a6ff; }
+    .chat-input::placeholder { color: #6e7681; }
+    .chat-send {
+      background: #238636; color: #fff; border: none;
+      padding: 10px 16px; border-radius: 6px; cursor: pointer;
+      font-size: 13px; font-weight: 600; flex-shrink: 0;
+    }
+    .chat-send:hover { background: #2ea043; }
+    .chat-send:disabled { background: #21262d; color: #6e7681; cursor: not-allowed; }
+
+    @media (max-width: 768px) {
+      .alert-main { grid-template-columns: 1fr; }
+      .alert-header { flex-direction: column; align-items: flex-start; }
+      .chat-overlay { width: 100vw; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <h1>Wazuh Alerts Dashboard</h1>
+    <div class="header-right">
+      <button class="hdr-btn" id="openChatBtn">Threat Intel Chat</button>
+      <span id="status" class="status connecting">Connecting...</span>
+    </div>
+  </div>
+
+  <!-- Alerts -->
+  <div class="container">
+    <div id="alerts"></div>
+    <div id="empty" class="empty-state" style="display: none;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <p>Waiting for alerts...</p>
+    </div>
+  </div>
+
+  <!-- Chat Slide-over Panel -->
+  <div class="chat-overlay" id="chatPanel">
+    <div class="chat-header">
+      <h2>Threat Intel Chat</h2>
+      <div class="chat-header-actions">
+        <button class="chat-btn" id="newChatBtn">New Chat</button>
+        <button class="chat-btn chat-close" id="closeChatBtn">&times;</button>
+      </div>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+      <div class="chat-welcome" id="chatWelcome">
+        <h3>Wazuh AI Threat Intel</h3>
+        <p style="font-size:13px">Ask about attacks, MITRE techniques, or your Wazuh alerts.</p>
+        <div class="chat-suggestions">
+          <span class="chat-suggestion" onclick="chatAsk(this.textContent)">What attacks were detected?</span>
+          <span class="chat-suggestion" onclick="chatAsk(this.textContent)">Show failed logins</span>
+          <span class="chat-suggestion" onclick="chatAsk(this.textContent)">Explain T1055</span>
+          <span class="chat-suggestion" onclick="chatAsk(this.textContent)">Rootkit alerts</span>
+        </div>
+      </div>
+    </div>
+    <div class="chat-typing" id="chatTyping">
+      <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+    </div>
+    <div class="chat-input-area">
+      <div class="chat-input-row">
+        <textarea class="chat-input" id="chatInput" rows="1" placeholder="Ask about this alert or any threat..."></textarea>
+        <button class="chat-send" id="chatSendBtn">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==================== Alerts Dashboard ====================
+    const alertsEl = document.getElementById("alerts");
+    const statusEl = document.getElementById("status");
+    const emptyEl = document.getElementById("empty");
+    let alertCount = 0;
+
+    function setStatus(msg, state) {
+      statusEl.textContent = msg;
+      statusEl.className = "status " + state;
+    }
+    function getLevelClass(level) { return "level-" + level; }
+    function getLevelLabel(level) {
+      if (level <= 3) return "INFO";
+      if (level <= 5) return "WARNING";
+      if (level <= 8) return "ERROR";
+      return "CRITICAL";
+    }
+    function isComplianceTag(tag) {
+      return /^(pci_dss|gdpr|hipaa|nist|gpg|tsc)/.test(tag);
+    }
+    function escapeHtml(text) {
+      const d = document.createElement("div");
+      d.textContent = text;
+      return d.innerHTML;
+    }
+
+    function createAlertCard(alert) {
+      const card = document.createElement("div");
+      card.className = "alert-card";
+
+      // Header row
+      const header = document.createElement("div");
+      header.className = "alert-header";
+      const ts = document.createElement("span");
+      ts.className = "timestamp";
+      ts.textContent = alert.timestamp || "No timestamp";
+      const badge = document.createElement("span");
+      badge.className = "level-badge " + getLevelClass(alert.level);
+      badge.textContent = getLevelLabel(alert.level) + " (Level " + alert.level + ")";
+      header.appendChild(ts);
+      header.appendChild(badge);
+      card.appendChild(header);
+
+      // Rule info
+      if (alert.rule_id || alert.rule_description) {
+        const ri = document.createElement("div");
+        ri.className = "rule-info";
+        if (alert.rule_id) {
+          const rid = document.createElement("span");
+          rid.className = "rule-id";
+          rid.textContent = "Rule " + alert.rule_id;
+          ri.appendChild(rid);
+        }
+        if (alert.rule_description) {
+          const rd = document.createElement("span");
+          rd.className = "rule-description";
+          rd.textContent = alert.rule_description;
+          ri.appendChild(rd);
+        }
+        card.appendChild(ri);
+      }
+
+      // Main: meta + message
+      const main = document.createElement("div");
+      main.className = "alert-main";
+      const meta = document.createElement("div");
+      meta.className = "alert-meta";
+      if (alert.hostname) meta.innerHTML += '<div class="meta-item"><span class="meta-label">Hostname:</span> <span class="meta-value hostname">' + escapeHtml(alert.hostname) + '</span></div>';
+      if (alert.program)  meta.innerHTML += '<div class="meta-item"><span class="meta-label">Program:</span> <span class="meta-value program">' + escapeHtml(alert.program) + '</span></div>';
+      if (alert.source)   meta.innerHTML += '<div class="meta-item"><span class="meta-label">Source:</span> <span class="meta-value">' + escapeHtml(alert.source) + '</span></div>';
+      if (alert.user)     meta.innerHTML += '<div class="meta-item"><span class="meta-label">User:</span> <span class="meta-value">' + escapeHtml(alert.user) + '</span></div>';
+      main.appendChild(meta);
+      if (alert.message) {
+        const msg = document.createElement("div");
+        msg.className = "message";
+        msg.textContent = alert.message;
+        main.appendChild(msg);
+      }
+      card.appendChild(main);
+
+      // Tags
+      if (alert.tags && alert.tags.length) {
+        const tags = document.createElement("div");
+        tags.className = "tags";
+        alert.tags.slice(0, 15).forEach(t => {
+          const el = document.createElement("span");
+          el.className = isComplianceTag(t) ? "tag compliance" : "tag";
+          el.textContent = t;
+          tags.appendChild(el);
+        });
+        card.appendChild(tags);
+      }
+
+      // Investigate button
+      const footer = document.createElement("div");
+      footer.className = "alert-footer";
+      const btn = document.createElement("button");
+      btn.className = "investigate-btn";
+      btn.textContent = "Investigate with AI";
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const parts = [];
+        if (alert.rule_description) parts.push(alert.rule_description);
+        if (alert.rule_id) parts.push("rule " + alert.rule_id);
+        if (alert.message) parts.push(alert.message.substring(0, 150));
+        openChatWith("Analyze this alert: " + parts.join(" - "));
+      });
+      footer.appendChild(btn);
+      card.appendChild(footer);
+
+      return card;
+    }
+
+    // SSE stream
+    const streamUrl = location.origin + "/stream";
+    const es = new EventSource(streamUrl);
+    es.onopen = () => {
+      setStatus("Live", "connected");
+      if (alertCount === 0) emptyEl.style.display = "block";
+    };
+    es.onerror = () => setStatus("Reconnecting...", "connecting");
+    es.onmessage = (e) => {
+      try {
+        const alert = JSON.parse(e.data);
+        if (alert.error) return;
+        if (alertCount === 0) emptyEl.style.display = "none";
+        alertsEl.insertBefore(createAlertCard(alert), alertsEl.firstChild);
+        alertCount++;
+        while (alertsEl.children.length > 100) alertsEl.removeChild(alertsEl.lastChild);
+      } catch (err) { console.error("Parse error:", err); }
+    };
+
+    // ==================== Chat Panel ====================
+    const chatPanel = document.getElementById("chatPanel");
+    const chatMessages = document.getElementById("chatMessages");
+    const chatInput = document.getElementById("chatInput");
+    const chatSendBtn = document.getElementById("chatSendBtn");
+    const chatTyping = document.getElementById("chatTyping");
+    const chatWelcome = document.getElementById("chatWelcome");
+    const API = location.origin;
+    let chatSessionId = null;
+
+    document.getElementById("openChatBtn").addEventListener("click", () => {
+      chatPanel.classList.add("open");
+      chatInput.focus();
+    });
+    document.getElementById("closeChatBtn").addEventListener("click", () => {
+      chatPanel.classList.remove("open");
+    });
+    document.getElementById("newChatBtn").addEventListener("click", () => {
+      if (chatSessionId) fetch(API + "/api/chat/sessions?session_id=" + chatSessionId, { method: "DELETE" });
+      chatSessionId = null;
+      chatMessages.innerHTML = "";
+      chatMessages.appendChild(chatWelcome);
+      chatWelcome.style.display = "block";
+      chatInput.focus();
+    });
+
+    chatInput.addEventListener("input", () => {
+      chatInput.style.height = "auto";
+      chatInput.style.height = Math.min(chatInput.scrollHeight, 100) + "px";
+    });
+    chatInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); }
+    });
+    chatSendBtn.addEventListener("click", sendChat);
+
+    function openChatWith(query) {
+      chatPanel.classList.add("open");
+      chatInput.value = query;
+      setTimeout(sendChat, 200);
+    }
+    function chatAsk(text) {
+      chatInput.value = text;
+      sendChat();
+    }
+
+    function renderMd(text) {
+      text = text.replace(/```(\w*)\n([\s\S]*?)```/g, (_, l, c) => "<pre><code>" + escapeHtml(c.trim()) + "</code></pre>");
+      text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
+      text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+      text = text.replace(/\*(.+?)\*/g, "<em>$1</em>");
+      text = text.replace(/^- (.+)$/gm, "<li>$1</li>");
+      text = text.replace(/(<li>.*<\/li>\n?)+/g, m => "<ul>" + m + "</ul>");
+      text = text.replace(/^\d+\.\s(.+)$/gm, "<li>$1</li>");
+      text = text.replace(/\n/g, "<br>");
+      text = text.replace(/<br><\/ul>/g, "</ul>").replace(/<ul><br>/g, "<ul>");
+      text = text.replace(/<br><li>/g, "<li>").replace(/<\/li><br>/g, "</li>");
+      return text;
+    }
+
+    function addChatMsg(role, content, sources) {
+      chatWelcome.style.display = "none";
+      const row = document.createElement("div");
+      row.className = "chat-msg " + role;
+
+      const av = document.createElement("div");
+      av.className = "chat-avatar";
+      av.textContent = role === "user" ? "U" : "AI";
+
+      const col = document.createElement("div");
+      col.style.display = "flex";
+      col.style.flexDirection = "column";
+      col.style.gap = "4px";
+      col.style.minWidth = "0";
+      col.style.maxWidth = "85%";
+
+      const bubble = document.createElement("div");
+      bubble.className = "chat-bubble";
+      if (role === "assistant") bubble.innerHTML = renderMd(content);
+      else bubble.textContent = content;
+      col.appendChild(bubble);
+
+      if (role === "assistant" && sources && sources.length) {
+        const sd = document.createElement("div");
+        sd.className = "chat-sources";
+        const seen = new Set();
+        sources.forEach(s => {
+          const k = s.type + ":" + s.id;
+          if (seen.has(k)) return;
+          seen.add(k);
+          const t = document.createElement("span");
+          let cls = "src-tag";
+          if (s.type === "mitre_attack") cls += " mitre";
+          else if (s.type === "yara_rule") cls += " yara";
+          else if (s.type === "vendor_advisory") cls += " vendor";
+          else if (s.type === "wazuh_alert") cls += " wazuh";
+          t.className = cls;
+          t.textContent = s.id;
+          t.title = s.summary || "";
+          sd.appendChild(t);
+        });
+        col.appendChild(sd);
+      }
+
+      row.appendChild(av);
+      row.appendChild(col);
+      chatMessages.appendChild(row);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    async function sendChat() {
+      const text = chatInput.value.trim();
+      if (!text) return;
+      chatInput.value = "";
+      chatInput.style.height = "auto";
+      chatSendBtn.disabled = true;
+      addChatMsg("user", text);
+
+      chatTyping.classList.add("visible");
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+
+      try {
+        const resp = await fetch(API + "/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: text, session_id: chatSessionId }),
+        });
+        const data = await resp.json();
+        if (data.error) {
+          addChatMsg("assistant", "Error: " + data.error, []);
+        } else {
+          chatSessionId = data.session_id;
+          addChatMsg("assistant", data.reply, data.sources || []);
+        }
+      } catch (err) {
+        addChatMsg("assistant", "Connection error: " + err.message + ". Is the server running?", []);
+      } finally {
+        chatTyping.classList.remove("visible");
+        chatSendBtn.disabled = false;
+        chatInput.focus();
+      }
+    }
+  </script>
+</body>
+</html>

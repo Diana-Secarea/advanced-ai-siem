@@ -17,6 +17,7 @@
 
 #include <string>
 #include <memory>
+#include <cstdint>
 namespace SQLite
 {
     class Connection : public IConnection

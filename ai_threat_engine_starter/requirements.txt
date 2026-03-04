@@ -1,0 +1,23 @@
+scikit-learn>=1.3.0
+sentence-transformers>=2.2.0
+faiss-cpu>=1.7.4
+joblib>=1.3.0
+numpy>=1.24.0
+pandas>=2.0.0
+requests>=2.31.0
+
+# Advanced RAG dependencies
+rank-bm25>=0.2.2  # BM25 keyword search for hybrid search
+
+# PostgreSQL support (optional, for rag_core database)
+psycopg2-binary>=2.9.0  # PostgreSQL adapter for Python
+
+# Optional: For GPU support
+# faiss-gpu>=1.7.4
+
+# Optional: For LLM integration
+# openai>=1.0.0
+# transformers>=4.30.0
+
+# Optional: For better embeddings (larger models)
+# sentence-transformers[all-mpnet-base-v2]  # Better quality, slower

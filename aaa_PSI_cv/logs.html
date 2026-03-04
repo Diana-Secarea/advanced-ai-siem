@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Logs - SIEM System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0a0e14;
+            color: #e4e4e4;
+            padding: 2rem;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a2332 0%, #0f1419 100%);
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            border: 1px solid #2d3748;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #4fd1c7;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 0.6rem 1.2rem;
+            background: #4fd1c7;
+            color: #0f1419;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            background: #38b2ac;
+        }
+
+        .btn-secondary {
+            background: #374151;
+            color: #e4e4e4;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .filters {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-item {
+            padding: 0.5rem 1rem;
+            background: #1a2332;
+            border: 1px solid #374151;
+            border-radius: 6px;
+            color: #e4e4e4;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .filter-item:hover {
+            background: #2d3748;
+        }
+
+        .filter-item.active {
+            background: #4fd1c7;
+            color: #0f1419;
+            border-color: #4fd1c7;
+        }
+
+        .logs-container {
+            background: #0f1419;
+            border: 1px solid #2d3748;
+            border-radius: 12px;
+            padding: 1rem;
+            max-height: 70vh;
+            overflow-y: auto;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        .log-entry {
+            padding: 0.8rem;
+            margin: 0.3rem 0;
+            border-left: 4px solid #374151;
+            border-radius: 4px;
+            background: #1a2332;
+            transition: all 0.2s;
+            font-family: 'Courier New', monospace;
+        }
+
+        .log-entry:hover {
+            background: #2d3748;
+            border-left-color: #4fd1c7;
+        }
+
+        .log-timestamp {
+            color: #9ca3af;
+            font-weight: bold;
+            margin-right: 1rem;
+        }
+
+        .log-level {
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-right: 1rem;
+            display: inline-block;
+        }
+
+        .level-INFO {
+            background: #10b981;
+            color: white;
+        }
+
+        .level-WARNING {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .level-ERROR {
+            background: #ef4444;
+            color: white;
+        }
+
+        .level-CRITICAL {
+            background: #dc2626;
+            color: white;
+        }
+
+        .level-DEBUG {
+            background: #6b7280;
+            color: white;
+        }
+
+        .log-agent {
+            color: #4fd1c7;
+            font-weight: bold;
+            margin-right: 1rem;
+        }
+
+        .log-message {
+            color: #e4e4e4;
+        }
+
+        .log-ip {
+            color: #fbbf24;
+        }
+
+        .log-path {
+            color: #a78bfa;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-card {
+            background: #1a2332;
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid #374151;
+        }
+
+        .stat-label {
+            color: #9ca3af;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            color: #4fd1c7;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1a2332;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #4fd1c7;
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #38b2ac;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">📋 Security Logs Viewer</div>
+        <div class="controls">
+            <button class="btn btn-secondary" onclick="refreshLogs()">🔄 Refresh</button>
+            <button class="btn btn-secondary" onclick="exportLogs()">💾 Export</button>
+            <button class="btn" onclick="clearLogs()">🗑️ Clear</button>
+        </div>
+    </div>
+
+    <div class="stats">
+        <div class="stat-card">
+            <div class="stat-label">Total Logs</div>
+            <div class="stat-value">1,247</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Critical Alerts</div>
+            <div class="stat-value">23</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Active Agents</div>
+            <div class="stat-value">45</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Last Update</div>
+            <div class="stat-value" id="lastUpdate">Just now</div>
+        </div>
+    </div>
+
+    <div class="filters">
+        <div class="filter-item active" onclick="filterLogs('all')">All</div>
+        <div class="filter-item" onclick="filterLogs('CRITICAL')">Critical</div>
+        <div class="filter-item" onclick="filterLogs('ERROR')">Error</div>
+        <div class="filter-item" onclick="filterLogs('WARNING')">Warning</div>
+        <div class="filter-item" onclick="filterLogs('INFO')">Info</div>
+        <div class="filter-item" onclick="filterLogs('DEBUG')">Debug</div>
+    </div>
+
+    <div class="logs-container" id="logsContainer">
+        <div class="log-entry" data-level="CRITICAL">
+            <span class="log-timestamp">2025-01-17 23:45:12</span>
+            <span class="log-level level-CRITICAL">CRITICAL</span>
+            <span class="log-agent">[WSL-Agent]</span>
+            <span class="log-message">Intrusion attempt detected from IP <span class="log-ip">192.168.1.100</span> - Multiple failed SSH login attempts</span>
+        </div>
+
+        <div class="log-entry" data-level="ERROR">
+            <span class="log-timestamp">2025-01-17 23:44:58</span>
+            <span class="log-level level-ERROR">ERROR</span>
+            <span class="log-agent">[Server-01]</span>
+            <span class="log-message">File integrity violation: <span class="log-path">/etc/passwd</span> modified - Checksum mismatch detected</span>
+        </div>
+
+        <div class="log-entry" data-level="WARNING">
+            <span class="log-timestamp">2025-01-17 23:44:32</span>
+            <span class="log-level level-WARNING">WARNING</span>
+            <span class="log-agent">[Workstation-05]</span>
+            <span class="log-message">Anomalous network activity: 127 connection attempts to port 22 from <span class="log-ip">10.0.0.45</span></span>
+        </div>
+
+        <div class="log-entry" data-level="INFO">
+            <span class="log-timestamp">2025-01-17 23:44:15</span>
+            <span class="log-level level-INFO">INFO</span>
+            <span class="log-agent">[AI-Copilot]</span>
+            <span class="log-message">Threat analysis completed: Pattern matched with 92% confidence - Attack chain identified</span>
+        </div>
+
+        <div class="log-entry" data-level="CRITICAL">
+            <span class="log-timestamp">2025-01-17 23:43:47</span>
+            <span class="log-level level-CRITICAL">CRITICAL</span>
+            <span class="log-agent">[Database-Server]</span>
+            <span class="log-message">Unauthorized access attempt: User 'admin' attempted privilege escalation</span>
+        </div>
+
+        <div class="log-entry" data-level="WARNING">
+            <span class="log-timestamp">2025-01-17 23:43:21</span>
+            <span class="log-level level-WARNING">WARNING</span>
+            <span class="log-agent">[Web-Server-02]</span>
+            <span class="log-message">Suspicious process detected: <span class="log-path">/tmp/suspicious_script.sh</span> executed with root privileges</span>
+        </div>
+
+        <div class="log-entry" data-level="INFO">
+            <span class="log-timestamp">2025-01-17 23:42:58</span>
+            <span class="log-level level-INFO">INFO</span>
+            <span class="log-agent">[WSL-Agent]</span>
+            <span class="log-message">System inventory updated: 45 packages installed, 3 services running</span>
+        </div>
+
+        <div class="log-entry" data-level="ERROR">
+            <span class="log-timestamp">2025-01-17 23:42:34</span>
+            <span class="log-level level-ERROR">ERROR</span>
+            <span class="log-agent">[Firewall-01]</span>
+            <span class="log-message">Connection blocked: IP <span class="log-ip">203.0.113.42</span> flagged in threat intelligence database</span>
+        </div>
+
+        <div class="log-entry" data-level="INFO">
+            <span class="log-timestamp">2025-01-17 23:42:11</span>
+            <span class="log-level level-INFO">INFO</span>
+            <span class="log-agent">[AI-Copilot]</span>
+            <span class="log-message">RAG context retrieved: Found 5 similar incidents from historical database</span>
+        </div>
+
+        <div class="log-entry" data-level="WARNING">
+            <span class="log-timestamp">2025-01-17 23:41:45</span>
+            <span class="log-level level-WARNING">WARNING</span>
+            <span class="log-agent">[Workstation-03]</span>
+            <span class="log-message">File modification detected: <span class="log-path">/var/log/auth.log</span> - Unusual write pattern</span>
+        </div>
+
+        <div class="log-entry" data-level="DEBUG">
+            <span class="log-timestamp">2025-01-17 23:41:22</span>
+            <span class="log-level level-DEBUG">DEBUG</span>
+            <span class="log-agent">[Manager]</span>
+            <span class="log-message">Rule engine processed 1,234 events in last cycle - 12 matches found</span>
+        </div>
+
+        <div class="log-entry" data-level="INFO">
+            <span class="log-timestamp">2025-01-17 23:40:58</span>
+            <span class="log-level level-INFO">INFO</span>
+            <span class="log-agent">[Agent-12]</span>
+            <span class="log-message">Health check passed: CPU 45%, Memory 62%, Disk 78% - All systems operational</span>
+        </div>
+
+        <div class="log-entry" data-level="CRITICAL">
+            <span class="log-timestamp">2025-01-17 23:40:33</span>
+            <span class="log-level level-CRITICAL">CRITICAL</span>
+            <span class="log-agent">[AI-Copilot]</span>
+            <span class="log-message">High-confidence threat detected: Attack pattern matches known APT group signature - Immediate response recommended</span>
+        </div>
+
+        <div class="log-entry" data-level="WARNING">
+            <span class="log-timestamp">2025-01-17 23:40:11</span>
+            <span class="log-level level-WARNING">WARNING</span>
+            <span class="log-agent">[Network-Scanner]</span>
+            <span class="log-message">Port scan detected: 1,247 connection attempts from <span class="log-ip">198.51.100.23</span> across multiple ports</span>
+        </div>
+
+        <div class="log-entry" data-level="INFO">
+            <span class="log-timestamp">2025-01-17 23:39:47</span>
+            <span class="log-level level-INFO">INFO</span>
+            <span class="log-agent">[Manager]</span>
+            <span class="log-message">Active response executed: IP <span class="log-ip">192.168.1.100</span> blocked for 3600 seconds</span>
+        </div>
+
+        <div class="log-entry" data-level="ERROR">
+            <span class="log-timestamp">2025-01-17 23:39:24</span>
+            <span class="log-level level-ERROR">ERROR</span>
+            <span class="log-agent">[Backup-Server]</span>
+            <span class="log-message">Failed backup operation: Insufficient disk space on <span class="log-path">/backup</span> - 95% capacity reached</span>
+        </div>
+
+        <div class="log-entry" data-level="INFO">
+            <span class="log-timestamp">2025-01-17 23:38:59</span>
+            <span class="log-level level-INFO">INFO</span>
+            <span class="log-agent">[AI-Copilot]</span>
+            <span class="log-message">LLM analysis completed: Generated 3 recommendations for alert #1247</span>
+        </div>
+
+        <div class="log-entry" data-level="WARNING">
+            <span class="log-timestamp">2025-01-17 23:38:35</span>
+            <span class="log-level level-WARNING">WARNING</span>
+            <span class="log-agent">[Workstation-08]</span>
+            <span class="log-message">Unusual process behavior: Process <span class="log-path">/usr/bin/python3</span> spawned 15 child processes in 2 seconds</span>
+        </div>
+
+        <div class="log-entry" data-level="DEBUG">
+            <span class="log-timestamp">2025-01-17 23:38:12</span>
+            <span class="log-level level-DEBUG">DEBUG</span>
+            <span class="log-agent">[LogCollector]</span>
+            <span class="log-message">Parsed 456 log entries from /var/log/syslog - 12 events forwarded to Manager</span>
+        </div>
+
+        <div class="log-entry" data-level="INFO">
+            <span class="log-timestamp">2025-01-17 23:37:48</span>
+            <span class="log-level level-INFO">INFO</span>
+            <span class="log-agent">[Agent-05]</span>
+            <span class="log-message">Configuration updated: New rules deployed - 234 active rules loaded</span>
+        </div>
+
+        <div class="log-entry" data-level="CRITICAL">
+            <span class="log-timestamp">2025-01-17 23:37:25</span>
+            <span class="log-level level-CRITICAL">CRITICAL</span>
+            <span class="log-agent">[Database-Server]</span>
+            <span class="log-message">SQL injection attempt detected: Malicious query pattern in user input from <span class="log-ip">10.0.0.12</span></span>
+        </div>
+    </div>
+
+    <script>
+        function filterLogs(level) {
+            const entries = document.querySelectorAll('.log-entry');
+            const filters = document.querySelectorAll('.filter-item');
+            
+            filters.forEach(f => f.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            entries.forEach(entry => {
+                if (level === 'all' || entry.getAttribute('data-level') === level) {
+                    entry.style.display = 'block';
+                } else {
+                    entry.style.display = 'none';
+                }
+            });
+        }
+
+        function refreshLogs() {
+            const lastUpdate = document.getElementById('lastUpdate');
+            lastUpdate.textContent = 'Just now';
+            alert('Logs refreshed!');
+        }
+
+        function exportLogs() {
+            alert('Exporting logs to CSV...');
+        }
+
+        function clearLogs() {
+            if (confirm('Are you sure you want to clear all logs?')) {
+                document.getElementById('logsContainer').innerHTML = '<p style="text-align: center; color: #9ca3af; padding: 2rem;">No logs to display</p>';
+            }
+        }
+
+        // Auto-scroll to bottom
+        const container = document.getElementById('logsContainer');
+        container.scrollTop = container.scrollHeight;
+    </script>
+</body>
+</html>

@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vector DB Dashboard · SIEM AI</title>
+  <style>
+    :root {
+      --bg:           #050810;
+      --bg-card:      #0a1020;
+      --bg-raised:    #0f1828;
+      --bg-deep:      #07101e;
+      --border:       #1a2d4a;
+      --border-dim:   #0f1e33;
+      --cyan:         #00d4ff;
+      --cyan-dim:     rgba(0,212,255,0.10);
+      --cyan-glow:    rgba(0,212,255,0.22);
+      --red:          #ff3355;
+      --red-dim:      rgba(255,51,85,0.12);
+      --amber:        #ffaa00;
+      --amber-dim:    rgba(255,170,0,0.12);
+      --green:        #00e676;
+      --green-dim:    rgba(0,230,118,0.12);
+      --purple:       #c060ff;
+      --purple-dim:   rgba(192,96,255,0.12);
+      --text:         #dde6f5;
+      --text-muted:   #4a5a72;
+      --text-dim:     #253040;
+      --mono:         "SFMono-Regular","JetBrains Mono",Consolas,monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg);
+      background-image:
+        linear-gradient(rgba(0,212,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,0.025) 1px, transparent 1px);
+      background-size: 48px 48px;
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ==================== Header ==================== */
+    .header {
+      background: rgba(5,8,16,0.92);
+      border-bottom: 1px solid var(--border);
+      padding: 11px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      backdrop-filter: blur(14px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .header-right { display: flex; align-items: center; gap: 16px; }
+
+    .logo-link { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+    .logo-link:hover .logo-mark { filter: drop-shadow(0 0 9px rgba(0,212,255,0.9)); }
+
+    .logo-mark {
+      width: 28px; height: 28px; flex-shrink: 0;
+      filter: drop-shadow(0 0 5px rgba(0,212,255,0.5));
+    }
+    .header h1 {
+      font-size: 14px; font-weight: 700; color: var(--cyan);
+      letter-spacing: 1px; text-transform: uppercase; font-family: var(--mono);
+    }
+    .header-nav {
+      display: flex; gap: 4px;
+    }
+    .header-nav a {
+      font-size: 12px; color: var(--text-muted); text-decoration: none;
+      padding: 5px 12px; border-radius: 6px; font-family: var(--mono);
+      transition: color .15s, background .15s;
+    }
+    .header-nav a:hover { color: var(--text); background: var(--bg-raised); }
+    .header-nav a.active { color: var(--cyan); background: var(--cyan-dim); }
+
+    .live-dot {
+      width: 7px; height: 7px; border-radius: 50%; background: var(--green);
+      box-shadow: 0 0 0 0 rgba(0,230,118,.7);
+      animation: livePulse 2s infinite;
+    }
+    @keyframes livePulse {
+      0%   { box-shadow: 0 0 0 0 rgba(0,230,118,.6); }
+      70%  { box-shadow: 0 0 0 7px rgba(0,230,118,0); }
+      100% { box-shadow: 0 0 0 0 rgba(0,230,118,0); }
+    }
+    .live-dot.error   { background: var(--red);  box-shadow: none; animation: none; }
+    .live-dot.warn    { background: var(--amber); box-shadow: none; animation: none; }
+    .live-dot.loading { background: var(--text-muted); box-shadow: none; animation: none; }
+
+    .header-status { font-size: 11px; color: var(--text-muted); font-family: var(--mono); }
+
+    /* ==================== Hero ==================== */
+    .hero {
+      padding: 52px 24px 44px;
+      text-align: center;
+      position: relative;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .hero::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 50%; transform: translateX(-50%);
+      width: 700px; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+      opacity: 0.3;
+    }
+
+    .hero-icon-wrap {
+      width: 88px; height: 88px;
+      margin: 0 auto 28px;
+      position: relative;
+    }
+    .hero-icon-wrap svg {
+      filter: drop-shadow(0 0 20px rgba(0,212,255,0.3));
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-6px); }
+    }
+    .hero-icon-wrap { animation: float 5s ease-in-out infinite; }
+
+    .hero-eyebrow {
+      font-size: 10px; font-weight: 700; letter-spacing: 3px;
+      text-transform: uppercase; color: var(--cyan); margin-bottom: 12px;
+      font-family: var(--mono); opacity: 0.8;
+    }
+    .hero h2 {
+      font-size: 36px; font-weight: 800; color: var(--text);
+      letter-spacing: -0.5px; margin-bottom: 12px; line-height: 1.1;
+    }
+    .hero h2 em { color: var(--cyan); font-style: normal; }
+    .hero-sub {
+      font-size: 14px; color: var(--text-muted); max-width: 520px;
+      margin: 0 auto 36px; line-height: 1.75;
+    }
+
+    /* Hero KPI bar */
+    .kpi-bar {
+      display: inline-flex;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg-card);
+      overflow: hidden;
+      margin-bottom: 32px;
+    }
+    .kpi {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      padding: 14px 32px;
+      border-right: 1px solid var(--border);
+      min-width: 110px;
+    }
+    .kpi:last-child { border-right: none; }
+    .kpi-value {
+      font-size: 26px; font-weight: 800; font-family: var(--mono);
+      font-variant-numeric: tabular-nums;
+    }
+    .kpi-value.cyan   { color: var(--cyan);  text-shadow: 0 0 20px rgba(0,212,255,0.4); }
+    .kpi-value.green  { color: var(--green); text-shadow: 0 0 20px rgba(0,230,118,0.35); }
+    .kpi-value.amber  { color: var(--amber); text-shadow: 0 0 20px rgba(255,170,0,0.35); }
+    .kpi-value.purple { color: var(--purple); text-shadow: 0 0 20px rgba(192,96,255,0.35); }
+    .kpi-label {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px;
+      color: var(--text-muted); font-family: var(--mono);
+    }
+
+    /* Qdrant CTA button */
+    .cta-row {
+      display: flex; justify-content: center; gap: 12px; margin-bottom: 8px;
+    }
+    .btn-qdrant {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: linear-gradient(135deg, rgba(0,212,255,0.14), rgba(0,212,255,0.06));
+      border: 1px solid rgba(0,212,255,0.35);
+      color: var(--cyan); text-decoration: none;
+      padding: 11px 24px; border-radius: 8px;
+      font-size: 13px; font-weight: 600; letter-spacing: 0.3px;
+      transition: background .2s, border-color .2s, transform .15s, box-shadow .2s;
+      cursor: pointer;
+    }
+    .btn-qdrant:hover {
+      background: linear-gradient(135deg, rgba(0,212,255,0.22), rgba(0,212,255,0.10));
+      border-color: rgba(0,212,255,0.7);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,212,255,0.2);
+      text-decoration: none; color: var(--cyan);
+    }
+    .btn-qdrant svg { flex-shrink: 0; }
+
+    .btn-refresh {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--bg-raised);
+      border: 1px solid var(--border);
+      color: var(--text-muted); text-decoration: none;
+      padding: 11px 20px; border-radius: 8px;
+      font-size: 13px; font-weight: 500;
+      transition: border-color .2s, color .2s;
+      cursor: pointer;
+    }
+    .btn-refresh:hover { border-color: var(--border); color: var(--text); }
+    .btn-refresh.spinning svg { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ==================== Main Layout ==================== */
+    .main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px 72px;
+    }
+
+    .section-label {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 2px; color: var(--text-muted);
+      margin-bottom: 16px; padding-bottom: 10px;
+      border-bottom: 1px solid var(--border-dim);
+      font-family: var(--mono);
+    }
+
+    /* ==================== Collection Cards ==================== */
+    .collections-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+
+    .coll-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color .2s;
+    }
+    .coll-card::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, var(--cyan), transparent);
+      opacity: 0.5;
+    }
+    .coll-card:hover { border-color: rgba(0,212,255,0.3); }
+
+    .coll-header {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      margin-bottom: 20px;
+    }
+    .coll-name-wrap {}
+    .coll-name {
+      font-size: 13px; font-weight: 700; color: var(--text);
+      font-family: var(--mono); margin-bottom: 4px;
+    }
+    .coll-tag {
+      font-size: 10px; color: var(--text-muted); font-family: var(--mono);
+      letter-spacing: 0.5px;
+    }
+    .coll-status-badge {
+      font-size: 11px; font-weight: 600; padding: 3px 10px;
+      border-radius: 20px; font-family: var(--mono); letter-spacing: 0.5px;
+    }
+    .coll-status-badge.green  { background: var(--green-dim);  color: var(--green); border: 1px solid rgba(0,230,118,0.25); }
+    .coll-status-badge.red    { background: var(--red-dim);    color: var(--red);   border: 1px solid rgba(255,51,85,0.25); }
+    .coll-status-badge.amber  { background: var(--amber-dim);  color: var(--amber); border: 1px solid rgba(255,170,0,0.25); }
+
+    .coll-metrics {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 12px; margin-bottom: 20px;
+    }
+    .coll-metric {
+      background: var(--bg-deep);
+      border: 1px solid var(--border-dim);
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+    .coll-metric-val {
+      font-size: 20px; font-weight: 700; font-family: var(--mono);
+      color: var(--text); margin-bottom: 2px;
+    }
+    .coll-metric-key {
+      font-size: 10px; color: var(--text-muted); text-transform: uppercase;
+      letter-spacing: 1px; font-family: var(--mono);
+    }
+
+    .coll-footer {
+      display: flex; gap: 16px; flex-wrap: wrap;
+    }
+    .coll-pill {
+      font-size: 11px; color: var(--text-muted); font-family: var(--mono);
+      background: var(--bg-deep); border: 1px solid var(--border-dim);
+      padding: 4px 10px; border-radius: 20px;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .coll-pill-dot {
+      width: 5px; height: 5px; border-radius: 50%; background: var(--cyan); flex-shrink: 0;
+    }
+
+    /* Vector dim ring */
+    .coll-dim-ring {
+      position: absolute; bottom: 20px; right: 20px;
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      background: conic-gradient(rgba(0,212,255,0.18) 0% 100%);
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column;
+      border: 1.5px solid rgba(0,212,255,0.15);
+    }
+    .coll-dim-val {
+      font-size: 13px; font-weight: 700; color: var(--cyan);
+      font-family: var(--mono); line-height: 1;
+    }
+    .coll-dim-label {
+      font-size: 8px; color: var(--text-muted); font-family: var(--mono);
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+
+    /* ==================== Source Breakdown ==================== */
+    .breakdown-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+      margin-bottom: 40px;
+    }
+
+    .breakdown-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 28px;
+    }
+    .breakdown-title {
+      font-size: 15px; font-weight: 700; color: var(--text);
+    }
+    .breakdown-total {
+      font-size: 12px; color: var(--text-muted); font-family: var(--mono);
+    }
+
+    .breakdown-list {
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .breakdown-row {
+      display: grid;
+      grid-template-columns: 160px 1fr 80px 60px;
+      align-items: center;
+      gap: 16px;
+    }
+    .br-label {
+      font-size: 13px; font-weight: 500; color: var(--text);
+    }
+    .br-bar-track {
+      background: var(--bg-deep);
+      border-radius: 4px;
+      height: 8px;
+      overflow: hidden;
+      position: relative;
+    }
+    .br-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+    }
+    .br-bar-fill::after {
+      content: "";
+      position: absolute;
+      top: 0; right: 0; bottom: 0;
+      width: 20px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15));
+      border-radius: 0 4px 4px 0;
+    }
+    .br-bar-fill.cyan   { background: linear-gradient(90deg, rgba(0,212,255,0.5), var(--cyan)); }
+    .br-bar-fill.red    { background: linear-gradient(90deg, rgba(255,51,85,0.5), var(--red)); }
+    .br-bar-fill.amber  { background: linear-gradient(90deg, rgba(255,170,0,0.5), var(--amber)); }
+    .br-bar-fill.green  { background: linear-gradient(90deg, rgba(0,230,118,0.5), var(--green)); }
+    .br-bar-fill.purple { background: linear-gradient(90deg, rgba(192,96,255,0.5), var(--purple)); }
+
+    .br-count {
+      font-size: 13px; font-weight: 600; color: var(--text);
+      font-family: var(--mono); text-align: right;
+    }
+    .br-pct {
+      font-size: 11px; color: var(--text-muted); font-family: var(--mono);
+      text-align: right;
+    }
+
+    /* ==================== Monitoring Grid ==================== */
+    .monitoring-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 40px;
+    }
+    .monitor-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      position: relative;
+    }
+    .monitor-card:hover { border-color: rgba(0,212,255,0.2); }
+    .monitor-icon {
+      width: 38px; height: 38px; border-radius: 9px;
+      background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 14px;
+    }
+    .monitor-val {
+      font-size: 22px; font-weight: 700; font-family: var(--mono);
+      color: var(--text); margin-bottom: 4px;
+    }
+    .monitor-label {
+      font-size: 11px; color: var(--text-muted); text-transform: uppercase;
+      letter-spacing: 1.2px; font-family: var(--mono);
+    }
+    .monitor-sub {
+      font-size: 11px; color: var(--text-dim); margin-top: 8px;
+      line-height: 1.55;
+    }
+
+    /* Status indicator inside monitor card */
+    .monitor-status {
+      position: absolute; top: 16px; right: 16px;
+      width: 8px; height: 8px; border-radius: 50%;
+    }
+    .monitor-status.green  { background: var(--green); box-shadow: 0 0 6px rgba(0,230,118,0.5); }
+    .monitor-status.amber  { background: var(--amber); box-shadow: 0 0 6px rgba(255,170,0,0.5); }
+    .monitor-status.red    { background: var(--red);   box-shadow: 0 0 6px rgba(255,51,85,0.5); }
+    .monitor-status.pulse  { animation: monPulse 2s infinite; }
+    @keyframes monPulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    /* ==================== Footer timestamp ==================== */
+    .footer-row {
+      text-align: center;
+      font-size: 11px; color: var(--text-dim); font-family: var(--mono);
+      padding-bottom: 12px;
+    }
+
+    /* ==================== Skeleton loader ==================== */
+    .skeleton {
+      background: linear-gradient(90deg, var(--bg-raised) 25%, var(--bg-card) 50%, var(--bg-raised) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: 4px;
+    }
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ==================== Error banner ==================== */
+    .error-banner {
+      background: var(--red-dim); border: 1px solid rgba(255,51,85,0.3);
+      border-radius: 8px; padding: 14px 18px;
+      font-size: 13px; color: var(--red); font-family: var(--mono);
+      display: none; margin-bottom: 24px;
+    }
+
+    /* ==================== Responsive ==================== */
+    @media (max-width: 800px) {
+      .collections-grid { grid-template-columns: 1fr; }
+      .monitoring-grid  { grid-template-columns: repeat(2, 1fr); }
+      .kpi-bar          { flex-direction: column; }
+      .kpi              { border-right: none; border-bottom: 1px solid var(--border); width: 100%; }
+      .kpi:last-child   { border-bottom: none; }
+      .breakdown-row    { grid-template-columns: 120px 1fr 60px 50px; }
+    }
+    @media (max-width: 540px) {
+      .monitoring-grid  { grid-template-columns: 1fr; }
+      .coll-metrics     { grid-template-columns: 1fr; }
+      .hero h2          { font-size: 26px; }
+      .cta-row          { flex-direction: column; align-items: center; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <a href="/" class="logo-link">
+      <svg class="logo-mark" viewBox="0 0 28 28" fill="none">
+        <polygon points="14,1.5 25.5,8 25.5,20 14,26.5 2.5,20 2.5,8" stroke="#00d4ff" stroke-width="1.2" fill="none"/>
+        <polygon points="14,6 22,10.5 22,17.5 14,22 6,17.5 6,10.5" stroke="#00d4ff" stroke-width="0.6" fill="none" opacity="0.4"/>
+        <circle cx="14" cy="14" r="5" stroke="#00d4ff" stroke-width="0.8" fill="none" opacity="0.55"/>
+        <line x1="14" y1="8.5" x2="14" y2="11.2" stroke="#00d4ff" stroke-width="1"/>
+        <line x1="14" y1="16.8" x2="14" y2="19.5" stroke="#00d4ff" stroke-width="1"/>
+        <line x1="8.5" y1="14" x2="11.2" y2="14" stroke="#00d4ff" stroke-width="1"/>
+        <line x1="16.8" y1="14" x2="19.5" y2="14" stroke="#00d4ff" stroke-width="1"/>
+        <circle cx="14" cy="14" r="1.8" fill="#00d4ff"/>
+      </svg>
+      <h1>SIEM · AI Threat Engine</h1>
+    </a>
+    <div class="live-dot loading" id="liveDot"></div>
+  </div>
+  <div class="header-right">
+    <nav class="header-nav">
+      <a href="/">Home</a>
+      <a href="/alerts.html">Alerts</a>
+      <a href="/chat.html">Chat</a>
+      <a href="/vectordb.html" class="active">Vector DB</a>
+    </nav>
+    <div class="header-status" id="headerStatus">Loading…</div>
+  </div>
+</div>
+
+<!-- Hero -->
+<div class="hero">
+
+  <!-- Animated DB icon -->
+  <div class="hero-icon-wrap">
+    <svg width="88" height="88" viewBox="0 0 88 88" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Outer ring -->
+      <circle cx="44" cy="44" r="42" stroke="#00d4ff" stroke-width="1" fill="none" opacity="0.15"/>
+      <!-- DB cylinder top ellipse -->
+      <ellipse cx="44" cy="26" rx="22" ry="7" stroke="#00d4ff" stroke-width="1.5" fill="none" opacity="0.9"/>
+      <!-- DB cylinder body lines -->
+      <line x1="22" y1="26" x2="22" y2="62" stroke="#00d4ff" stroke-width="1.5" opacity="0.9"/>
+      <line x1="66" y1="26" x2="66" y2="62" stroke="#00d4ff" stroke-width="1.5" opacity="0.9"/>
+      <!-- DB cylinder bottom ellipse -->
+      <ellipse cx="44" cy="62" rx="22" ry="7" stroke="#00d4ff" stroke-width="1.5" fill="none" opacity="0.9"/>
+      <!-- Mid level line -->
+      <path d="M 22 44 Q 44 51 66 44" stroke="#00d4ff" stroke-width="1" fill="none" opacity="0.45"/>
+      <!-- Subtle fill -->
+      <ellipse cx="44" cy="26" rx="22" ry="7" fill="rgba(0,212,255,0.06)"/>
+      <path d="M 22 26 Q 44 33 66 26 L 66 62 Q 44 69 22 62 Z" fill="rgba(0,212,255,0.04)"/>
+      <!-- Glow dot on top -->
+      <ellipse cx="44" cy="26" rx="4" ry="1.5" fill="#00d4ff" opacity="0.7"/>
+      <!-- Corner circuit traces -->
+      <path d="M 10 44 L 4 44" stroke="#00d4ff" stroke-width="0.8" fill="none" opacity="0.35"/>
+      <path d="M 78 44 L 84 44" stroke="#00d4ff" stroke-width="0.8" fill="none" opacity="0.35"/>
+      <circle cx="4"  cy="44" r="1.5" fill="#00d4ff" opacity="0.5"/>
+      <circle cx="84" cy="44" r="1.5" fill="#00d4ff" opacity="0.5"/>
+    </svg>
+  </div>
+
+  <div class="hero-eyebrow">Qdrant · Vector Store · Threat Intelligence</div>
+  <h2>Vector DB <em>Dashboard</em></h2>
+  <p class="hero-sub">Live monitoring for the Qdrant vector database powering hybrid threat intel search — collections, embeddings, and document sources at a glance.</p>
+
+  <div class="kpi-bar" id="kpiBar">
+    <div class="kpi">
+      <div class="kpi-value cyan" id="kpiDocs">—</div>
+      <div class="kpi-label">Total Documents</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-value green" id="kpiEmb">—</div>
+      <div class="kpi-label">Embeddings</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-value amber" id="kpiCollections">—</div>
+      <div class="kpi-label">Collections</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-value purple" id="kpiSources">—</div>
+      <div class="kpi-label">Data Sources</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-value cyan" id="kpiVersion">—</div>
+      <div class="kpi-label">Qdrant Ver.</div>
+    </div>
+  </div>
+
+  <div class="cta-row">
+    <a class="btn-qdrant" id="qdrantLink" href="http://localhost:6333/dashboard" target="_blank">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <rect x="2" y="4" width="12" height="9" rx="1.5" stroke="#00d4ff" stroke-width="1.3"/>
+        <path d="M5 7.5 Q8 10 11 7.5" stroke="#00d4ff" stroke-width="1.1" fill="none"/>
+        <ellipse cx="8" cy="4" rx="4" ry="1.5" stroke="#00d4ff" stroke-width="1.1" fill="none"/>
+        <line x1="4" y1="11.5" x2="12" y2="11.5" stroke="#00d4ff" stroke-width="0.8" opacity="0.5"/>
+      </svg>
+      Open Qdrant UI
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+        <path d="M2 8 L8 2 M8 2 H4 M8 2 V6" stroke="#00d4ff" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </a>
+    <button class="btn-refresh" id="btnRefresh" onclick="loadStats()">
+      <svg id="refreshIcon" width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M13 7A6 6 0 1 1 7 1" stroke="#4a5a72" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M13 1 L13 5 L9 5" stroke="#4a5a72" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Refresh
+    </button>
+  </div>
+
+</div>
+
+<!-- Main content -->
+<div class="main">
+
+  <div class="error-banner" id="errBanner"></div>
+
+  <!-- Collections -->
+  <div class="section-label">// Collection Monitor</div>
+  <div class="collections-grid" id="collectionsGrid">
+    <!-- populated by JS -->
+  </div>
+
+  <!-- Source Breakdown -->
+  <div class="section-label">// Document Sources</div>
+  <div class="breakdown-card">
+    <div class="breakdown-header">
+      <div class="breakdown-title">Threat Intel Index — Document Sources</div>
+      <div class="breakdown-total" id="breakdownTotal">wazuh_threat_intel</div>
+    </div>
+    <div class="breakdown-list" id="breakdownList">
+      <!-- populated by JS -->
+    </div>
+  </div>
+
+  <!-- System monitoring -->
+  <div class="section-label">// System Health</div>
+  <div class="monitoring-grid" id="monitoringGrid">
+    <!-- populated by JS -->
+  </div>
+
+  <div class="footer-row" id="footerTs">Last updated: —</div>
+</div>
+
+<script>
+const QDRANT_HOST = window.location.hostname;
+const QDRANT_PORT = 6333;
+
+// Try to detect if Qdrant is on the same host
+function qdrantUrl() {
+  return `http://${QDRANT_HOST}:${QDRANT_PORT}/dashboard`;
+}
+
+document.getElementById("qdrantLink").href = qdrantUrl();
+
+let _data = null;
+let _lastUpdated = null;
+
+async function loadStats() {
+  const dot = document.getElementById("liveDot");
+  const status = document.getElementById("headerStatus");
+  const btn = document.getElementById("btnRefresh");
+  const icon = document.getElementById("refreshIcon");
+
+  dot.className = "live-dot loading";
+  status.textContent = "Refreshing…";
+  btn.classList.add("spinning");
+
+  try {
+    const resp = await fetch("/api/vectordb/stats");
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    _data = await resp.json();
+    _lastUpdated = new Date();
+
+    if (_data.status !== "ok") {
+      throw new Error(_data.error || "Qdrant unreachable");
+    }
+
+    renderAll(_data);
+
+    dot.className = "live-dot";
+    status.textContent = "Connected · " + _lastUpdated.toLocaleTimeString();
+    document.getElementById("footerTs").textContent =
+      "Last updated: " + _lastUpdated.toLocaleString();
+    document.getElementById("errBanner").style.display = "none";
+
+  } catch (err) {
+    dot.className = "live-dot error";
+    status.textContent = "Qdrant offline";
+    const banner = document.getElementById("errBanner");
+    banner.textContent = "⚠ Cannot reach Qdrant: " + err.message + " — is Docker running?";
+    banner.style.display = "block";
+    console.error(err);
+  } finally {
+    btn.classList.remove("spinning");
+  }
+}
+
+function fmt(n) {
+  if (n == null || n === 0) return "0";
+  return Number(n).toLocaleString();
+}
+
+function renderAll(data) {
+  // KPIs
+  document.getElementById("kpiDocs").textContent       = fmt(data.total_points);
+  document.getElementById("kpiEmb").textContent        = fmt(data.total_embeddings);
+  document.getElementById("kpiCollections").textContent = data.collections.length;
+  document.getElementById("kpiSources").textContent    = data.source_breakdown.length;
+  document.getElementById("kpiVersion").textContent    = data.qdrant_version || "—";
+
+  renderCollections(data.collections);
+  renderBreakdown(data.source_breakdown, data.total_points);
+  renderMonitoring(data);
+}
+
+function collStatusClass(status) {
+  if (!status) return "amber";
+  const s = status.toLowerCase();
+  if (s === "green") return "green";
+  if (s === "red" || s === "unreachable") return "red";
+  return "amber";
+}
+
+function collStatusLabel(status) {
+  if (!status) return "Unknown";
+  const s = status.toLowerCase();
+  if (s === "green") return "Healthy";
+  if (s === "unreachable") return "Offline";
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function renderCollections(collections) {
+  const grid = document.getElementById("collectionsGrid");
+  const DISPLAY = {
+    "wazuh_threat_intel":   { title: "wazuh_threat_intel",   tag: "Primary threat intelligence store", icon: "🧠" },
+    "wazuh_alert_episodes": { title: "wazuh_alert_episodes",  tag: "Alert episode similarity store",   icon: "📡" },
+  };
+
+  grid.innerHTML = collections.map(c => {
+    const d = DISPLAY[c.name] || { title: c.name, tag: "Vector collection", icon: "🗄" };
+    const sc = collStatusClass(c.status);
+    const sl = collStatusLabel(c.status);
+    const pct = c.points_count > 0 && c.indexed_vectors_count > 0
+      ? Math.round((c.indexed_vectors_count / c.points_count) * 100) : 0;
+
+    return `
+    <div class="coll-card">
+      <div class="coll-header">
+        <div class="coll-name-wrap">
+          <div class="coll-name">${d.icon}&nbsp; ${d.title}</div>
+          <div class="coll-tag">${d.tag}</div>
+        </div>
+        <div class="coll-status-badge ${sc}">${sl}</div>
+      </div>
+
+      <div class="coll-metrics">
+        <div class="coll-metric">
+          <div class="coll-metric-val">${fmt(c.points_count)}</div>
+          <div class="coll-metric-key">Documents</div>
+        </div>
+        <div class="coll-metric">
+          <div class="coll-metric-val">${fmt(c.indexed_vectors_count)}</div>
+          <div class="coll-metric-key">Indexed Vectors</div>
+        </div>
+      </div>
+
+      <div class="coll-footer">
+        <span class="coll-pill"><span class="coll-pill-dot"></span>${c.segments_count} segment${c.segments_count !== 1 ? "s" : ""}</span>
+        <span class="coll-pill"><span class="coll-pill-dot" style="background:var(--green)"></span>HNSW index</span>
+        ${c.on_disk_payload ? '<span class="coll-pill"><span class="coll-pill-dot" style="background:var(--amber)"></span>on-disk payload</span>' : ""}
+        ${c.vector_dim ? `<span class="coll-pill"><span class="coll-pill-dot" style="background:var(--purple)"></span>${c.vector_dim}-dim vectors</span>` : ""}
+      </div>
+
+      ${c.vector_dim ? `
+      <div class="coll-dim-ring">
+        <div class="coll-dim-val">${c.vector_dim}</div>
+        <div class="coll-dim-label">dim</div>
+      </div>` : ""}
+    </div>`;
+  }).join("");
+}
+
+function renderBreakdown(sources, total) {
+  const list = document.getElementById("breakdownList");
+  if (!sources || sources.length === 0) {
+    list.innerHTML = `<div style="color:var(--text-muted);font-size:13px;padding:12px 0">No data sources found.</div>`;
+    return;
+  }
+
+  const max = sources[0].count;
+  list.innerHTML = sources.map(s => {
+    const pct = total > 0 ? Math.round((s.count / total) * 100) : 0;
+    const barW = max > 0 ? Math.round((s.count / max) * 100) : 0;
+    return `
+    <div class="breakdown-row">
+      <div class="br-label">${s.label}</div>
+      <div class="br-bar-track">
+        <div class="br-bar-fill ${s.color}" style="width: ${barW}%"></div>
+      </div>
+      <div class="br-count">${fmt(s.count)}</div>
+      <div class="br-pct">${pct}%</div>
+    </div>`;
+  }).join("");
+}
+
+function renderMonitoring(data) {
+  const grid = document.getElementById("monitoringGrid");
+
+  const startupDate = data.qdrant_startup
+    ? new Date(data.qdrant_startup).toLocaleDateString("en-GB", {day:"2-digit",month:"short",year:"numeric"})
+    : "—";
+
+  const totalSegments = data.collections.reduce((s, c) => s + (c.segments_count || 0), 0);
+  const allGreen = data.collections.every(c => (c.status || "").toLowerCase() === "green");
+  const healthStatus = allGreen ? "green" : "amber";
+
+  const embDim = data.collections.find(c => c.vector_dim > 0)?.vector_dim || "—";
+  const embModel = "all-MiniLM-L6-v2";
+
+  const userDocs = (data.source_breakdown.find(s => s.source === "user_upload")?.count) || 0;
+
+  grid.innerHTML = `
+    <div class="monitor-card">
+      <div class="monitor-status ${healthStatus} pulse"></div>
+      <div class="monitor-icon">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M10 2 L18 6 V14 L10 18 L2 14 V6 Z" stroke="#00d4ff" stroke-width="1.2" fill="none" opacity="0.8"/>
+          <circle cx="10" cy="10" r="3" stroke="#00d4ff" stroke-width="1" fill="none" opacity="0.6"/>
+          <circle cx="10" cy="10" r="1" fill="#00d4ff"/>
+        </svg>
+      </div>
+      <div class="monitor-val">${allGreen ? "Optimal" : "Degraded"}</div>
+      <div class="monitor-label">Cluster Health</div>
+      <div class="monitor-sub">${data.collections.length} collection${data.collections.length !== 1 ? "s" : ""} — all indices ${allGreen ? "indexed and serving" : "check required"}</div>
+    </div>
+
+    <div class="monitor-card">
+      <div class="monitor-status green"></div>
+      <div class="monitor-icon">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <rect x="3" y="5" width="14" height="11" rx="1.5" stroke="#00e676" stroke-width="1.2" fill="none"/>
+          <ellipse cx="10" cy="5" rx="5" ry="2" stroke="#00e676" stroke-width="1.2" fill="none"/>
+          <line x1="7" y1="10" x2="13" y2="10" stroke="#00e676" stroke-width="1" opacity="0.6"/>
+          <line x1="7" y1="13" x2="11" y2="13" stroke="#00e676" stroke-width="1" opacity="0.6"/>
+        </svg>
+      </div>
+      <div class="monitor-val">${totalSegments}</div>
+      <div class="monitor-label">Total Segments</div>
+      <div class="monitor-sub">Distributed across ${data.collections.length} collections. HNSW graph built and searchable.</div>
+    </div>
+
+    <div class="monitor-card">
+      <div class="monitor-icon">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <circle cx="10" cy="10" r="7" stroke="#c060ff" stroke-width="1.2" fill="none"/>
+          <path d="M10 6 L10 10 L13 13" stroke="#c060ff" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="monitor-val" style="font-size:15px;color:var(--text-muted)">${startupDate}</div>
+      <div class="monitor-label">Qdrant Started</div>
+      <div class="monitor-sub">Version ${data.qdrant_version || "—"} · Single-node mode · In-memory sparse index</div>
+    </div>
+
+    <div class="monitor-card">
+      <div class="monitor-icon">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <rect x="2" y="8" width="16" height="9" rx="1.5" stroke="#ffaa00" stroke-width="1.2" fill="none"/>
+          <path d="M6 8 V5 Q10 2 14 5 V8" stroke="#ffaa00" stroke-width="1.2" fill="none"/>
+          <circle cx="10" cy="12.5" r="1.5" fill="#ffaa00" opacity="0.8"/>
+        </svg>
+      </div>
+      <div class="monitor-val">${fmt(embDim)}</div>
+      <div class="monitor-label">Embedding Dim.</div>
+      <div class="monitor-sub">Model: ${embModel} · Dense cosine + BM25 sparse · RRF fusion search</div>
+    </div>
+
+    <div class="monitor-card">
+      <div class="monitor-icon">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M4 16 L4 8 M8 16 L8 5 M12 16 L12 9 M16 16 L16 3" stroke="#00d4ff" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="monitor-val">${data.source_breakdown.length}</div>
+      <div class="monitor-label">Active Sources</div>
+      <div class="monitor-sub">Sigma, CISA KEV, MITRE ATT&amp;CK, CIS Controls indexed and available for RAG retrieval.</div>
+    </div>
+
+    <div class="monitor-card">
+      <div class="monitor-status ${userDocs > 0 ? "green" : ""}" style="${userDocs === 0 ? "background:var(--text-dim)" : ""}"></div>
+      <div class="monitor-icon">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M5 3 H13 L17 7 V17 H5 Z" stroke="#c060ff" stroke-width="1.2" fill="none"/>
+          <path d="M13 3 V7 H17" stroke="#c060ff" stroke-width="1.2" fill="none"/>
+          <line x1="8" y1="10" x2="14" y2="10" stroke="#c060ff" stroke-width="1" opacity="0.6"/>
+          <line x1="8" y1="13" x2="12" y2="13" stroke="#c060ff" stroke-width="1" opacity="0.6"/>
+          <line x1="10" y1="6" x2="10" y2="9" stroke="#c060ff" stroke-width="1.2" stroke-linecap="round"/>
+          <line x1="8" y1="7.5" x2="12" y2="7.5" stroke="#c060ff" stroke-width="1" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="monitor-val" style="color:var(--purple)">${fmt(userDocs)}</div>
+      <div class="monitor-label">User Uploads</div>
+      <div class="monitor-sub">${userDocs > 0 ? `${userDocs} custom document${userDocs !== 1 ? "s" : ""} indexed into the knowledge base.` : "No custom documents uploaded yet. Use the Chat page to upload."}</div>
+    </div>
+  `;
+}
+
+// Auto-refresh every 30 seconds
+loadStats();
+setInterval(loadStats, 30000);
+</script>
+</body>
+</html>

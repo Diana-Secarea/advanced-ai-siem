@@ -13,7 +13,7 @@ from pathlib import Path
 # Add parent path for rag_core submodules only (do not import ai_engine at load time - breaks RAG Core init)
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from rag_core.indexing.hybrid_retrieval import HybridRetrieval
+from rag_core.database.qdrant_store import QdrantStore
 from rag_core.episodes.episode_builder import SecurityEpisode
 
 # Lazy import to avoid circular import: rag_core_system -> agent_workflow -> ai_engine -> main -> rag_core_system
@@ -72,7 +72,7 @@ class SOCAgent:
     
     def __init__(
         self,
-        retrieval: HybridRetrieval,
+        retrieval: QdrantStore,
         anomaly_detector: Optional[Any] = None,
         threat_intel_path: str = None
     ):
@@ -170,15 +170,11 @@ class SOCAgent:
         else:
             time_window = None
         
-        # Retrieve episodes
+        # Retrieve episodes from Qdrant
         episodes = self.retrieval.search(
             query=query,
             top_k=20,
-            filter_entities=entities,
             filter_tags=tags,
-            time_window=time_window,
-            boost_freshness=True,
-            use_reranking=True
         )
         
         # Retrieve playbooks

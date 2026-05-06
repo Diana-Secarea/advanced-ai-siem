@@ -1,0 +1,12 @@
+{
+  "5402": {
+    "rule_id": "5402",
+    "rule_description": "Successful sudo to ROOT executed.",
+    "added_at": "2026-04-30T07:05:35Z"
+  },
+  "502": {
+    "rule_id": "502",
+    "rule_description": "Wazuh server started.",
+    "added_at": "2026-04-30T07:05:39Z"
+  }
+}

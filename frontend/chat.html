@@ -3,69 +3,116 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Threat Intel Chat - Wazuh AI</title>
+  <title>Threat Intel Chat — SIEM AI</title>
   <style>
+    :root {
+      --bg:         #050810;
+      --bg-card:    #0a1020;
+      --bg-raised:  #0f1828;
+      --bg-deep:    #060c18;
+      --border:     #1a2d4a;
+      --border-dim: #0f1e33;
+      --cyan:       #00d4ff;
+      --cyan-dim:   rgba(0,212,255,0.10);
+      --red:        #ff3355;
+      --red-dim:    rgba(255,51,85,0.12);
+      --amber:      #ffaa00;
+      --amber-dim:  rgba(255,170,0,0.12);
+      --green:      #00e676;
+      --green-dim:  rgba(0,230,118,0.12);
+      --purple:     #c060ff;
+      --purple-dim: rgba(192,96,255,0.12);
+      --text:       #dde6f5;
+      --text-muted: #4a5a72;
+      --text-dim:   #253040;
+      --mono:       "SFMono-Regular","JetBrains Mono",Consolas,monospace;
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      background: #0f1419;
-      color: #c9d1d9;
+      background-color: var(--bg);
+      background-image:
+        linear-gradient(rgba(0,212,255,0.022) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,0.022) 1px, transparent 1px);
+      background-size: 48px 48px;
+      color: var(--text);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
     }
 
     .header {
-      background: #161b22;
-      border-bottom: 1px solid #30363d;
-      padding: 16px 24px;
+      background: rgba(5,8,16,0.93);
+      border-bottom: 1px solid var(--border);
+      padding: 11px 24px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-shrink: 0;
+      backdrop-filter: blur(14px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
     }
 
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .logo-mark { width: 26px; height: 26px; flex-shrink: 0; filter: drop-shadow(0 0 5px rgba(0,212,255,0.5)); }
+    .logo-link { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+    .logo-link:hover .logo-mark { filter: drop-shadow(0 0 9px rgba(192,96,255,0.9)); }
+
     .header h1 {
-      font-size: 20px;
-      font-weight: 600;
-      color: #58a6ff;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--purple);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      font-family: var(--mono);
     }
 
     .header-actions {
       display: flex;
-      gap: 12px;
+      gap: 8px;
       align-items: center;
     }
 
     .header-actions a {
-      color: #8b949e;
+      color: var(--text-muted);
       text-decoration: none;
-      font-size: 14px;
-      padding: 6px 12px;
+      font-size: 11px;
+      padding: 5px 12px;
       border-radius: 6px;
-      transition: background 0.2s, color 0.2s;
+      border: 1px solid var(--border);
+      background: var(--bg-raised);
+      font-family: var(--mono);
+      font-weight: 600;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
     }
 
     .header-actions a:hover {
-      background: #21262d;
-      color: #c9d1d9;
+      background: rgba(0,212,255,0.07);
+      color: var(--cyan);
+      border-color: rgba(0,212,255,0.3);
     }
 
     .btn {
-      background: #21262d;
-      color: #c9d1d9;
-      border: 1px solid #30363d;
-      padding: 6px 14px;
+      background: var(--bg-raised);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      padding: 5px 12px;
       border-radius: 6px;
       cursor: pointer;
-      font-size: 13px;
-      transition: background 0.2s, border-color 0.2s;
+      font-size: 11px;
+      font-family: var(--mono);
+      font-weight: 600;
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
     }
 
     .btn:hover {
-      background: #30363d;
-      border-color: #58a6ff;
+      background: rgba(0,212,255,0.07);
+      border-color: rgba(0,212,255,0.3);
+      color: var(--cyan);
     }
 
     .chat-container {
@@ -94,14 +141,8 @@
       max-width: 85%;
     }
 
-    .message.user {
-      align-self: flex-end;
-      flex-direction: row-reverse;
-    }
-
-    .message.assistant {
-      align-self: flex-start;
-    }
+    .message.user { align-self: flex-end; flex-direction: row-reverse; }
+    .message.assistant { align-self: flex-start; }
 
     .avatar {
       width: 32px;
@@ -110,63 +151,66 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 14px;
+      font-size: 12px;
+      font-weight: 700;
+      font-family: var(--mono);
       flex-shrink: 0;
     }
 
     .message.user .avatar {
-      background: #388bfd;
+      background: #0055bb;
       color: #fff;
+      border: 1px solid #0077ee;
     }
 
     .message.assistant .avatar {
-      background: #238636;
-      color: #fff;
+      background: var(--bg-raised);
+      color: var(--purple);
+      border: 1px solid rgba(192,96,255,0.3);
     }
 
     .bubble {
       padding: 12px 16px;
       border-radius: 12px;
-      line-height: 1.6;
+      line-height: 1.65;
       font-size: 14px;
       word-break: break-word;
     }
 
     .message.user .bubble {
-      background: #388bfd;
+      background: #0055bb;
       color: #fff;
       border-bottom-right-radius: 4px;
+      border: 1px solid #0077ee;
     }
 
     .message.assistant .bubble {
-      background: #161b22;
-      border: 1px solid #30363d;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
       border-bottom-left-radius: 4px;
+      color: var(--text);
     }
 
     .bubble code {
-      background: #0d1117;
+      background: var(--bg-deep);
       padding: 2px 6px;
       border-radius: 4px;
-      font-family: "SFMono-Regular", Consolas, monospace;
+      font-family: var(--mono);
       font-size: 13px;
+      color: var(--cyan);
     }
 
     .bubble pre {
-      background: #0d1117;
+      background: var(--bg-deep);
       padding: 12px;
       border-radius: 6px;
       overflow-x: auto;
       margin: 8px 0;
-      border: 1px solid #30363d;
+      border: 1px solid var(--border);
     }
 
-    .bubble pre code {
-      background: none;
-      padding: 0;
-    }
-
-    .bubble strong { color: #58a6ff; }
+    .bubble pre code { background: none; padding: 0; color: var(--text); }
+    .bubble strong { color: var(--purple); }
     .bubble ul, .bubble ol { padding-left: 20px; margin: 6px 0; }
     .bubble li { margin: 4px 0; }
 
@@ -178,25 +222,26 @@
     }
 
     .source-tag {
-      background: #21262d;
-      color: #8b949e;
+      background: var(--bg-raised);
+      color: var(--text-muted);
       padding: 2px 8px;
       border-radius: 4px;
       font-size: 11px;
-      font-family: "SFMono-Regular", Consolas, monospace;
+      font-family: var(--mono);
+      border: 1px solid var(--border-dim);
     }
 
-    .source-tag.mitre { color: #f85149; background: #f8514920; }
-    .source-tag.yara { color: #a371f7; background: #a371f720; }
-    .source-tag.vendor { color: #d29922; background: #d2992220; }
-    .source-tag.wazuh { color: #3fb950; background: #3fb95020; }
+    .source-tag.mitre  { color: var(--red);    background: var(--red-dim);    border-color: rgba(255,51,85,0.2); }
+    .source-tag.yara   { color: var(--purple);  background: var(--purple-dim); border-color: rgba(192,96,255,0.2); }
+    .source-tag.vendor { color: var(--amber);   background: var(--amber-dim);  border-color: rgba(255,170,0,0.2); }
+    .source-tag.wazuh  { color: var(--green);   background: var(--green-dim);  border-color: rgba(0,230,118,0.2); }
 
     .typing-indicator {
       display: none;
       align-self: flex-start;
       padding: 12px 16px;
-      background: #161b22;
-      border: 1px solid #30363d;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
       border-radius: 12px;
       border-bottom-left-radius: 4px;
       margin-left: 44px;
@@ -205,13 +250,11 @@
     .typing-indicator.visible { display: flex; gap: 4px; }
 
     .typing-dot {
-      width: 8px;
-      height: 8px;
-      background: #6e7681;
+      width: 8px; height: 8px;
+      background: var(--text-muted);
       border-radius: 50%;
       animation: typingBounce 1.4s infinite ease-in-out;
     }
-
     .typing-dot:nth-child(2) { animation-delay: 0.2s; }
     .typing-dot:nth-child(3) { animation-delay: 0.4s; }
 
@@ -222,21 +265,17 @@
 
     .input-area {
       padding: 16px 0;
-      border-top: 1px solid #30363d;
+      border-top: 1px solid var(--border);
       flex-shrink: 0;
     }
 
-    .input-row {
-      display: flex;
-      gap: 8px;
-      align-items: flex-end;
-    }
+    .input-row { display: flex; gap: 8px; align-items: flex-end; }
 
     #chatInput {
       flex: 1;
-      background: #0d1117;
-      border: 1px solid #30363d;
-      color: #c9d1d9;
+      background: var(--bg-deep);
+      border: 1px solid var(--border);
+      color: var(--text);
       padding: 12px 16px;
       border-radius: 8px;
       font-size: 14px;
@@ -248,39 +287,39 @@
       line-height: 1.5;
     }
 
-    #chatInput:focus { border-color: #58a6ff; }
-
-    #chatInput::placeholder { color: #6e7681; }
+    #chatInput:focus { border-color: var(--purple); box-shadow: 0 0 0 2px rgba(192,96,255,0.12); }
+    #chatInput::placeholder { color: var(--text-dim); }
 
     #sendBtn {
-      background: #238636;
+      background: #6030c0;
       color: #fff;
-      border: none;
-      padding: 12px 20px;
+      border: 1px solid #8040e0;
+      padding: 12px 22px;
       border-radius: 8px;
       cursor: pointer;
-      font-size: 14px;
-      font-weight: 600;
+      font-size: 13px;
+      font-weight: 700;
+      font-family: var(--mono);
       transition: background 0.2s;
       flex-shrink: 0;
     }
 
-    #sendBtn:hover { background: #2ea043; }
-    #sendBtn:disabled { background: #21262d; color: #6e7681; cursor: not-allowed; }
+    #sendBtn:hover { background: #7040d0; }
+    #sendBtn:disabled { background: var(--bg-raised); color: var(--text-muted); cursor: not-allowed; border-color: var(--border); }
 
     .welcome {
       text-align: center;
       padding: 60px 20px;
-      color: #6e7681;
+      color: var(--text-muted);
     }
 
     .welcome h2 {
-      color: #c9d1d9;
+      color: var(--text);
       font-size: 22px;
       margin-bottom: 12px;
     }
 
-    .welcome p { margin-bottom: 20px; }
+    .welcome p { margin-bottom: 20px; line-height: 1.7; }
 
     .suggestions {
       display: flex;
@@ -290,20 +329,247 @@
     }
 
     .suggestion {
-      background: #21262d;
-      border: 1px solid #30363d;
-      color: #8b949e;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
       padding: 8px 14px;
       border-radius: 8px;
       cursor: pointer;
       font-size: 13px;
-      transition: border-color 0.2s, color 0.2s;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
     }
 
     .suggestion:hover {
-      border-color: #58a6ff;
-      color: #c9d1d9;
+      border-color: var(--purple);
+      color: var(--purple);
+      background: var(--purple-dim);
     }
+
+    /* Documents panel */
+    .docs-panel-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 90;
+      backdrop-filter: blur(3px);
+    }
+    .docs-panel-overlay.visible { display: block; }
+
+    .docs-panel {
+      position: fixed;
+      top: 0; right: 0;
+      width: 420px;
+      max-width: 100vw;
+      height: 100vh;
+      background: var(--bg-card);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.25s ease;
+      z-index: 91;
+      box-shadow: -8px 0 32px rgba(0,0,0,0.6);
+    }
+    .docs-panel.visible { transform: translateX(0); }
+
+    .docs-panel-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .docs-panel-header h2 {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--mono);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .docs-count-badge {
+      background: rgba(0,153,255,0.8);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 10px;
+      min-width: 20px;
+      text-align: center;
+    }
+    .docs-panel-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      padding: 4px 6px;
+      border-radius: 4px;
+      transition: color 0.2s, background 0.2s;
+    }
+    .docs-panel-close:hover { color: var(--text); background: var(--bg-raised); }
+
+    .docs-panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .doc-card {
+      background: var(--bg-deep);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      position: relative;
+      transition: border-color 0.2s;
+    }
+    .doc-card:hover { border-color: rgba(0,212,255,0.25); }
+
+    .doc-card-top { display: flex; gap: 12px; align-items: flex-start; }
+    .doc-icon {
+      width: 36px; height: 36px;
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; font-weight: 700;
+      flex-shrink: 0;
+    }
+    .doc-icon.txt  { background: var(--cyan-dim);   color: var(--cyan); }
+    .doc-icon.md   { background: var(--purple-dim); color: var(--purple); }
+    .doc-icon.json { background: var(--amber-dim);  color: var(--amber); }
+    .doc-icon.file { background: var(--green-dim);  color: var(--green); }
+
+    .doc-info { flex: 1; min-width: 0; }
+    .doc-title {
+      font-size: 14px; font-weight: 600; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+    .doc-filename {
+      font-size: 12px; color: var(--text-muted);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      font-family: var(--mono);
+    }
+
+    .doc-meta {
+      display: flex; align-items: center; gap: 10px;
+      margin-top: 8px; font-size: 11px; color: var(--text-muted); flex-wrap: wrap;
+    }
+    .doc-meta-item { display: flex; align-items: center; gap: 4px; }
+    .doc-chunk-badge {
+      background: var(--green-dim); color: var(--green);
+      border: 1px solid rgba(0,230,118,0.25);
+      padding: 1px 7px; border-radius: 10px; font-size: 11px; font-weight: 600; font-family: var(--mono);
+    }
+
+    .doc-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+    .doc-tag {
+      background: var(--bg-raised); color: var(--text-muted);
+      border: 1px solid var(--border-dim);
+      padding: 1px 7px; border-radius: 10px; font-size: 11px; font-family: var(--mono);
+    }
+
+    .doc-actions {
+      display: flex; justify-content: flex-end; margin-top: 10px; gap: 6px; align-items: center;
+    }
+    .doc-delete-btn {
+      background: none; border: 1px solid rgba(255,51,85,0.3); color: var(--red);
+      padding: 4px 10px; border-radius: 5px; font-size: 12px; cursor: pointer; font-family: var(--mono);
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .doc-delete-btn:hover { background: var(--red-dim); border-color: var(--red); }
+    .doc-confirm-row { display: none; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
+    .doc-confirm-row.visible { display: flex; }
+    .doc-confirm-yes {
+      background: var(--red); color: #fff; border: none;
+      padding: 3px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 600;
+    }
+    .doc-confirm-no {
+      background: var(--bg-raised); color: var(--text);
+      border: 1px solid var(--border);
+      padding: 3px 10px; border-radius: 5px; cursor: pointer; font-size: 12px;
+    }
+
+    .docs-empty { text-align: center; padding: 48px 20px; color: var(--text-muted); }
+    .docs-empty p { margin-top: 8px; font-size: 13px; line-height: 1.6; }
+    .docs-loading { text-align: center; padding: 32px; color: var(--text-muted); font-size: 13px; }
+
+    /* Upload modal */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.72);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .modal-overlay.visible { display: flex; }
+
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      width: 440px;
+      max-width: 95vw;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+    }
+
+    .modal h2 {
+      font-size: 14px; font-weight: 700; color: var(--text);
+      margin-bottom: 18px; font-family: var(--mono); letter-spacing: 0.5px; text-transform: uppercase;
+    }
+
+    .modal label {
+      display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 5px; font-family: var(--mono);
+    }
+
+    .modal input[type="text"] {
+      width: 100%;
+      background: var(--bg-deep); border: 1px solid var(--border); color: var(--text);
+      padding: 8px 12px; border-radius: 6px; font-size: 14px; outline: none; margin-bottom: 14px;
+    }
+    .modal input[type="text"]:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px var(--cyan-dim); }
+
+    .modal .file-drop {
+      border: 2px dashed var(--border);
+      border-radius: 8px; padding: 20px; text-align: center;
+      color: var(--text-muted); font-size: 13px; cursor: pointer;
+      transition: border-color 0.2s, background 0.2s; margin-bottom: 14px; position: relative;
+    }
+    .modal .file-drop:hover, .modal .file-drop.drag-over {
+      border-color: var(--cyan); background: var(--cyan-dim); color: var(--text);
+    }
+    .modal .file-drop input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .modal .file-drop .file-name {
+      color: var(--cyan); font-weight: 600; margin-top: 4px; word-break: break-all; font-family: var(--mono);
+    }
+
+    .modal .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+
+    .modal .upload-status { font-size: 13px; padding: 8px 0 2px; min-height: 22px; font-family: var(--mono); }
+    .modal .upload-status.success { color: var(--green); }
+    .modal .upload-status.error   { color: var(--red); }
+    .modal .upload-status.loading { color: var(--text-muted); }
+
+    .btn-primary {
+      background: #6030c0; color: #fff; border: 1px solid #8040e0;
+      padding: 7px 16px; border-radius: 6px; cursor: pointer; font-size: 12px;
+      font-weight: 700; font-family: var(--mono); transition: background 0.2s;
+    }
+    .btn-primary:hover { background: #7040d0; }
+    .btn-primary:disabled { background: var(--bg-raised); color: var(--text-muted); cursor: not-allowed; border-color: var(--border); }
 
     @media (max-width: 768px) {
       .chat-container { padding: 0 12px; }
@@ -313,17 +579,73 @@
 </head>
 <body>
   <div class="header">
-    <h1>Threat Intel Chat</h1>
+    <div class="header-left">
+      <a href="/" class="logo-link">
+        <svg class="logo-mark" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="13,1.5 24,7.5 24,18.5 13,24.5 2,18.5 2,7.5" stroke="#c060ff" stroke-width="1.2" fill="none"/>
+          <polygon points="13,5.5 20.5,10 20.5,16 13,20.5 5.5,16 5.5,10" stroke="#c060ff" stroke-width="0.6" fill="none" opacity="0.4"/>
+          <circle cx="13" cy="13" r="4.5" stroke="#c060ff" stroke-width="0.8" fill="none" opacity="0.55"/>
+          <line x1="13" y1="8" x2="13" y2="10.5" stroke="#c060ff" stroke-width="1"/>
+          <line x1="13" y1="15.5" x2="13" y2="18" stroke="#c060ff" stroke-width="1"/>
+          <line x1="8" y1="13" x2="10.5" y2="13" stroke="#c060ff" stroke-width="1"/>
+          <line x1="15.5" y1="13" x2="18" y2="13" stroke="#c060ff" stroke-width="1"/>
+          <circle cx="13" cy="13" r="1.7" fill="#c060ff"/>
+        </svg>
+        <h1>Threat Intel Chat</h1>
+      </a>
+    </div>
     <div class="header-actions">
-      <a href="/">Alerts Dashboard</a>
+      <a href="/">Home</a>
+      <a href="/alerts.html">Alerts</a>
+      <button class="btn" id="myDocsBtn" title="View uploaded documents">My Documents <span class="docs-count-badge" id="headerDocCount" style="display:none">0</span></button>
+      <button class="btn" id="uploadDocBtn" title="Add a document to the knowledge base">+ Add Document</button>
       <button class="btn" id="newChatBtn">New Chat</button>
+    </div>
+  </div>
+
+  <!-- Documents panel -->
+  <div class="docs-panel-overlay" id="docsPanelOverlay"></div>
+  <div class="docs-panel" id="docsPanel">
+    <div class="docs-panel-header">
+      <h2>My Documents <span class="docs-count-badge" id="panelDocCount">0</span></h2>
+      <button class="docs-panel-close" id="docsPanelClose" title="Close">&#x2715;</button>
+    </div>
+    <div class="docs-panel-body" id="docsPanelBody">
+      <div class="docs-loading">Loading…</div>
+    </div>
+  </div>
+
+  <!-- Document upload modal -->
+  <div class="modal-overlay" id="uploadModal">
+    <div class="modal">
+      <h2>Add Document to Knowledge Base</h2>
+
+      <label for="docTitle">Title</label>
+      <input type="text" id="docTitle" placeholder="e.g. Internal Threat Policy 2026" />
+
+      <label for="docTags">Tags <span style="color:#6e7681">(comma-separated, optional)</span></label>
+      <input type="text" id="docTags" placeholder="e.g. policy, ransomware, incident-response" />
+
+      <label>File <span style="color:#6e7681">(.txt, .md, .json — max 5 MB)</span></label>
+      <div class="file-drop" id="fileDrop">
+        <input type="file" id="docFile" accept=".txt,.md,.json" />
+        <div>Drop file here or <strong>click to browse</strong></div>
+        <div class="file-name" id="fileNameLabel"></div>
+      </div>
+
+      <div class="upload-status" id="uploadStatus"></div>
+
+      <div class="modal-actions">
+        <button class="btn" id="cancelUploadBtn">Cancel</button>
+        <button class="btn-primary" id="confirmUploadBtn" disabled>Upload</button>
+      </div>
     </div>
   </div>
 
   <div class="chat-container">
     <div class="messages" id="messages">
       <div class="welcome" id="welcome">
-        <h2>Wazuh AI Threat Intel Chat</h2>
+        <h2>SIEM AI Threat Intel Chat</h2>
         <p>Ask questions about MITRE ATT&CK techniques, YARA rules, and security advisories.</p>
         <div class="suggestions">
           <div class="suggestion" onclick="askSuggestion(this)">What attacks were detected on my system?</div>
@@ -492,6 +814,287 @@
         setTimeout(() => sendMessage(), 300);
       }
     })();
+
+    // ---- My Documents panel ----
+    const docsPanel        = document.getElementById("docsPanel");
+    const docsPanelOverlay = document.getElementById("docsPanelOverlay");
+    const docsPanelClose   = document.getElementById("docsPanelClose");
+    const docsPanelBody    = document.getElementById("docsPanelBody");
+    const panelDocCount    = document.getElementById("panelDocCount");
+    const headerDocCount   = document.getElementById("headerDocCount");
+    const myDocsBtn        = document.getElementById("myDocsBtn");
+
+    function openDocsPanel() {
+      docsPanelOverlay.classList.add("visible");
+      docsPanel.classList.add("visible");
+      loadDocuments();
+    }
+    function closeDocsPanel() {
+      docsPanelOverlay.classList.remove("visible");
+      docsPanel.classList.remove("visible");
+    }
+
+    myDocsBtn.addEventListener("click", openDocsPanel);
+    docsPanelClose.addEventListener("click", closeDocsPanel);
+    docsPanelOverlay.addEventListener("click", closeDocsPanel);
+
+    function fileIcon(filename) {
+      const ext = (filename || "").split(".").pop().toLowerCase();
+      if (ext === "md")   return { cls: "md",   label: "MD" };
+      if (ext === "json") return { cls: "json",  label: "{}" };
+      if (ext === "txt")  return { cls: "txt",   label: "TXT" };
+      return { cls: "file", label: "DOC" };
+    }
+
+    function formatDate(iso) {
+      if (!iso) return "";
+      try {
+        const d = new Date(iso);
+        return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+             + " " + d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+      } catch { return iso; }
+    }
+
+    function renderDocCard(doc) {
+      const icon = fileIcon(doc.filename);
+      const card = document.createElement("div");
+      card.className = "doc-card";
+      card.dataset.docId = doc.doc_id;
+
+      const tagsHtml = (doc.tags || []).length > 0
+        ? `<div class="doc-tags">${doc.tags.map(t => `<span class="doc-tag">${escapeHtml(t)}</span>`).join("")}</div>`
+        : "";
+
+      card.innerHTML = `
+        <div class="doc-card-top">
+          <div class="doc-icon ${icon.cls}">${icon.label}</div>
+          <div class="doc-info">
+            <div class="doc-title" title="${escapeHtml(doc.title)}">${escapeHtml(doc.title)}</div>
+            <div class="doc-filename" title="${escapeHtml(doc.filename)}">${escapeHtml(doc.filename)}</div>
+          </div>
+        </div>
+        <div class="doc-meta">
+          <div class="doc-meta-item">&#x1F551; ${formatDate(doc.uploaded_at)}</div>
+          <span class="doc-chunk-badge">${doc.chunks} ${doc.chunks === 1 ? "chunk" : "chunks"} indexed</span>
+        </div>
+        ${tagsHtml}
+        <div class="doc-actions">
+          <div class="doc-confirm-row" id="confirm-${doc.doc_id}">
+            <span>Delete?</span>
+            <button class="doc-confirm-yes" data-id="${doc.doc_id}">Yes, delete</button>
+            <button class="doc-confirm-no" data-id="${doc.doc_id}">Cancel</button>
+          </div>
+          <button class="doc-delete-btn" data-id="${doc.doc_id}">Delete</button>
+        </div>`;
+
+      // Delete button → show confirm row
+      card.querySelector(".doc-delete-btn").addEventListener("click", (e) => {
+        const id = e.target.dataset.id;
+        card.querySelector(`#confirm-${id}`).classList.add("visible");
+        e.target.style.display = "none";
+      });
+
+      // Cancel confirm
+      card.querySelector(".doc-confirm-no").addEventListener("click", (e) => {
+        const id = e.target.dataset.id;
+        card.querySelector(`#confirm-${id}`).classList.remove("visible");
+        card.querySelector(".doc-delete-btn").style.display = "";
+      });
+
+      // Confirm delete
+      card.querySelector(".doc-confirm-yes").addEventListener("click", async (e) => {
+        const id = e.target.dataset.id;
+        e.target.textContent = "Deleting…";
+        e.target.disabled = true;
+        try {
+          const resp = await fetch(`${API_BASE}/api/knowledge/documents/${id}`, { method: "DELETE" });
+          const data = await resp.json();
+          if (data.error) {
+            alert(`Error: ${data.error}`);
+            e.target.textContent = "Yes, delete";
+            e.target.disabled = false;
+          } else {
+            card.style.transition = "opacity 0.2s";
+            card.style.opacity = "0";
+            setTimeout(() => {
+              card.remove();
+              updateDocCount();
+            }, 200);
+          }
+        } catch (err) {
+          alert(`Delete failed: ${err.message}`);
+          e.target.textContent = "Yes, delete";
+          e.target.disabled = false;
+        }
+      });
+
+      return card;
+    }
+
+    function updateDocCount() {
+      const count = docsPanelBody.querySelectorAll(".doc-card").length;
+      panelDocCount.textContent = count;
+      if (count > 0) {
+        headerDocCount.textContent = count;
+        headerDocCount.style.display = "";
+      } else {
+        headerDocCount.style.display = "none";
+        docsPanelBody.innerHTML = `
+          <div class="docs-empty">
+            <div style="font-size:32px">&#x1F4C2;</div>
+            <p>No documents uploaded yet.<br>Use <strong>+ Add Document</strong> to add your own knowledge to the chat.</p>
+          </div>`;
+      }
+    }
+
+    async function loadDocuments() {
+      docsPanelBody.innerHTML = '<div class="docs-loading">Loading documents…</div>';
+      try {
+        const resp = await fetch(`${API_BASE}/api/knowledge/documents`);
+        const data = await resp.json();
+
+        if (data.error) {
+          docsPanelBody.innerHTML = `<div class="docs-loading" style="color:#f85149">Error: ${escapeHtml(data.error)}</div>`;
+          return;
+        }
+
+        docsPanelBody.innerHTML = "";
+
+        if (!data.documents || data.documents.length === 0) {
+          docsPanelBody.innerHTML = `
+            <div class="docs-empty">
+              <div style="font-size:32px">&#x1F4C2;</div>
+              <p>No documents uploaded yet.<br>Use <strong>+ Add Document</strong> to add your own knowledge to the chat.</p>
+            </div>`;
+          panelDocCount.textContent = 0;
+          headerDocCount.style.display = "none";
+          return;
+        }
+
+        data.documents.forEach(doc => docsPanelBody.appendChild(renderDocCard(doc)));
+        panelDocCount.textContent = data.documents.length;
+        headerDocCount.textContent = data.documents.length;
+        headerDocCount.style.display = "";
+
+      } catch (err) {
+        docsPanelBody.innerHTML = `<div class="docs-loading" style="color:#f85149">Connection error: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    // Refresh document count on page load (quietly, just for the badge)
+    (async function initDocCount() {
+      try {
+        const resp = await fetch(`${API_BASE}/api/knowledge/documents`);
+        const data = await resp.json();
+        if (data.documents && data.documents.length > 0) {
+          headerDocCount.textContent = data.documents.length;
+          headerDocCount.style.display = "";
+        }
+      } catch { /* silent */ }
+    })();
+    // ---- End My Documents panel ----
+
+    // ---- Document upload modal ----
+    const uploadModal    = document.getElementById("uploadModal");
+    const uploadDocBtn   = document.getElementById("uploadDocBtn");
+    const cancelUploadBtn = document.getElementById("cancelUploadBtn");
+    const confirmUploadBtn = document.getElementById("confirmUploadBtn");
+    const docFileInput   = document.getElementById("docFile");
+    const fileNameLabel  = document.getElementById("fileNameLabel");
+    const uploadStatus   = document.getElementById("uploadStatus");
+    const fileDrop       = document.getElementById("fileDrop");
+
+    uploadDocBtn.addEventListener("click", () => {
+      uploadModal.classList.add("visible");
+      uploadStatus.textContent = "";
+      uploadStatus.className = "upload-status";
+    });
+
+    cancelUploadBtn.addEventListener("click", resetUploadModal);
+
+    uploadModal.addEventListener("click", (e) => {
+      if (e.target === uploadModal) resetUploadModal();
+    });
+
+    function resetUploadModal() {
+      uploadModal.classList.remove("visible");
+      document.getElementById("docTitle").value = "";
+      document.getElementById("docTags").value = "";
+      docFileInput.value = "";
+      fileNameLabel.textContent = "";
+      uploadStatus.textContent = "";
+      uploadStatus.className = "upload-status";
+      confirmUploadBtn.disabled = true;
+    }
+
+    docFileInput.addEventListener("change", () => {
+      const f = docFileInput.files[0];
+      fileNameLabel.textContent = f ? f.name : "";
+      confirmUploadBtn.disabled = !f;
+    });
+
+    fileDrop.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      fileDrop.classList.add("drag-over");
+    });
+    fileDrop.addEventListener("dragleave", () => fileDrop.classList.remove("drag-over"));
+    fileDrop.addEventListener("drop", (e) => {
+      e.preventDefault();
+      fileDrop.classList.remove("drag-over");
+      const f = e.dataTransfer.files[0];
+      if (!f) return;
+      const dt = new DataTransfer();
+      dt.items.add(f);
+      docFileInput.files = dt.files;
+      fileNameLabel.textContent = f.name;
+      confirmUploadBtn.disabled = false;
+    });
+
+    confirmUploadBtn.addEventListener("click", async () => {
+      const file = docFileInput.files[0];
+      if (!file) return;
+
+      const title = document.getElementById("docTitle").value.trim();
+      const tags  = document.getElementById("docTags").value.trim();
+
+      const formData = new FormData();
+      formData.append("file", file);
+      if (title) formData.append("title", title);
+      if (tags)  formData.append("tags", tags);
+
+      confirmUploadBtn.disabled = true;
+      uploadStatus.className = "upload-status loading";
+      uploadStatus.textContent = "Uploading and indexing…";
+
+      try {
+        const resp = await fetch(`${API_BASE}/api/knowledge/upload`, {
+          method: "POST",
+          body: formData,
+        });
+        const data = await resp.json();
+
+        if (data.error) {
+          uploadStatus.className = "upload-status error";
+          uploadStatus.textContent = `Error: ${data.error}`;
+          confirmUploadBtn.disabled = false;
+        } else {
+          uploadStatus.className = "upload-status success";
+          const chunksNote = data.chunks > 1 ? ` (${data.chunks} chunks)` : "";
+          uploadStatus.textContent = `Indexed "${data.title}"${chunksNote} — ${data.points_added} vectors added.`;
+          confirmUploadBtn.disabled = false;
+          // Refresh the header badge count
+          const prevCount = parseInt(headerDocCount.textContent || "0", 10);
+          headerDocCount.textContent = prevCount + 1;
+          headerDocCount.style.display = "";
+          setTimeout(resetUploadModal, 2200);
+        }
+      } catch (err) {
+        uploadStatus.className = "upload-status error";
+        uploadStatus.textContent = `Connection error: ${err.message}`;
+        confirmUploadBtn.disabled = false;
+      }
+    });
+    // ---- End upload modal ----
 
     async function sendMessage() {
       const text = inputEl.value.trim();

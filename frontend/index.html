@@ -3,545 +3,522 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Wazuh Alerts Dashboard</title>
+  <title>SIEM AI Threat Engine</title>
   <style>
+    :root {
+      --bg:           #050810;
+      --bg-card:      #0a1020;
+      --bg-raised:    #0f1828;
+      --border:       #1a2d4a;
+      --border-dim:   #0f1e33;
+      --cyan:         #00d4ff;
+      --cyan-dim:     rgba(0,212,255,0.10);
+      --cyan-glow:    rgba(0,212,255,0.22);
+      --red:          #ff3355;
+      --red-dim:      rgba(255,51,85,0.12);
+      --amber:        #ffaa00;
+      --amber-dim:    rgba(255,170,0,0.12);
+      --green:        #00e676;
+      --green-dim:    rgba(0,230,118,0.12);
+      --purple:       #c060ff;
+      --purple-dim:   rgba(192,96,255,0.12);
+      --text:         #dde6f5;
+      --text-muted:   #4a5a72;
+      --text-dim:     #253040;
+      --mono:         "SFMono-Regular","JetBrains Mono",Consolas,monospace;
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      background: #0f1419;
-      color: #c9d1d9;
+      background-color: var(--bg);
+      background-image:
+        linear-gradient(rgba(0,212,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,0.025) 1px, transparent 1px);
+      background-size: 48px 48px;
+      color: var(--text);
       min-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
 
+    /* ==================== Header ==================== */
     .header {
-      background: #161b22;
-      border-bottom: 1px solid #30363d;
-      padding: 16px 24px;
-      position: sticky;
-      top: 0;
-      z-index: 100;
+      background: rgba(5,8,16,0.92);
+      border-bottom: 1px solid var(--border);
+      padding: 11px 24px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      backdrop-filter: blur(14px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+
+    .logo-mark {
+      width: 28px; height: 28px; flex-shrink: 0;
+      filter: drop-shadow(0 0 5px rgba(0,212,255,0.5));
+    }
+    .header h1 {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--cyan);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      font-family: var(--mono);
     }
 
-    .header h1 { font-size: 20px; font-weight: 600; color: #58a6ff; }
-
-    .header-right { display: flex; gap: 12px; align-items: center; }
-
-    .hdr-btn {
-      color: #c9d1d9;
-      text-decoration: none;
-      font-size: 13px;
-      padding: 6px 14px;
-      border-radius: 6px;
-      background: #21262d;
-      border: 1px solid #30363d;
-      cursor: pointer;
-      font-weight: 600;
-      transition: background 0.2s, border-color 0.2s;
+    .live-dot {
+      width: 7px; height: 7px; border-radius: 50%; background: var(--green);
+      box-shadow: 0 0 0 0 rgba(0,230,118,.7);
+      animation: livePulse 2s infinite;
     }
-    .hdr-btn:hover { background: #30363d; border-color: #58a6ff; }
-
-    .status { font-size: 13px; padding: 4px 12px; border-radius: 12px; font-weight: 500; }
-    .status.connected { background: #238636; color: #fff; }
-    .status.connecting { background: #6e7681; color: #fff; }
-    .status.error { background: #da3633; color: #fff; }
-
-    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
-
-    /* ---- Alert Cards ---- */
-    .alert-card {
-      background: #161b22;
-      border: 1px solid #30363d;
-      border-radius: 6px;
-      margin-bottom: 12px;
-      padding: 16px;
-      transition: border-color 0.2s;
+    @keyframes livePulse {
+      0%   { box-shadow: 0 0 0 0 rgba(0,230,118,.6); }
+      70%  { box-shadow: 0 0 0 7px rgba(0,230,118,0); }
+      100% { box-shadow: 0 0 0 0 rgba(0,230,118,0); }
     }
-    .alert-card:hover { border-color: #58a6ff; }
+    .live-dot.error   { background: var(--red);  box-shadow: none; animation: none; }
+    .live-dot.loading { background: var(--text-muted); box-shadow: none; animation: none; }
 
-    .alert-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
-    .timestamp { font-size: 12px; color: #8b949e; font-family: "SFMono-Regular", Consolas, monospace; }
+    .header-status { font-size: 11px; color: var(--text-muted); font-family: var(--mono); }
 
-    .level-badge {
-      padding: 4px 10px; border-radius: 12px; font-size: 11px;
-      font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    /* ==================== Hero ==================== */
+    .hero {
+      text-align: center;
+      padding: 56px 24px 48px;
+      position: relative;
     }
-    .level-0,.level-1,.level-2,.level-3 { background: #388bfd20; color: #58a6ff; }
-    .level-4,.level-5 { background: #d2991520; color: #d29922; }
-    .level-6,.level-7,.level-8 { background: #f8581420; color: #f85149; }
-    .level-9,.level-10,.level-11,.level-12,.level-13,.level-14,.level-15 { background: #da363320; color: #da3633; font-weight: 700; }
-
-    .rule-info { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-    .rule-id { background: #21262d; padding: 3px 8px; border-radius: 4px; font-family: "SFMono-Regular", Consolas, monospace; color: #79c0ff; font-weight: 600; }
-    .rule-description { color: #8b949e; flex: 1; }
-
-    .alert-main { display: grid; grid-template-columns: auto 1fr; gap: 12px; margin-bottom: 12px; align-items: start; }
-    .alert-meta { display: flex; flex-direction: column; gap: 4px; min-width: 200px; }
-    .meta-item { font-size: 12px; }
-    .meta-label { color: #6e7681; display: inline-block; min-width: 70px; }
-    .meta-value { color: #c9d1d9; font-family: "SFMono-Regular", Consolas, monospace; }
-    .hostname { color: #79c0ff; }
-    .program { color: #a5d6ff; }
-
-    .message {
-      background: #0d1117; padding: 12px; border-radius: 4px;
-      font-family: "SFMono-Regular", Consolas, monospace; font-size: 13px;
-      line-height: 1.6; color: #e6edf3; border-left: 3px solid #58a6ff; word-break: break-word;
+    .hero::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 50%; transform: translateX(-50%);
+      width: 700px; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+      opacity: 0.3;
     }
 
-    .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-    .tag { background: #21262d; color: #8b949e; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-family: "SFMono-Regular", Consolas, monospace; }
-    .tag.compliance { background: #6e40c920; color: #a371f7; }
-
-    .alert-footer { display: flex; justify-content: flex-end; margin-top: 10px; }
-    .investigate-btn {
-      background: #21262d; color: #58a6ff; border: 1px solid #30363d;
-      padding: 5px 14px; border-radius: 6px; cursor: pointer;
-      font-size: 12px; font-weight: 600; transition: background 0.2s, border-color 0.2s;
+    .hero-logo {
+      width: 100px; height: 100px;
+      margin: 0 auto 28px;
+      filter: drop-shadow(0 0 24px rgba(0,212,255,0.35));
     }
-    .investigate-btn:hover { background: #30363d; border-color: #58a6ff; }
+    @keyframes radarSpin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+    @keyframes centerPulse {
+      0%   { transform: scale(1); opacity: 0.8; }
+      100% { transform: scale(5); opacity: 0; }
+    }
+    .radar-sweep {
+      transform-origin: 50px 50px;
+      animation: radarSpin 4s linear infinite;
+    }
+    .center-pulse {
+      transform-origin: 50px 50px;
+      animation: centerPulse 2.2s ease-out infinite;
+    }
 
-    .empty-state { text-align: center; padding: 60px 20px; color: #6e7681; }
-    .empty-state svg { width: 64px; height: 64px; margin-bottom: 16px; opacity: 0.5; }
+    .hero-eyebrow {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--cyan);
+      margin-bottom: 14px;
+      font-family: var(--mono);
+      opacity: 0.8;
+    }
+    .hero h2 {
+      font-size: 38px;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.5px;
+      margin-bottom: 14px;
+      line-height: 1.1;
+    }
+    .hero h2 em { color: var(--cyan); font-style: normal; }
+    .hero p {
+      font-size: 14px;
+      color: var(--text-muted);
+      max-width: 480px;
+      margin: 0 auto 40px;
+      line-height: 1.75;
+    }
 
-    /* ---- Chat Slide-over Panel ---- */
-    .chat-overlay {
-      display: none;
-      position: fixed; top: 0; right: 0; bottom: 0;
-      width: 480px; max-width: 100vw;
-      background: #0f1419;
-      border-left: 1px solid #30363d;
-      z-index: 200;
+    /* Stats bar */
+    .hero-stats {
+      display: inline-flex;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg-card);
+      overflow: hidden;
+    }
+    .hero-stat {
+      display: flex;
       flex-direction: column;
-      box-shadow: -4px 0 24px rgba(0,0,0,0.5);
+      align-items: center;
+      gap: 4px;
+      padding: 14px 28px;
+      border-right: 1px solid var(--border);
+      min-width: 100px;
     }
-    .chat-overlay.open { display: flex; }
-
-    .chat-header {
-      background: #161b22;
-      border-bottom: 1px solid #30363d;
-      padding: 14px 16px;
-      display: flex; justify-content: space-between; align-items: center;
-      flex-shrink: 0;
+    .hero-stat:last-child { border-right: none; }
+    .hero-stat-value {
+      font-size: 24px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      font-family: var(--mono);
+      color: var(--text);
     }
-    .chat-header h2 { font-size: 16px; color: #58a6ff; font-weight: 600; }
-    .chat-header-actions { display: flex; gap: 8px; }
-    .chat-btn {
-      background: #21262d; color: #c9d1d9; border: 1px solid #30363d;
-      padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;
-      transition: background 0.2s;
-    }
-    .chat-btn:hover { background: #30363d; }
-    .chat-close { font-size: 18px; line-height: 1; padding: 4px 8px; }
-
-    .chat-messages {
-      flex: 1; overflow-y: auto; padding: 16px;
-      display: flex; flex-direction: column; gap: 12px;
+    .hero-stat-value.red    { color: var(--red);   text-shadow: 0 0 18px rgba(255,51,85,0.55); }
+    .hero-stat-value.yellow { color: var(--amber); text-shadow: 0 0 18px rgba(255,170,0,0.35); }
+    .hero-stat-value.green  { color: var(--green); text-shadow: 0 0 18px rgba(0,230,118,0.35); }
+    .hero-stat-value.cyan   { color: var(--cyan);  text-shadow: 0 0 18px rgba(0,212,255,0.35); }
+    .hero-stat-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-muted);
+      font-family: var(--mono);
     }
 
-    .chat-welcome { text-align: center; padding: 30px 16px; color: #6e7681; }
-    .chat-welcome h3 { color: #c9d1d9; margin-bottom: 8px; font-size: 16px; }
-    .chat-suggestions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 12px; }
-    .chat-suggestion {
-      background: #21262d; border: 1px solid #30363d; color: #8b949e;
-      padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 12px;
-      transition: border-color 0.2s, color 0.2s;
+    /* ==================== Nav Cards ==================== */
+    .cards-section {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 48px 24px 72px;
+      width: 100%;
     }
-    .chat-suggestion:hover { border-color: #58a6ff; color: #c9d1d9; }
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border-dim);
+      font-family: var(--mono);
+    }
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
 
-    .chat-msg { display: flex; gap: 8px; max-width: 100%; }
-    .chat-msg.user { align-self: flex-end; flex-direction: row-reverse; }
-    .chat-msg.assistant { align-self: flex-start; }
+    .nav-card {
+      --ac: var(--cyan);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: border-color .2s, transform .15s, box-shadow .2s;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+    .nav-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--ac), transparent 70%);
+      opacity: 0;
+      transition: opacity .25s;
+      pointer-events: none;
+    }
+    .nav-card:hover {
+      border-color: var(--ac);
+      transform: translateY(-3px);
+      box-shadow: 0 12px 36px rgba(0,0,0,.55), 0 0 0 1px var(--ac);
+      text-decoration: none;
+      color: inherit;
+    }
+    .nav-card:hover::after { opacity: 0.04; }
 
-    .chat-avatar {
-      width: 28px; height: 28px; border-radius: 50%;
+    .nav-card.danger  { --ac: var(--red); }
+    .nav-card.purple  { --ac: var(--purple); }
+    .nav-card.green   { --ac: var(--green); }
+
+    .card-icon {
+      font-size: 22px;
+      width: 46px; height: 46px;
+      border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 12px; flex-shrink: 0;
+      flex-shrink: 0;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
     }
-    .chat-msg.user .chat-avatar { background: #388bfd; color: #fff; }
-    .chat-msg.assistant .chat-avatar { background: #238636; color: #fff; }
 
-    .chat-bubble {
-      padding: 10px 14px; border-radius: 10px; line-height: 1.5;
-      font-size: 13px; word-break: break-word; max-width: 85%;
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--ac);
     }
-    .chat-msg.user .chat-bubble { background: #388bfd; color: #fff; border-bottom-right-radius: 3px; }
-    .chat-msg.assistant .chat-bubble { background: #161b22; border: 1px solid #30363d; border-bottom-left-radius: 3px; }
-    .chat-bubble code { background: #0d1117; padding: 1px 5px; border-radius: 3px; font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; }
-    .chat-bubble pre { background: #0d1117; padding: 10px; border-radius: 5px; overflow-x: auto; margin: 6px 0; border: 1px solid #30363d; }
-    .chat-bubble pre code { background: none; padding: 0; }
-    .chat-bubble strong { color: #58a6ff; }
-    .chat-bubble ul, .chat-bubble ol { padding-left: 18px; margin: 4px 0; }
-    .chat-bubble li { margin: 3px 0; }
-
-    .chat-sources { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-    .src-tag { padding: 2px 6px; border-radius: 3px; font-size: 10px; font-family: "SFMono-Regular", Consolas, monospace; }
-    .src-tag.mitre { color: #f85149; background: #f8514920; }
-    .src-tag.yara { color: #a371f7; background: #a371f720; }
-    .src-tag.vendor { color: #d29922; background: #d2992220; }
-    .src-tag.wazuh { color: #3fb950; background: #3fb95020; }
-
-    .chat-typing { display: none; padding: 10px 14px; background: #161b22; border: 1px solid #30363d; border-radius: 10px; border-bottom-left-radius: 3px; margin-left: 36px; align-self: flex-start; }
-    .chat-typing.visible { display: flex; gap: 4px; }
-    .typing-dot { width: 6px; height: 6px; background: #6e7681; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out; }
-    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-    @keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-5px)} }
-
-    .chat-input-area { padding: 12px; border-top: 1px solid #30363d; flex-shrink: 0; }
-    .chat-input-row { display: flex; gap: 6px; align-items: flex-end; }
-    .chat-input {
-      flex: 1; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9;
-      padding: 10px 12px; border-radius: 6px; font-size: 13px; font-family: inherit;
-      resize: none; outline: none; min-height: 38px; max-height: 100px; line-height: 1.4;
+    .card-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.65;
+      flex: 1;
     }
-    .chat-input:focus { border-color: #58a6ff; }
-    .chat-input::placeholder { color: #6e7681; }
-    .chat-send {
-      background: #238636; color: #fff; border: none;
-      padding: 10px 16px; border-radius: 6px; cursor: pointer;
-      font-size: 13px; font-weight: 600; flex-shrink: 0;
+    .card-arrow {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--text-dim);
+      font-family: var(--mono);
+      letter-spacing: 0.5px;
+      transition: color .2s;
     }
-    .chat-send:hover { background: #2ea043; }
-    .chat-send:disabled { background: #21262d; color: #6e7681; cursor: not-allowed; }
+    .nav-card:hover .card-arrow { color: var(--text-muted); }
 
-    @media (max-width: 768px) {
-      .alert-main { grid-template-columns: 1fr; }
-      .alert-header { flex-direction: column; align-items: flex-start; }
-      .chat-overlay { width: 100vw; }
+    /* Util cards */
+    .util-cards {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .util-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      text-decoration: none;
+      color: inherit;
+    }
+    .util-card:hover { border-color: var(--cyan-glow); background: var(--bg-raised); }
+    .util-icon { font-size: 18px; flex-shrink: 0; }
+    .util-title { font-size: 13px; font-weight: 600; color: var(--text); }
+    .util-desc  { font-size: 11px; color: var(--text-muted); margin-top: 3px; line-height: 1.5; }
+
+    /* ==================== Responsive ==================== */
+    @media (max-width: 700px) {
+      .cards-grid { grid-template-columns: 1fr; }
+      .util-cards { grid-template-columns: 1fr; }
+      .hero h2 { font-size: 28px; }
+      .hero-stats { flex-direction: column; width: 100%; max-width: 300px; }
+      .hero-stat { border-right: none; border-bottom: 1px solid var(--border); }
+      .hero-stat:last-child { border-bottom: none; }
+    }
+    @media (min-width: 700px) and (max-width: 960px) {
+      .cards-grid { grid-template-columns: repeat(2, 1fr); }
     }
   </style>
 </head>
 <body>
-  <!-- Header -->
-  <div class="header">
-    <h1>Wazuh Alerts Dashboard</h1>
-    <div class="header-right">
-      <button class="hdr-btn" id="openChatBtn">Threat Intel Chat</button>
-      <span id="status" class="status connecting">Connecting...</span>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <svg class="logo-mark" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="14,1.5 25.5,8 25.5,20 14,26.5 2.5,20 2.5,8" stroke="#00d4ff" stroke-width="1.2" fill="none"/>
+      <polygon points="14,6 22,10.5 22,17.5 14,22 6,17.5 6,10.5" stroke="#00d4ff" stroke-width="0.6" fill="none" opacity="0.4"/>
+      <circle cx="14" cy="14" r="5" stroke="#00d4ff" stroke-width="0.8" fill="none" opacity="0.55"/>
+      <line x1="14" y1="8.5" x2="14" y2="11.2" stroke="#00d4ff" stroke-width="1"/>
+      <line x1="14" y1="16.8" x2="14" y2="19.5" stroke="#00d4ff" stroke-width="1"/>
+      <line x1="8.5" y1="14" x2="11.2" y2="14" stroke="#00d4ff" stroke-width="1"/>
+      <line x1="16.8" y1="14" x2="19.5" y2="14" stroke="#00d4ff" stroke-width="1"/>
+      <circle cx="14" cy="14" r="1.8" fill="#00d4ff"/>
+    </svg>
+    <div class="live-dot loading" id="liveDot"></div>
+    <h1>SIEM · AI Threat Engine</h1>
+  </div>
+  <div class="header-status" id="headerStatus">Connecting…</div>
+</div>
+
+<!-- Hero -->
+<div class="hero">
+
+  <!-- Large animated radar logo -->
+  <svg class="hero-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- Outer hexagon -->
+    <polygon points="50,4 89,27 89,73 50,96 11,73 11,27"
+      stroke="#00d4ff" stroke-width="1.5" fill="none"/>
+    <!-- Mid hexagon -->
+    <polygon points="50,14 79,31.5 79,68.5 50,86 21,68.5 21,31.5"
+      stroke="#00d4ff" stroke-width="0.7" fill="none" opacity="0.3"/>
+    <!-- Inner hexagon -->
+    <polygon points="50,24 69,35 69,65 50,76 31,65 31,35"
+      stroke="#00d4ff" stroke-width="0.5" fill="none" opacity="0.18"/>
+    <!-- Radar ring -->
+    <circle cx="50" cy="50" r="17" stroke="#00d4ff" stroke-width="1" fill="none" opacity="0.5"/>
+    <!-- Crosshairs -->
+    <line x1="50" y1="31" x2="50" y2="41" stroke="#00d4ff" stroke-width="1.2" opacity="0.75"/>
+    <line x1="50" y1="59" x2="50" y2="69" stroke="#00d4ff" stroke-width="1.2" opacity="0.75"/>
+    <line x1="31" y1="50" x2="41" y2="50" stroke="#00d4ff" stroke-width="1.2" opacity="0.75"/>
+    <line x1="59" y1="50" x2="69" y2="50" stroke="#00d4ff" stroke-width="1.2" opacity="0.75"/>
+    <!-- Rotating scan sweep -->
+    <g class="radar-sweep">
+      <path d="M 50 50 L 50 33 A 17 17 0 0 1 67 50 Z" fill="#00d4ff" fill-opacity="0.16"/>
+      <line x1="50" y1="50" x2="50" y2="33" stroke="#00d4ff" stroke-width="1.2" opacity="0.7"/>
+    </g>
+    <!-- Tick marks on ring -->
+    <line x1="50" y1="32.5" x2="50" y2="34.5" stroke="#00d4ff" stroke-width="1" opacity="0.4"/>
+    <line x1="66" y1="50" x2="68" y2="50" stroke="#00d4ff" stroke-width="1" opacity="0.4"/>
+    <line x1="50" y1="65.5" x2="50" y2="67.5" stroke="#00d4ff" stroke-width="1" opacity="0.4"/>
+    <line x1="32" y1="50" x2="34" y2="50" stroke="#00d4ff" stroke-width="1" opacity="0.4"/>
+    <!-- Center node -->
+    <circle cx="50" cy="50" r="3" fill="#00d4ff"/>
+    <circle class="center-pulse" cx="50" cy="50" r="3" fill="#00d4ff" opacity="0.7"/>
+    <!-- Corner circuit traces -->
+    <path d="M 11 27 L 4 27 L 4 10 L 15 4" stroke="#00d4ff" stroke-width="0.7" fill="none" opacity="0.35"/>
+    <path d="M 89 27 L 96 27 L 96 10 L 85 4" stroke="#00d4ff" stroke-width="0.7" fill="none" opacity="0.35"/>
+    <path d="M 11 73 L 4 73 L 4 90 L 15 96" stroke="#00d4ff" stroke-width="0.7" fill="none" opacity="0.35"/>
+    <path d="M 89 73 L 96 73 L 96 90 L 85 96" stroke="#00d4ff" stroke-width="0.7" fill="none" opacity="0.35"/>
+    <!-- Small corner dots -->
+    <circle cx="4" cy="10" r="1.2" fill="#00d4ff" opacity="0.5"/>
+    <circle cx="96" cy="10" r="1.2" fill="#00d4ff" opacity="0.5"/>
+    <circle cx="4" cy="90" r="1.2" fill="#00d4ff" opacity="0.5"/>
+    <circle cx="96" cy="90" r="1.2" fill="#00d4ff" opacity="0.5"/>
+  </svg>
+
+  <div class="hero-eyebrow">Anomaly Detection · Threat Intelligence · RAG Analysis</div>
+  <h2>AI-Powered <em>Threat Engine</em></h2>
+  <p>Real-time security monitoring backed by Isolation Forest anomaly detection and RAG-based threat intelligence over your SIEM alerts.</p>
+
+  <div class="hero-stats" id="heroStats">
+    <div class="hero-stat">
+      <div class="hero-stat-value" id="statTotal">—</div>
+      <div class="hero-stat-label">Total Alerts</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-value red" id="statHigh">—</div>
+      <div class="hero-stat-label">HIGH</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-value yellow" id="statSusp">—</div>
+      <div class="hero-stat-label">Suspicious</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-value green" id="statNormal">—</div>
+      <div class="hero-stat-label">Normal</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-value cyan" id="statAvg">—</div>
+      <div class="hero-stat-label">Avg Score</div>
     </div>
   </div>
+</div>
 
-  <!-- Alerts -->
-  <div class="container">
-    <div id="alerts"></div>
-    <div id="empty" class="empty-state" style="display: none;">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-      <p>Waiting for alerts...</p>
-    </div>
+<!-- Nav cards -->
+<div class="cards-section">
+
+  <div class="section-label">// Main Sections</div>
+  <div class="cards-grid" style="margin-bottom: 32px;">
+
+    <a class="nav-card danger" href="/alerts.html">
+      <div class="card-icon"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="11" width="4" height="9" rx="1" fill="#ff3355" opacity="0.55"/><rect x="9" y="7" width="4" height="13" rx="1" fill="#ff3355" opacity="0.8"/><rect x="16" y="2" width="4" height="18" rx="1" fill="#ff3355"/></svg></div>
+      <div class="card-title">Alert Dashboard</div>
+      <div class="card-desc">View, filter, and sort all SIEM alerts scored by the Isolation Forest anomaly detector. Charts, timelines, and per-alert investigation.</div>
+      <div class="card-arrow">→ Open Alerts</div>
+    </a>
+
+    <a class="nav-card purple" href="/chat.html">
+      <div class="card-icon"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="2" width="14" height="18" rx="2" stroke="#c060ff" stroke-width="1.5"/><line x1="8" y1="7" x2="14" y2="7" stroke="#c060ff" stroke-width="1.4" stroke-linecap="round"/><line x1="8" y1="11" x2="14" y2="11" stroke="#c060ff" stroke-width="1.4" stroke-linecap="round"/><line x1="8" y1="15" x2="11" y2="15" stroke="#c060ff" stroke-width="1.4" stroke-linecap="round"/></svg></div>
+      <div class="card-title">RAG Threat Intel Chat</div>
+      <div class="card-desc">Query MITRE ATT&amp;CK, YARA rules, vendor advisories, and your own alerts. Powered by Ollama + Qdrant hybrid search.</div>
+      <div class="card-arrow">→ Open Chat</div>
+    </a>
+
+    <a class="nav-card green" href="/alerts.html#threatIntelChat" id="openIntelChat">
+      <div class="card-icon"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="3" width="18" height="14" rx="2" stroke="#00e676" stroke-width="1.5"/><path d="M6 9.5L9.5 13L6 16.5" stroke="#00e676" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="12" y1="16" x2="17" y2="16" stroke="#00e676" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+      <div class="card-title">Inline Alert Analysis</div>
+      <div class="card-desc">Investigate individual alerts with the AI assistant directly on the Alerts dashboard. Ask about any SIEM rule or event.</div>
+      <div class="card-arrow">→ Open Alerts</div>
+    </a>
+
+    <a class="nav-card" href="/vectordb.html" style="--ac: #00d4ff;">
+      <div class="card-icon">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="11" cy="6" rx="8" ry="3" stroke="#00d4ff" stroke-width="1.4" fill="none"/>
+          <path d="M3 6 V16" stroke="#00d4ff" stroke-width="1.4"/>
+          <path d="M19 6 V16" stroke="#00d4ff" stroke-width="1.4"/>
+          <ellipse cx="11" cy="16" rx="8" ry="3" stroke="#00d4ff" stroke-width="1.4" fill="none"/>
+          <path d="M3 11 Q11 14 19 11" stroke="#00d4ff" stroke-width="0.9" fill="none" opacity="0.5"/>
+        </svg>
+      </div>
+      <div class="card-title">Vector DB Dashboard</div>
+      <div class="card-desc">Live Qdrant monitoring — collection health, embedding counts, document sources, and search index stats.</div>
+      <div class="card-arrow">→ Open Dashboard</div>
+    </a>
+
   </div>
 
-  <!-- Chat Slide-over Panel -->
-  <div class="chat-overlay" id="chatPanel">
-    <div class="chat-header">
-      <h2>Threat Intel Chat</h2>
-      <div class="chat-header-actions">
-        <button class="chat-btn" id="newChatBtn">New Chat</button>
-        <button class="chat-btn chat-close" id="closeChatBtn">&times;</button>
+  <div class="section-label">// Tools &amp; Settings</div>
+  <div class="util-cards">
+
+    <a class="util-card" href="/alerts.html" id="openBenignCard">
+      <div class="util-icon">✅</div>
+      <div class="util-text">
+        <div class="util-title">Benign Exceptions</div>
+        <div class="util-desc">Mark rule IDs as benign to exclude them from anomaly scoring</div>
       </div>
-    </div>
-    <div class="chat-messages" id="chatMessages">
-      <div class="chat-welcome" id="chatWelcome">
-        <h3>Wazuh AI Threat Intel</h3>
-        <p style="font-size:13px">Ask about attacks, MITRE techniques, or your Wazuh alerts.</p>
-        <div class="chat-suggestions">
-          <span class="chat-suggestion" onclick="chatAsk(this.textContent)">What attacks were detected?</span>
-          <span class="chat-suggestion" onclick="chatAsk(this.textContent)">Show failed logins</span>
-          <span class="chat-suggestion" onclick="chatAsk(this.textContent)">Explain T1055</span>
-          <span class="chat-suggestion" onclick="chatAsk(this.textContent)">Rootkit alerts</span>
-        </div>
+    </a>
+
+    <a class="util-card" href="/alerts.html" id="openSuspCard">
+      <div class="util-icon">⚠️</div>
+      <div class="util-text">
+        <div class="util-title">Suspicious Groups</div>
+        <div class="util-desc">Tag alert groups as suspicious to boost the anomaly feature</div>
       </div>
-    </div>
-    <div class="chat-typing" id="chatTyping">
-      <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
-    </div>
-    <div class="chat-input-area">
-      <div class="chat-input-row">
-        <textarea class="chat-input" id="chatInput" rows="1" placeholder="Ask about this alert or any threat..."></textarea>
-        <button class="chat-send" id="chatSendBtn">Send</button>
-      </div>
-    </div>
+    </a>
+
   </div>
 
-  <script>
-    // ==================== Alerts Dashboard ====================
-    const alertsEl = document.getElementById("alerts");
-    const statusEl = document.getElementById("status");
-    const emptyEl = document.getElementById("empty");
-    let alertCount = 0;
+</div>
 
-    function setStatus(msg, state) {
-      statusEl.textContent = msg;
-      statusEl.className = "status " + state;
-    }
-    function getLevelClass(level) { return "level-" + level; }
-    function getLevelLabel(level) {
-      if (level <= 3) return "INFO";
-      if (level <= 5) return "WARNING";
-      if (level <= 8) return "ERROR";
-      return "CRITICAL";
-    }
-    function isComplianceTag(tag) {
-      return /^(pci_dss|gdpr|hipaa|nist|gpg|tsc)/.test(tag);
-    }
-    function escapeHtml(text) {
-      const d = document.createElement("div");
-      d.textContent = text;
-      return d.innerHTML;
-    }
+<script>
+async function loadStats() {
+  const dot = document.getElementById("liveDot");
+  const status = document.getElementById("headerStatus");
+  try {
+    dot.className = "live-dot loading";
+    status.textContent = "Connecting…";
+    const resp = await fetch("/api/alerts/scored?limit=500");
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    const data = await resp.json();
+    const alerts = data.alerts || [];
 
-    function createAlertCard(alert) {
-      const card = document.createElement("div");
-      card.className = "alert-card";
+    const high  = alerts.filter(a => a.anomaly_label === "HIGH").length;
+    const susp  = alerts.filter(a => a.anomaly_label === "SUSPICIOUS").length;
+    const norm  = alerts.filter(a => a.anomaly_label === "NORMAL").length;
+    const scored = alerts.filter(a => a.anomaly_score != null);
+    const avg = scored.length
+      ? Math.round(scored.reduce((s, a) => s + a.anomaly_score, 0) / scored.length)
+      : 0;
 
-      // Header row
-      const header = document.createElement("div");
-      header.className = "alert-header";
-      const ts = document.createElement("span");
-      ts.className = "timestamp";
-      ts.textContent = alert.timestamp || "No timestamp";
-      const badge = document.createElement("span");
-      badge.className = "level-badge " + getLevelClass(alert.level);
-      badge.textContent = getLevelLabel(alert.level) + " (Level " + alert.level + ")";
-      header.appendChild(ts);
-      header.appendChild(badge);
-      card.appendChild(header);
+    document.getElementById("statTotal").textContent = alerts.length.toLocaleString();
+    document.getElementById("statHigh").textContent  = high.toLocaleString();
+    document.getElementById("statSusp").textContent  = susp.toLocaleString();
+    document.getElementById("statNormal").textContent = norm.toLocaleString();
+    document.getElementById("statAvg").textContent   = avg;
 
-      // Rule info
-      if (alert.rule_id || alert.rule_description) {
-        const ri = document.createElement("div");
-        ri.className = "rule-info";
-        if (alert.rule_id) {
-          const rid = document.createElement("span");
-          rid.className = "rule-id";
-          rid.textContent = "Rule " + alert.rule_id;
-          ri.appendChild(rid);
-        }
-        if (alert.rule_description) {
-          const rd = document.createElement("span");
-          rd.className = "rule-description";
-          rd.textContent = alert.rule_description;
-          ri.appendChild(rd);
-        }
-        card.appendChild(ri);
-      }
+    dot.className = "live-dot";
+    status.textContent = "Connected · " + new Date().toLocaleTimeString();
+  } catch (err) {
+    dot.className = "live-dot error";
+    status.textContent = "Offline";
+    console.error(err);
+  }
+}
 
-      // Main: meta + message
-      const main = document.createElement("div");
-      main.className = "alert-main";
-      const meta = document.createElement("div");
-      meta.className = "alert-meta";
-      if (alert.hostname) meta.innerHTML += '<div class="meta-item"><span class="meta-label">Hostname:</span> <span class="meta-value hostname">' + escapeHtml(alert.hostname) + '</span></div>';
-      if (alert.program)  meta.innerHTML += '<div class="meta-item"><span class="meta-label">Program:</span> <span class="meta-value program">' + escapeHtml(alert.program) + '</span></div>';
-      if (alert.source)   meta.innerHTML += '<div class="meta-item"><span class="meta-label">Source:</span> <span class="meta-value">' + escapeHtml(alert.source) + '</span></div>';
-      if (alert.user)     meta.innerHTML += '<div class="meta-item"><span class="meta-label">User:</span> <span class="meta-value">' + escapeHtml(alert.user) + '</span></div>';
-      main.appendChild(meta);
-      if (alert.message) {
-        const msg = document.createElement("div");
-        msg.className = "message";
-        msg.textContent = alert.message;
-        main.appendChild(msg);
-      }
-      card.appendChild(main);
-
-      // Tags
-      if (alert.tags && alert.tags.length) {
-        const tags = document.createElement("div");
-        tags.className = "tags";
-        alert.tags.slice(0, 15).forEach(t => {
-          const el = document.createElement("span");
-          el.className = isComplianceTag(t) ? "tag compliance" : "tag";
-          el.textContent = t;
-          tags.appendChild(el);
-        });
-        card.appendChild(tags);
-      }
-
-      // Investigate button
-      const footer = document.createElement("div");
-      footer.className = "alert-footer";
-      const btn = document.createElement("button");
-      btn.className = "investigate-btn";
-      btn.textContent = "Investigate with AI";
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const parts = [];
-        if (alert.rule_description) parts.push(alert.rule_description);
-        if (alert.rule_id) parts.push("rule " + alert.rule_id);
-        if (alert.message) parts.push(alert.message.substring(0, 150));
-        openChatWith("Analyze this alert: " + parts.join(" - "));
-      });
-      footer.appendChild(btn);
-      card.appendChild(footer);
-
-      return card;
-    }
-
-    // SSE stream
-    const streamUrl = location.origin + "/stream";
-    const es = new EventSource(streamUrl);
-    es.onopen = () => {
-      setStatus("Live", "connected");
-      if (alertCount === 0) emptyEl.style.display = "block";
-    };
-    es.onerror = () => setStatus("Reconnecting...", "connecting");
-    es.onmessage = (e) => {
-      try {
-        const alert = JSON.parse(e.data);
-        if (alert.error) return;
-        if (alertCount === 0) emptyEl.style.display = "none";
-        alertsEl.insertBefore(createAlertCard(alert), alertsEl.firstChild);
-        alertCount++;
-        while (alertsEl.children.length > 100) alertsEl.removeChild(alertsEl.lastChild);
-      } catch (err) { console.error("Parse error:", err); }
-    };
-
-    // ==================== Chat Panel ====================
-    const chatPanel = document.getElementById("chatPanel");
-    const chatMessages = document.getElementById("chatMessages");
-    const chatInput = document.getElementById("chatInput");
-    const chatSendBtn = document.getElementById("chatSendBtn");
-    const chatTyping = document.getElementById("chatTyping");
-    const chatWelcome = document.getElementById("chatWelcome");
-    const API = location.origin;
-    let chatSessionId = null;
-
-    document.getElementById("openChatBtn").addEventListener("click", () => {
-      chatPanel.classList.add("open");
-      chatInput.focus();
-    });
-    document.getElementById("closeChatBtn").addEventListener("click", () => {
-      chatPanel.classList.remove("open");
-    });
-    document.getElementById("newChatBtn").addEventListener("click", () => {
-      if (chatSessionId) fetch(API + "/api/chat/sessions?session_id=" + chatSessionId, { method: "DELETE" });
-      chatSessionId = null;
-      chatMessages.innerHTML = "";
-      chatMessages.appendChild(chatWelcome);
-      chatWelcome.style.display = "block";
-      chatInput.focus();
-    });
-
-    chatInput.addEventListener("input", () => {
-      chatInput.style.height = "auto";
-      chatInput.style.height = Math.min(chatInput.scrollHeight, 100) + "px";
-    });
-    chatInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); }
-    });
-    chatSendBtn.addEventListener("click", sendChat);
-
-    function openChatWith(query) {
-      chatPanel.classList.add("open");
-      chatInput.value = query;
-      setTimeout(sendChat, 200);
-    }
-    function chatAsk(text) {
-      chatInput.value = text;
-      sendChat();
-    }
-
-    function renderMd(text) {
-      text = text.replace(/```(\w*)\n([\s\S]*?)```/g, (_, l, c) => "<pre><code>" + escapeHtml(c.trim()) + "</code></pre>");
-      text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
-      text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-      text = text.replace(/\*(.+?)\*/g, "<em>$1</em>");
-      text = text.replace(/^- (.+)$/gm, "<li>$1</li>");
-      text = text.replace(/(<li>.*<\/li>\n?)+/g, m => "<ul>" + m + "</ul>");
-      text = text.replace(/^\d+\.\s(.+)$/gm, "<li>$1</li>");
-      text = text.replace(/\n/g, "<br>");
-      text = text.replace(/<br><\/ul>/g, "</ul>").replace(/<ul><br>/g, "<ul>");
-      text = text.replace(/<br><li>/g, "<li>").replace(/<\/li><br>/g, "</li>");
-      return text;
-    }
-
-    function addChatMsg(role, content, sources) {
-      chatWelcome.style.display = "none";
-      const row = document.createElement("div");
-      row.className = "chat-msg " + role;
-
-      const av = document.createElement("div");
-      av.className = "chat-avatar";
-      av.textContent = role === "user" ? "U" : "AI";
-
-      const col = document.createElement("div");
-      col.style.display = "flex";
-      col.style.flexDirection = "column";
-      col.style.gap = "4px";
-      col.style.minWidth = "0";
-      col.style.maxWidth = "85%";
-
-      const bubble = document.createElement("div");
-      bubble.className = "chat-bubble";
-      if (role === "assistant") bubble.innerHTML = renderMd(content);
-      else bubble.textContent = content;
-      col.appendChild(bubble);
-
-      if (role === "assistant" && sources && sources.length) {
-        const sd = document.createElement("div");
-        sd.className = "chat-sources";
-        const seen = new Set();
-        sources.forEach(s => {
-          const k = s.type + ":" + s.id;
-          if (seen.has(k)) return;
-          seen.add(k);
-          const t = document.createElement("span");
-          let cls = "src-tag";
-          if (s.type === "mitre_attack") cls += " mitre";
-          else if (s.type === "yara_rule") cls += " yara";
-          else if (s.type === "vendor_advisory") cls += " vendor";
-          else if (s.type === "wazuh_alert") cls += " wazuh";
-          t.className = cls;
-          t.textContent = s.id;
-          t.title = s.summary || "";
-          sd.appendChild(t);
-        });
-        col.appendChild(sd);
-      }
-
-      row.appendChild(av);
-      row.appendChild(col);
-      chatMessages.appendChild(row);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    async function sendChat() {
-      const text = chatInput.value.trim();
-      if (!text) return;
-      chatInput.value = "";
-      chatInput.style.height = "auto";
-      chatSendBtn.disabled = true;
-      addChatMsg("user", text);
-
-      chatTyping.classList.add("visible");
-      chatMessages.scrollTop = chatMessages.scrollHeight;
-
-      try {
-        const resp = await fetch(API + "/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: text, session_id: chatSessionId }),
-        });
-        const data = await resp.json();
-        if (data.error) {
-          addChatMsg("assistant", "Error: " + data.error, []);
-        } else {
-          chatSessionId = data.session_id;
-          addChatMsg("assistant", data.reply, data.sources || []);
-        }
-      } catch (err) {
-        addChatMsg("assistant", "Connection error: " + err.message + ". Is the server running?", []);
-      } finally {
-        chatTyping.classList.remove("visible");
-        chatSendBtn.disabled = false;
-        chatInput.focus();
-      }
-    }
-  </script>
+loadStats();
+</script>
 </body>
 </html>

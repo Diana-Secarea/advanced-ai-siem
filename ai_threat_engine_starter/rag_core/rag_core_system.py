@@ -19,21 +19,19 @@ from rag_core.episodes.episode_builder import (
     AlertEpisodeBuilder,
     SecurityEpisode
 )
-from rag_core.indexing.hybrid_retrieval import HybridRetrieval
+from rag_core.database.qdrant_store import QdrantStore
 from rag_core.agent.agent_workflow import SOCAgent, AgentOutput
 
 
 class RAGCoreSystem:
     """
     RAG Core System for Threat Intelligence
-    
+
     Responsibilities:
     - Threat intelligence ingestion (ATT&CK, vendor, IOCs, YARA, Sigma)
     - Episode building (process, auth, network, alert)
-    - Embedding generation
-    - Hybrid indexing (BM25 + Vector + Freshness)
-    - Threat retrieval/search
-    
+    - Hybrid retrieval via Qdrant (dense + sparse BM25, RRF fusion)
+
     Does NOT handle:
     - Isolation Forest (handled by AI Engine)
     - Pattern Analysis (handled by AI Engine)
@@ -67,59 +65,13 @@ class RAGCoreSystem:
         self.network_builder = NetworkEpisodeBuilder()
         self.alert_builder = AlertEpisodeBuilder()
         
-        # Hybrid retrieval
-        self.retrieval = HybridRetrieval(
-            embedding_model="all-MiniLM-L6-v2",
-            use_reranker=True,
-            semantic_weight=0.6,
-            keyword_weight=0.3,
-            freshness_weight=0.1
-        )
-        
+        # Qdrant-backed hybrid retrieval (dense + BM25 sparse, RRF fusion)
+        self.retrieval = QdrantStore()
+
         # SOC Agent (for advanced workflows, but not required for basic RAG)
         self.agent = None  # Can be initialized later if needed
-        
-        # Episodes storage
-        self.episodes: List[SecurityEpisode] = []
-        self.episodes_path = self.base_path / "episodes"
-        self.episodes_path.mkdir(parents=True, exist_ok=True)
-        
-        # Load existing episodes
-        self._load_episodes()
-        
-        # Load existing indexes (embeddings, FAISS) if available
-        self._load_indexes()
-        
+
         print("✅ RAG Core System initialized (RAG operations only)")
-    
-    def _load_indexes(self):
-        """Load existing indexes (embeddings, FAISS) if available"""
-        index_path = self.base_path / "indexes"
-        
-        if index_path.exists():
-            try:
-                # Check if we have episodes to index
-                if self.episodes:
-                    # Convert episodes to dict format
-                    episode_dicts = [self._episode_to_dict(ep) for ep in self.episodes]
-                    
-                    # Try to load existing index
-                    if (index_path / "episodes.json").exists():
-                        self.retrieval.load_index(str(index_path))
-                        print(f"✅ Loaded existing indexes from {index_path}")
-                    else:
-                        # Index episodes if not already indexed
-                        print("Indexing episodes...")
-                        self.retrieval.index_episodes(episode_dicts)
-                        self.retrieval.save_index(str(index_path))
-                else:
-                    # Try to load index even without episodes (for search only)
-                    if (index_path / "episodes.json").exists():
-                        self.retrieval.load_index(str(index_path))
-                        print(f"✅ Loaded existing indexes from {index_path}")
-            except Exception as e:
-                print(f"⚠️ Error loading indexes: {e}")
-                print("   Will rebuild indexes when episodes are indexed")
     
     # ==================== RAG Operations ====================
     
@@ -131,17 +83,12 @@ class RAGCoreSystem:
         return self.ingestion.ingest_all(**kwargs)
     
     def build_episodes_from_events(self, events: List[Dict]) -> List[SecurityEpisode]:
-        """Build security episodes from Wazuh events"""
+        """Build security episodes from Wazuh events and index them into Qdrant."""
         print(f"\nBuilding episodes from {len(events)} events...")
-        
+
         episodes = []
-        
-        # Group events by type
-        process_events = []
-        auth_events = []
-        network_events = []
-        alert_events = []
-        
+
+        process_events, auth_events, network_events, alert_events = [], [], [], []
         for event in events:
             event_type = self._classify_event(event)
             if event_type == 'process':
@@ -152,53 +99,29 @@ class RAGCoreSystem:
                 network_events.append(event)
             elif event_type == 'alert':
                 alert_events.append(event)
-        
-        # Build episodes
+
         if process_events:
-            episode = self.process_builder.build_episode(process_events)
-            if episode:
-                episodes.append(episode)
-        
+            ep = self.process_builder.build_episode(process_events)
+            if ep:
+                episodes.append(ep)
         if auth_events:
-            episode = self.auth_builder.build_episode(auth_events)
-            if episode:
-                episodes.append(episode)
-        
+            ep = self.auth_builder.build_episode(auth_events)
+            if ep:
+                episodes.append(ep)
         if network_events:
-            episode = self.network_builder.build_episode(network_events)
-            if episode:
-                episodes.append(episode)
-        
+            ep = self.network_builder.build_episode(network_events)
+            if ep:
+                episodes.append(ep)
         for alert in alert_events:
-            # Find correlated events
             correlated = self._find_correlated_events(alert, events)
-            episode = self.alert_builder.build_episode(alert, correlated)
-            episodes.append(episode)
-        
-        # Add to storage
-        self.episodes.extend(episodes)
-        self._save_episodes()
-        
-        print(f"✅ Built {len(episodes)} episodes")
-        return episodes
-    
-    def index_episodes(self, rebuild: bool = False):
-        """Index episodes for retrieval"""
-        if not self.episodes:
-            print("⚠️ No episodes to index")
-            return
-        
-        # Convert to dict format for indexing
-        episode_dicts = [self._episode_to_dict(ep) for ep in self.episodes]
-        
-        print(f"\nIndexing {len(episode_dicts)} episodes...")
+            episodes.append(self.alert_builder.build_episode(alert, correlated))
+
+        # Index directly into Qdrant — no in-memory storage
+        episode_dicts = [self._episode_to_dict(ep) for ep in episodes]
         self.retrieval.index_episodes(episode_dicts)
-        
-        # Save index
-        index_path = self.base_path / "indexes"
-        self.retrieval.save_index(str(index_path))
-        
-        print("✅ Episodes indexed")
+
+        print(f"✅ Built and indexed {len(episodes)} episodes")
+        return episodes
     
     def search_threats(
         self,
@@ -209,36 +132,22 @@ class RAGCoreSystem:
         time_window: Optional[Tuple[datetime, datetime]] = None
     ) -> List[Dict]:
         """
-        Search for threats using hybrid retrieval (BM25 + Vector + Freshness)
-        
+        Search for threats using Qdrant hybrid retrieval (dense + BM25 sparse, RRF fusion).
+
         Args:
             query: Search query string
             top_k: Number of results to return
-            filter_entities: Filter by entities {type: [values]}
-            filter_tags: Filter by tags
-            time_window: Filter by time range (start, end)
-        
+            filter_tags: Filter by tags (applied inside Qdrant prefetch)
+            filter_entities / time_window: Kept for API compatibility, not yet supported by Qdrant store
+
         Returns:
-            List of threat intelligence results with:
-            - summary: str - threat description
-            - episode_type: str - type of episode
-            - entities: dict - extracted entities
-            - tags: list - tags
-            - score: float - relevance score (0-1)
-            - similarity: float - similarity score (0-1)
+            List of threat intelligence results.
         """
-        if not self.retrieval or not self.retrieval.episodes:
-            return []
-        
         try:
             results = self.retrieval.search(
                 query=query,
                 top_k=top_k,
-                filter_entities=filter_entities,
                 filter_tags=filter_tags,
-                time_window=time_window,
-                boost_freshness=True,
-                use_reranking=True
             )
             
             # Format results for AI Engine
@@ -368,12 +277,12 @@ class RAGCoreSystem:
     # ==================== Agent Workflow (Optional) ====================
     
     def initialize_agent(self):
-        """Initialize SOC Agent for advanced workflows (optional)"""
+        """Initialize SOC Agent for advanced workflows (optional)."""
         if self.agent is None:
             self.agent = SOCAgent(
                 retrieval=self.retrieval,
-                anomaly_detector=None,  # AI Engine handles this
-                threat_intel_path=str(self.base_path / "threat_intel")
+                anomaly_detector=None,
+                threat_intel_path=str(self.base_path.parent / "threat_intel"),
             )
             print("✅ SOC Agent initialized")
     
@@ -498,41 +407,6 @@ class RAGCoreSystem:
             'metadata': episode.metadata
         }
     
-    def _save_episodes(self):
-        """Save episodes to disk"""
-        episodes_file = self.episodes_path / "episodes.json"
-        episode_dicts = [self._episode_to_dict(ep) for ep in self.episodes]
-        
-        with open(episodes_file, 'w') as f:
-            json.dump(episode_dicts, f, indent=2, default=str)
-    
-    def _load_episodes(self):
-        """Load episodes from disk"""
-        episodes_file = self.episodes_path / "episodes.json"
-        
-        if episodes_file.exists():
-            try:
-                with open(episodes_file, 'r') as f:
-                    episode_dicts = json.load(f)
-                    # Convert back to SecurityEpisode objects
-                    from rag_core.episodes.episode_builder import SecurityEpisode
-                    self.episodes = [
-                        SecurityEpisode(**d) for d in episode_dicts
-                    ]
-                print(f"✅ Loaded {len(self.episodes)} episodes")
-            except Exception as e:
-                print(f"⚠️ Error loading episodes: {e}")
-                self.episodes = []
-
-
 if __name__ == "__main__":
-    # Example usage
     system = RAGCoreSystem()
-    
-    # Ingest threat intelligence
-    system.ingest_threat_intelligence()
-    
-    # Index episodes
-    system.index_episodes()
-    
-    print("\n✅ Final RAG System ready!")
+    print("\n✅ RAG System ready. Use search_threats() to query.")

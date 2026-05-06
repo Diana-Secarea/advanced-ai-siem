@@ -1,0 +1,60 @@
+{
+  "techniques": [
+    {
+      "id": "d3f:Reference-CertificateAndPublicKeyPinning",
+      "name": "Reference - Certificate and Public Key Pinning",
+      "tactic": "",
+      "description": "",
+      "attack_techniques_countered": [],
+      "source": "MITRE_D3FEND",
+      "ingested_at": "2026-03-26T08:25:35.979485"
+    },
+    {
+      "id": "d3f:Reference-StreamingPhish",
+      "name": "Reference - StreamingPhish",
+      "tactic": "",
+      "description": "",
+      "attack_techniques_countered": [],
+      "source": "MITRE_D3FEND",
+      "ingested_at": "2026-03-26T08:25:35.979970"
+    },
+    {
+      "id": "d3f:DefensiveTechnique",
+      "name": "Defensive Technique",
+      "tactic": "",
+      "description": "A method which makes a computer system more difficult to attack.",
+      "attack_techniques_countered": [],
+      "source": "MITRE_D3FEND",
+      "ingested_at": "2026-03-26T08:25:35.980954"
+    },
+    {
+      "id": "d3f:Reference-UseRkillToStopMalwareProcesses-Ghacks.net",
+      "name": "Reference - Use Rkill to Stop Malware Processes - ghacks.net",
+      "tactic": "",
+      "description": "",
+      "attack_techniques_countered": [],
+      "source": "MITRE_D3FEND",
+      "ingested_at": "2026-03-26T08:25:35.981360"
+    },
+    {
+      "id": "d3f:Reference-CertificateTransparency",
+      "name": "Reference - Certificate Transparency",
+      "tactic": "",
+      "description": "",
+      "attack_techniques_countered": [],
+      "source": "MITRE_D3FEND",
+      "ingested_at": "2026-03-26T08:25:35.982601"
+    },
+    {
+      "id": "d3f:Reference-FWTKDocumentation-Fwtk.org",
+      "name": "Reference - FWTK Documentation - fwtk.org",
+      "tactic": "",
+      "description": "",
+      "attack_techniques_countered": [],
+      "source": "MITRE_D3FEND",
+      "ingested_at": "2026-03-26T08:25:35.982732"
+    }
+  ],
+  "count": 6,
+  "last_updated": "2026-03-26T08:25:35.983121"
+}

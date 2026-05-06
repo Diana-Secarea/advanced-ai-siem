@@ -1,0 +1,1932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alerts — SIEM AI Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <style>
+    :root {
+      --bg:         #050810;
+      --bg-card:    #0a1020;
+      --bg-raised:  #0f1828;
+      --bg-deep:    #060c18;
+      --border:     #1a2d4a;
+      --border-dim: #0f1e33;
+      --cyan:       #00d4ff;
+      --cyan-dim:   rgba(0,212,255,0.10);
+      --red:        #ff3355;
+      --red-dim:    rgba(255,51,85,0.12);
+      --amber:      #ffaa00;
+      --amber-dim:  rgba(255,170,0,0.12);
+      --green:      #00e676;
+      --green-dim:  rgba(0,230,118,0.12);
+      --purple:     #c060ff;
+      --purple-dim: rgba(192,96,255,0.12);
+      --text:       #dde6f5;
+      --text-muted: #4a5a72;
+      --text-dim:   #253040;
+      --mono:       "SFMono-Regular","JetBrains Mono",Consolas,monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg);
+      background-image:
+        linear-gradient(rgba(0,212,255,0.022) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,0.022) 1px, transparent 1px);
+      background-size: 48px 48px;
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ==================== Header ==================== */
+    .header {
+      background: rgba(5,8,16,0.93);
+      border-bottom: 1px solid var(--border);
+      padding: 11px 24px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      backdrop-filter: blur(14px);
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .logo-mark { width: 26px; height: 26px; flex-shrink: 0; filter: drop-shadow(0 0 5px rgba(0,212,255,0.5)); }
+    .logo-link { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+    .logo-link:hover .logo-mark { filter: drop-shadow(0 0 9px rgba(0,212,255,0.9)); }
+    .header h1 { font-size: 14px; font-weight: 700; color: var(--cyan); letter-spacing: 1px; text-transform: uppercase; font-family: var(--mono); }
+    .live-dot {
+      width: 7px; height: 7px; border-radius: 50%; background: var(--green);
+      box-shadow: 0 0 0 0 rgba(0,230,118,.7);
+      animation: livePulse 2s infinite;
+    }
+    @keyframes livePulse {
+      0%   { box-shadow: 0 0 0 0 rgba(0,230,118,.6); }
+      70%  { box-shadow: 0 0 0 7px rgba(0,230,118,0); }
+      100% { box-shadow: 0 0 0 0 rgba(0,230,118,0); }
+    }
+    .live-dot.error   { background: var(--red); animation: none; box-shadow: none; }
+    .live-dot.loading { background: var(--text-muted); animation: none; box-shadow: none; }
+
+    .header-right { display: flex; gap: 8px; align-items: center; }
+    .hdr-btn {
+      color: var(--text-muted); text-decoration: none; font-size: 11px;
+      padding: 5px 12px; border-radius: 6px; background: var(--bg-raised);
+      border: 1px solid var(--border); cursor: pointer; font-weight: 600;
+      transition: background .2s, border-color .2s, color .2s;
+      font-family: var(--mono); letter-spacing: 0.3px;
+    }
+    .hdr-btn:hover { background: rgba(0,212,255,0.08); border-color: var(--cyan); color: var(--cyan); }
+    .hdr-badge { font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 8px; background: var(--red); color: #fff; margin-left: 4px; }
+    .refresh-info { font-size: 11px; color: var(--text-muted); font-family: var(--mono); }
+
+    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+
+    /* ==================== Stats Cards ==================== */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: border-color .2s, transform .1s;
+      cursor: default;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--ac, var(--border));
+      opacity: 0.6;
+    }
+    .stat-card.high       { --ac: var(--red); }
+    .stat-card.suspicious { --ac: var(--amber); }
+    .stat-card.normal     { --ac: var(--green); }
+    .stat-card.benign     { --ac: var(--green); }
+    .stat-card.score      { --ac: var(--cyan); }
+    .stat-card:hover { border-color: var(--ac, var(--cyan)); transform: translateY(-1px); }
+    .stat-value {
+      font-size: 26px;
+      font-weight: 800;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      font-family: var(--mono);
+      transition: color .3s;
+    }
+    .stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); font-family: var(--mono); }
+    .stat-sub { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+    .stat-card.total  .stat-value { color: var(--text); }
+    .stat-card.high   .stat-value { color: var(--red);   text-shadow: 0 0 14px rgba(255,51,85,0.5); }
+    .stat-card.suspicious .stat-value { color: var(--amber); text-shadow: 0 0 14px rgba(255,170,0,0.4); }
+    .stat-card.normal .stat-value { color: var(--green); text-shadow: 0 0 14px rgba(0,230,118,0.4); }
+    .stat-card.benign .stat-value { color: var(--green); }
+    .stat-card.score  .stat-value { color: var(--cyan);  text-shadow: 0 0 14px rgba(0,212,255,0.4); }
+    .stat-trend { font-size: 11px; margin-top: 2px; }
+    .stat-trend.up   { color: var(--red); }
+    .stat-trend.down { color: var(--green); }
+
+    /* ==================== Charts Grid ==================== */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    .chart-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 18px;
+    }
+    .chart-card h3 {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--mono);
+    }
+    .chart-hint { font-size: 10px; color: var(--text-dim); font-weight: 400; text-transform: none; letter-spacing: 0; }
+    .chart-canvas-wrap { position: relative; height: 180px; }
+    .chart-canvas-wrap.tall { height: 220px; }
+
+    /* ==================== Attack Origin Map ==================== */
+    .map-card { margin-bottom: 18px; }
+    .map-card #attackMap {
+      height: 340px;
+      border-radius: 6px;
+      overflow: hidden;
+      background: var(--bg-deep);
+    }
+    .leaflet-container { background: #060c18 !important; }
+    .geo-popup .leaflet-popup-content-wrapper {
+      background: #0d1b2a;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      box-shadow: 0 6px 24px rgba(0,0,0,0.6);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    .geo-popup .leaflet-popup-tip { background: #0d1b2a; }
+    .geo-popup .leaflet-popup-content { margin: 10px 14px; line-height: 1.7; }
+    .map-empty {
+      height: 340px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-family: var(--mono);
+      border-radius: 6px;
+      border: 1px dashed var(--border-dim);
+    }
+
+    /* ==================== Filter Bar ==================== */
+    .filter-bar {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .filter-search {
+      flex: 1; min-width: 180px;
+      background: var(--bg-deep);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 7px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      outline: none;
+      font-family: var(--mono);
+    }
+    .filter-search:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(0,212,255,0.1); }
+    .filter-search::placeholder { color: var(--text-dim); }
+
+    .filter-group { display: flex; gap: 4px; align-items: center; }
+    .filter-label { font-size: 10px; color: var(--text-muted); white-space: nowrap; font-family: var(--mono); letter-spacing: 0.5px; text-transform: uppercase; }
+
+    .filter-btn {
+      background: var(--bg-raised);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      padding: 5px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: var(--mono);
+      transition: background .15s, border-color .15s, color .15s;
+      white-space: nowrap;
+    }
+    .filter-btn:hover { background: rgba(0,212,255,0.07); color: var(--cyan); border-color: rgba(0,212,255,0.3); }
+    .filter-btn.active { color: #fff; border-color: transparent; }
+    .filter-btn.active.all    { background: rgba(0,153,255,0.8); }
+    .filter-btn.active.high   { background: var(--red); }
+    .filter-btn.active.suspicious { background: #cc7700; }
+    .filter-btn.active.normal { background: #00a854; }
+    .filter-btn.active.benign { background: #007a40; }
+    .filter-btn.active.time   { background: rgba(0,153,255,0.8); }
+    .filter-btn.active.sort   { background: #7030d0; }
+
+    .filter-select {
+      background: var(--bg-raised);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 5px 8px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-family: var(--mono);
+      cursor: pointer;
+      outline: none;
+    }
+    .filter-select:focus { border-color: var(--cyan); }
+
+    .filter-divider {
+      width: 1px;
+      height: 22px;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+    .filter-count {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-left: auto;
+      white-space: nowrap;
+      font-family: var(--mono);
+    }
+    .filter-count strong { color: var(--text); }
+
+    .date-range { display: flex; gap: 4px; align-items: center; }
+    .date-input {
+      background: var(--bg-raised);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 5px 8px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-family: var(--mono);
+      outline: none;
+      width: 130px;
+    }
+    .date-input:focus { border-color: var(--cyan); }
+
+    /* ==================== Alert Cards ==================== */
+    #alerts { display: flex; flex-direction: column; gap: 10px; }
+
+    .alert-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 16px;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .alert-card:hover { border-color: rgba(0,212,255,0.3); }
+    .alert-card.anomaly-high {
+      border-color: var(--red);
+      box-shadow: 0 0 0 1px rgba(255,51,85,0.3), 0 0 16px rgba(255,51,85,0.12);
+      animation: pulse-red 2.5s infinite;
+    }
+    .alert-card.anomaly-suspicious { border-color: var(--amber); box-shadow: 0 0 0 1px rgba(255,170,0,0.2); }
+    .alert-card.anomaly-benign { opacity: 0.65; }
+
+    @keyframes pulse-red {
+      0%,100% { box-shadow: 0 0 0 1px rgba(255,51,85,0.3), 0 0 14px rgba(255,51,85,0.12); }
+      50%      { box-shadow: 0 0 0 1px rgba(255,51,85,0.5), 0 0 24px rgba(255,51,85,0.22); }
+    }
+
+    .anomaly-badge {
+      padding: 3px 9px; border-radius: 10px; font-size: 10px;
+      font-weight: 700; letter-spacing: 0.6px; font-family: var(--mono);
+    }
+    .anomaly-badge.high       { background: var(--red-dim);    color: var(--red);   border: 1px solid rgba(255,51,85,0.35); }
+    .anomaly-badge.suspicious { background: var(--amber-dim);  color: var(--amber); border: 1px solid rgba(255,170,0,0.35); }
+    .anomaly-badge.normal     { background: var(--green-dim);  color: var(--green); border: 1px solid rgba(0,230,118,0.35); }
+    .anomaly-badge.benign     { background: var(--green-dim);  color: #39ff88;      border: 1px solid rgba(0,230,118,0.25); }
+    .anomaly-badge.unknown    { background: var(--bg-raised);  color: var(--text-muted); border: 1px solid var(--border); }
+
+    .alert-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+    .timestamp { font-size: 11px; color: var(--text-muted); font-family: var(--mono); }
+
+    .level-badge {
+      padding: 3px 9px; border-radius: 10px; font-size: 10px;
+      font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-family: var(--mono);
+    }
+    .level-0,.level-1,.level-2,.level-3 { background: rgba(0,212,255,0.1); color: var(--cyan); }
+    .level-4,.level-5 { background: var(--amber-dim); color: var(--amber); }
+    .level-6,.level-7,.level-8 { background: rgba(255,100,50,0.12); color: #ff6644; }
+    .level-9,.level-10,.level-11,.level-12,.level-13,.level-14,.level-15 { background: var(--red-dim); color: var(--red); font-weight: 700; }
+
+    .rule-info { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 8px; }
+    .rule-id { background: var(--bg-raised); padding: 2px 7px; border-radius: 4px; font-family: var(--mono); color: #70d0ff; font-weight: 600; font-size: 12px; cursor: pointer; border: 1px solid var(--border); }
+    .rule-id:hover { background: rgba(0,212,255,0.08); border-color: rgba(0,212,255,0.3); }
+    .rule-description { color: var(--text-muted); flex: 1; font-size: 13px; }
+
+    .alert-main { display: grid; grid-template-columns: auto 1fr; gap: 10px; margin-bottom: 8px; align-items: start; }
+    .alert-meta { display: flex; flex-direction: column; gap: 3px; min-width: 180px; }
+    .meta-item { font-size: 11px; }
+    .meta-label { color: var(--text-muted); display: inline-block; min-width: 64px; }
+    .meta-value { color: var(--text); font-family: var(--mono); font-size: 11px; }
+    .hostname { color: var(--cyan); }
+    .program { color: #70d0ff; }
+
+    .message {
+      background: var(--bg-deep); padding: 10px 12px; border-radius: 4px;
+      font-family: var(--mono); font-size: 12px;
+      line-height: 1.5; color: var(--text); border-left: 2px solid var(--cyan);
+      word-break: break-all; overflow: hidden;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+    }
+
+    .score-bar-wrap { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+    .score-bar-bg { flex: 1; height: 3px; background: var(--bg-raised); border-radius: 2px; overflow: hidden; }
+    .score-bar-fill { height: 100%; border-radius: 2px; transition: width .4s; }
+
+    .tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
+    .tag { background: var(--bg-raised); color: var(--text-muted); padding: 2px 7px; border-radius: 4px; font-size: 10px; font-family: var(--mono); display: inline-flex; align-items: center; gap: 3px; border: 1px solid var(--border-dim); }
+    .tag.compliance { background: var(--purple-dim); color: var(--purple); }
+    .tag.tag-suspicious { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(255,170,0,0.3); }
+    .tag-toggle { cursor: pointer; font-size: 10px; font-weight: 700; line-height: 1; opacity: 0.5; padding: 0 2px; border-radius: 2px; }
+    .tag-toggle:hover { opacity: 1; background: rgba(255,255,255,0.1); }
+
+    .alert-footer { display: flex; justify-content: flex-end; align-items: center; gap: 6px; margin-top: 8px; }
+    .investigate-btn {
+      background: var(--bg-raised); color: var(--cyan); border: 1px solid rgba(0,212,255,0.25);
+      padding: 5px 12px; border-radius: 5px; cursor: pointer; font-size: 11px;
+      font-weight: 600; font-family: var(--mono); transition: background .2s, border-color .2s;
+    }
+    .investigate-btn:hover { background: rgba(0,212,255,0.1); border-color: var(--cyan); }
+    .mark-benign-btn {
+      background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,0.3);
+      padding: 5px 12px; border-radius: 5px; cursor: pointer; font-size: 11px;
+      font-weight: 600; font-family: var(--mono); transition: background .2s;
+    }
+    .mark-benign-btn:hover { background: rgba(0,230,118,0.2); }
+    .mark-benign-btn:disabled { opacity: 0.5; cursor: default; }
+    .benign-tag { background: var(--green-dim); color: #39ff88; border: 1px solid rgba(0,230,118,0.25); padding: 5px 9px; border-radius: 5px; font-size: 10px; font-weight: 600; font-style: italic; font-family: var(--mono); }
+
+    .empty-state { text-align: center; padding: 50px 20px; color: var(--text-muted); font-size: 14px; }
+    .empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.3; }
+
+    /* ==================== Benign / Suspicious Modals ==================== */
+    .benign-modal {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.72); z-index: 300;
+      align-items: center; justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .benign-modal.open { display: flex; }
+    .benign-modal-inner {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+      width: 660px; max-width: 92vw; max-height: 72vh;
+      display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+    }
+    .benign-modal-hdr {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 14px 18px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .benign-modal-hdr h2 { font-size: 14px; color: var(--green); font-weight: 700; font-family: var(--mono); letter-spacing: 0.5px; }
+    .benign-modal-desc { padding: 9px 18px; font-size: 12px; color: var(--text-muted); border-bottom: 1px solid var(--border-dim); flex-shrink: 0; }
+    .benign-rules-list { flex: 1; overflow-y: auto; }
+    .benign-rule-row { display: flex; align-items: center; gap: 10px; padding: 10px 18px; border-bottom: 1px solid var(--border-dim); }
+    .benign-rule-row:last-child { border-bottom: none; }
+    .br-id { font-family: var(--mono); color: #70d0ff; font-weight: 600; min-width: 70px; font-size: 12px; }
+    .br-desc { flex: 1; font-size: 12px; color: var(--text); }
+    .br-date { font-size: 10px; color: var(--text-muted); white-space: nowrap; font-family: var(--mono); }
+    .remove-benign-btn { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,51,85,0.35); padding: 3px 9px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: 600; font-family: var(--mono); }
+    .remove-benign-btn:hover { background: rgba(255,51,85,0.2); }
+    .benign-empty { padding: 28px 18px; text-align: center; color: var(--text-muted); font-size: 12px; }
+    .benign-section-hdr { padding: 9px 18px 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); border-bottom: 1px solid var(--border-dim); font-family: var(--mono); }
+    .suggested-rule-row { display: flex; align-items: center; gap: 10px; padding: 8px 18px; border-bottom: 1px solid var(--border-dim); }
+    .suggested-rule-row:last-child { border-bottom: none; }
+    .add-suggested-btn { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,0.3); padding: 3px 9px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: 600; font-family: var(--mono); }
+    .add-suggested-btn:hover { background: rgba(0,230,118,0.2); }
+    .add-suggested-btn:disabled { opacity: 0.4; cursor: default; }
+
+    /* ==================== Chat Slide-over ==================== */
+    .chat-overlay {
+      display: none; position: fixed; top: 0; right: 0; bottom: 0;
+      width: 480px; max-width: 100vw; background: var(--bg);
+      border-left: 1px solid var(--border); z-index: 200; flex-direction: column;
+      box-shadow: -8px 0 32px rgba(0,0,0,0.6);
+    }
+    .chat-overlay.open { display: flex; }
+    .chat-header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+    .chat-header h2 { font-size: 14px; color: var(--cyan); font-weight: 700; font-family: var(--mono); letter-spacing: 0.5px; }
+    .chat-header-actions { display: flex; gap: 6px; }
+    .chat-btn { background: var(--bg-raised); color: var(--text); border: 1px solid var(--border); padding: 4px 10px; border-radius: 5px; cursor: pointer; font-size: 11px; font-family: var(--mono); transition: background .2s, border-color .2s; }
+    .chat-btn:hover { background: rgba(0,212,255,0.07); border-color: rgba(0,212,255,0.3); color: var(--cyan); }
+    .chat-close { font-size: 17px; line-height: 1; padding: 4px 8px; }
+    .chat-messages { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+    .chat-welcome { text-align: center; padding: 28px 14px; color: var(--text-muted); }
+    .chat-welcome h3 { color: var(--text); margin-bottom: 6px; font-size: 15px; }
+    .chat-suggestions { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; margin-top: 10px; }
+    .chat-suggestion { background: var(--bg-raised); border: 1px solid var(--border); color: var(--text-muted); padding: 5px 9px; border-radius: 5px; cursor: pointer; font-size: 12px; font-family: var(--mono); transition: border-color .2s, color .2s; }
+    .chat-suggestion:hover { border-color: var(--cyan); color: var(--cyan); }
+    .chat-msg { display: flex; gap: 7px; max-width: 100%; }
+    .chat-msg.user { align-self: flex-end; flex-direction: row-reverse; }
+    .chat-msg.assistant { align-self: flex-start; }
+    .chat-avatar { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; font-family: var(--mono); font-weight: 700; }
+    .chat-msg.user .chat-avatar { background: #0066cc; color: #fff; border: 1px solid #0080ff; }
+    .chat-msg.assistant .chat-avatar { background: var(--bg-raised); color: var(--cyan); border: 1px solid rgba(0,212,255,0.3); }
+    .chat-bubble { padding: 9px 12px; border-radius: 9px; line-height: 1.5; font-size: 13px; word-break: break-word; max-width: 85%; }
+    .chat-msg.user .chat-bubble { background: #0055bb; color: #fff; border-bottom-right-radius: 3px; border: 1px solid #0077ee; }
+    .chat-msg.assistant .chat-bubble { background: var(--bg-card); border: 1px solid var(--border); border-bottom-left-radius: 3px; }
+    .chat-bubble code { background: var(--bg-deep); padding: 1px 5px; border-radius: 3px; font-family: var(--mono); font-size: 11px; color: var(--cyan); }
+    .chat-bubble pre { background: var(--bg-deep); padding: 9px; border-radius: 5px; overflow-x: auto; margin: 5px 0; border: 1px solid var(--border); }
+    .chat-bubble pre code { background: none; padding: 0; color: var(--text); }
+    .chat-bubble strong { color: var(--cyan); }
+    .chat-bubble ul,.chat-bubble ol { padding-left: 16px; margin: 4px 0; }
+    .chat-bubble li { margin: 3px 0; }
+    .chat-sources { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+    .src-tag { padding: 1px 5px; border-radius: 3px; font-size: 10px; font-family: var(--mono); }
+    .src-tag.mitre  { color: var(--red);    background: var(--red-dim); }
+    .src-tag.yara   { color: var(--purple); background: var(--purple-dim); }
+    .src-tag.vendor { color: var(--amber);  background: var(--amber-dim); }
+    .src-tag.wazuh  { color: var(--green);  background: var(--green-dim); }
+    .chat-typing { display: none; padding: 9px 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 9px; border-bottom-left-radius: 3px; margin-left: 33px; align-self: flex-start; }
+    .chat-typing.visible { display: flex; gap: 4px; }
+    .typing-dot { width: 6px; height: 6px; background: var(--text-muted); border-radius: 50%; animation: bounce 1.4s infinite ease-in-out; }
+    .typing-dot:nth-child(2) { animation-delay: .2s; }
+    .typing-dot:nth-child(3) { animation-delay: .4s; }
+    @keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-5px)} }
+    .chat-input-area { padding: 10px 12px; border-top: 1px solid var(--border); flex-shrink: 0; }
+    .chat-input-row { display: flex; gap: 5px; align-items: flex-end; }
+    .chat-input { flex: 1; background: var(--bg-deep); border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 5px; font-size: 13px; font-family: inherit; resize: none; outline: none; min-height: 36px; max-height: 90px; line-height: 1.4; }
+    .chat-input:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(0,212,255,0.1); }
+    .chat-input::placeholder { color: var(--text-dim); }
+    .chat-send { background: #005599; color: #fff; border: 1px solid #0077cc; padding: 8px 14px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 700; font-family: var(--mono); flex-shrink: 0; transition: background .2s; }
+    .chat-send:hover { background: #0066bb; }
+    .chat-send:disabled { background: var(--bg-raised); color: var(--text-muted); cursor: not-allowed; border-color: var(--border); }
+
+    /* ==================== Responsive ==================== */
+    @media (max-width: 1100px) {
+      .stats-grid { grid-template-columns: repeat(3, 1fr); }
+      .charts-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .alert-main  { grid-template-columns: 1fr; }
+      .chat-overlay { width: 100vw; }
+      .filter-bar { flex-direction: column; align-items: stretch; }
+      .filter-count { margin-left: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ==================== Header ==================== -->
+<div class="header">
+  <div class="header-left">
+    <a href="/" class="logo-link">
+      <svg class="logo-mark" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="13,1.5 24,7.5 24,18.5 13,24.5 2,18.5 2,7.5" stroke="#00d4ff" stroke-width="1.2" fill="none"/>
+        <polygon points="13,5.5 20.5,10 20.5,16 13,20.5 5.5,16 5.5,10" stroke="#00d4ff" stroke-width="0.6" fill="none" opacity="0.4"/>
+        <circle cx="13" cy="13" r="4.5" stroke="#00d4ff" stroke-width="0.8" fill="none" opacity="0.55"/>
+        <line x1="13" y1="8" x2="13" y2="10.5" stroke="#00d4ff" stroke-width="1"/>
+        <line x1="13" y1="15.5" x2="13" y2="18" stroke="#00d4ff" stroke-width="1"/>
+        <line x1="8" y1="13" x2="10.5" y2="13" stroke="#00d4ff" stroke-width="1"/>
+        <line x1="15.5" y1="13" x2="18" y2="13" stroke="#00d4ff" stroke-width="1"/>
+        <circle cx="13" cy="13" r="1.7" fill="#00d4ff"/>
+      </svg>
+      <h1>SIEM · AI Dashboard</h1>
+    </a>
+    <div class="live-dot" id="liveDot"></div>
+    <span class="refresh-info" id="refreshInfo"></span>
+  </div>
+  <div class="header-right">
+    <a class="hdr-btn" href="/">Home</a>
+    <button class="hdr-btn" id="openBenignBtn">Benign Exceptions</button>
+    <button class="hdr-btn" id="openSuspiciousBtn">Suspicious Groups</button>
+    <button class="hdr-btn" id="openChatBtn">
+      Threat Intel Chat
+      <span class="hdr-badge" id="highBadge" style="display:none">0</span>
+    </button>
+    <a class="hdr-btn" href="/chat.html">RAG Chat</a>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- ==================== Stats Cards ==================== -->
+  <div class="stats-grid">
+    <div class="stat-card total">
+      <div class="stat-value" id="statTotal">—</div>
+      <div class="stat-label">Total Alerts</div>
+      <div class="stat-sub" id="statAgents">— agents</div>
+    </div>
+    <div class="stat-card high">
+      <div class="stat-value" id="statHigh">—</div>
+      <div class="stat-label">HIGH Anomaly</div>
+      <div class="stat-sub" id="statHighPct">—%</div>
+    </div>
+    <div class="stat-card suspicious">
+      <div class="stat-value" id="statSuspicious">—</div>
+      <div class="stat-label">Suspicious</div>
+      <div class="stat-sub" id="statSuspPct">—%</div>
+    </div>
+    <div class="stat-card normal">
+      <div class="stat-value" id="statNormal">—</div>
+      <div class="stat-label">Normal</div>
+      <div class="stat-sub" id="statNormPct">—%</div>
+    </div>
+    <div class="stat-card benign">
+      <div class="stat-value" id="statBenign">—</div>
+      <div class="stat-label">Benign</div>
+      <div class="stat-sub" id="statBenignPct">—%</div>
+    </div>
+    <div class="stat-card score">
+      <div class="stat-value" id="statAvgScore">—</div>
+      <div class="stat-label">Avg Score</div>
+      <div class="stat-sub" id="statUniqRules">— rules</div>
+    </div>
+  </div>
+
+  <!-- ==================== Charts ==================== -->
+  <div class="charts-grid">
+    <!-- Timeline (wide) -->
+    <div class="chart-card">
+      <h3>Alert Timeline — last 24 h <span class="chart-hint">click a bar to filter that hour</span></h3>
+      <div class="chart-canvas-wrap tall">
+        <canvas id="chartTimeline"></canvas>
+      </div>
+    </div>
+    <!-- Anomaly donut (narrow) -->
+    <div class="chart-card">
+      <h3>Anomaly Distribution <span class="chart-hint">click to filter</span></h3>
+      <div class="chart-canvas-wrap tall">
+        <canvas id="chartAnomaly"></canvas>
+      </div>
+    </div>
+    <!-- Top rules (wide) -->
+    <div class="chart-card">
+      <h3>Top 10 Rules by Frequency <span class="chart-hint">click a bar to filter by rule</span></h3>
+      <div class="chart-canvas-wrap">
+        <canvas id="chartRules"></canvas>
+      </div>
+    </div>
+    <!-- Level distribution (narrow) -->
+    <div class="chart-card">
+      <h3>Alert Level Distribution</h3>
+      <div class="chart-canvas-wrap">
+        <canvas id="chartLevels"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Attack Origin Map ==================== -->
+  <div class="chart-card map-card">
+    <h3>Attack Origins
+      <span class="chart-hint" id="mapHint">waiting for alerts…</span>
+    </h3>
+    <div id="attackMap"></div>
+  </div>
+
+  <!-- ==================== Filter Bar ==================== -->
+  <div class="filter-bar">
+    <input class="filter-search" id="filterSearch" type="text" placeholder="Search rule, description, log content…" autocomplete="off">
+
+    <div class="filter-divider"></div>
+
+    <!-- Time period -->
+    <div class="filter-group">
+      <span class="filter-label">Period:</span>
+      <button class="filter-btn active time" data-time="all">All</button>
+      <button class="filter-btn" data-time="1h">1 h</button>
+      <button class="filter-btn" data-time="6h">6 h</button>
+      <button class="filter-btn" data-time="24h">24 h</button>
+      <button class="filter-btn" data-time="7d">7 d</button>
+    </div>
+
+    <!-- Custom date range -->
+    <div class="date-range">
+      <input class="date-input" type="datetime-local" id="dateFrom" title="From">
+      <span style="font-size:11px;color:#6e7681">→</span>
+      <input class="date-input" type="datetime-local" id="dateTo" title="To">
+    </div>
+
+    <div class="filter-divider"></div>
+
+    <!-- Anomaly filter -->
+    <div class="filter-group">
+      <span class="filter-label">Anomaly:</span>
+      <button class="filter-btn active all" data-anomaly="all">All</button>
+      <button class="filter-btn" data-anomaly="HIGH">HIGH</button>
+      <button class="filter-btn" data-anomaly="SUSPICIOUS">SUSP</button>
+      <button class="filter-btn" data-anomaly="NORMAL">NORMAL</button>
+      <button class="filter-btn" data-anomaly="BENIGN">BENIGN</button>
+    </div>
+
+    <div class="filter-divider"></div>
+
+    <!-- Min level -->
+    <div class="filter-group">
+      <span class="filter-label">Min level:</span>
+      <select class="filter-select" id="filterLevel">
+        <option value="0">Any</option>
+        <option value="3">L3+</option>
+        <option value="5">L5+</option>
+        <option value="7">L7+</option>
+        <option value="9">L9+ (critical)</option>
+      </select>
+    </div>
+
+    <!-- Agent filter -->
+    <div class="filter-group">
+      <span class="filter-label">Agent:</span>
+      <select class="filter-select" id="filterAgent">
+        <option value="all">All agents</option>
+      </select>
+    </div>
+
+    <!-- Sort -->
+    <div class="filter-group">
+      <span class="filter-label">Sort:</span>
+      <button class="filter-btn active sort" data-sort="score">Score ↓</button>
+      <button class="filter-btn" data-sort="time">Time ↓</button>
+      <button class="filter-btn" data-sort="level">Level ↓</button>
+    </div>
+
+    <div class="filter-divider"></div>
+    <button class="filter-btn" id="clearFiltersBtn" style="color:#f85149;border-color:#da363640">✕ Clear</button>
+    <div class="filter-count" id="filterCount"><strong>—</strong> / — alerts</div>
+  </div>
+
+  <!-- ==================== Alert List ==================== -->
+  <div id="alerts"></div>
+  <div id="empty" class="empty-state" style="display:none">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+    <p>No alerts match the current filters.</p>
+  </div>
+
+</div><!-- /container -->
+
+<!-- ==================== Benign Rules Modal ==================== -->
+<div class="benign-modal" id="benignModal">
+  <div class="benign-modal-inner">
+    <div class="benign-modal-hdr">
+      <h2>Benign Rule Exceptions</h2>
+      <button class="chat-btn chat-close" id="closeBenignModal">&times;</button>
+    </div>
+    <div class="benign-modal-desc">Rules listed here are always classified as <strong>Benign</strong> and excluded from anomaly scoring. Use <em>Mark as Benign</em> on any alert card, or add from the suggestions below.</div>
+    <div class="benign-rules-list" id="benignRulesContainer" style="flex:1;overflow-y:auto;">
+      <div class="benign-section-hdr">Your Exceptions</div>
+      <div id="benignRulesList"><div class="benign-empty">No exceptions yet.</div></div>
+      <div class="benign-section-hdr" style="margin-top:4px;">Suggested Rules <span style="font-weight:400;text-transform:none;letter-spacing:0">(commonly benign)</span></div>
+      <div id="suggestedRulesList"><div class="benign-empty">Loading…</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== Suspicious Groups Modal ==================== -->
+<div class="benign-modal" id="suspiciousModal">
+  <div class="benign-modal-inner">
+    <div class="benign-modal-hdr">
+      <h2 style="color:#ffaa00;">Suspicious Groups</h2>
+      <button class="chat-btn chat-close" id="closeSuspiciousModal">&times;</button>
+    </div>
+    <div class="benign-modal-desc">Alerts tagged with these groups count toward the anomaly score's <em>suspicious_group_count</em> feature.</div>
+    <div style="flex:1;overflow-y:auto;">
+      <div class="benign-section-hdr">Active Suspicious Groups</div>
+      <div id="activeSuspiciousGroupsList"><div class="benign-empty">No suspicious groups defined.</div></div>
+      <div class="benign-section-hdr" style="margin-top:4px;">Suggested Groups</div>
+      <div id="suggestedSuspiciousGroupsList"><div class="benign-empty">Loading…</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== Chat Panel ==================== -->
+<div class="chat-overlay" id="chatPanel">
+  <div class="chat-header">
+    <h2>Threat Intel Chat</h2>
+    <div class="chat-header-actions">
+      <button class="chat-btn" id="newChatBtn">New Chat</button>
+      <button class="chat-btn chat-close" id="closeChatBtn">&times;</button>
+    </div>
+  </div>
+  <div class="chat-messages" id="chatMessages">
+    <div class="chat-welcome" id="chatWelcome">
+      <h3>SIEM AI Threat Intel</h3>
+      <p style="font-size:12px">Ask about attacks, MITRE techniques, or your SIEM alerts.</p>
+      <div class="chat-suggestions">
+        <span class="chat-suggestion" onclick="chatAsk(this.textContent)">What attacks were detected?</span>
+        <span class="chat-suggestion" onclick="chatAsk(this.textContent)">Show failed logins</span>
+        <span class="chat-suggestion" onclick="chatAsk(this.textContent)">Explain T1055</span>
+        <span class="chat-suggestion" onclick="chatAsk(this.textContent)">Rootkit alerts</span>
+      </div>
+    </div>
+  </div>
+  <div class="chat-typing" id="chatTyping">
+    <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+  </div>
+  <div class="chat-input-area">
+    <div class="chat-input-row">
+      <textarea class="chat-input" id="chatInput" rows="1" placeholder="Ask about this alert or any threat..."></textarea>
+      <button class="chat-send" id="chatSendBtn">Send</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ================================================================
+//  Globals
+// ================================================================
+const API = location.origin;
+const REFRESH_MS = 30000;
+const ALERTS_CACHE_KEY = "wazuh_alerts_v2";
+const ALERTS_CACHE_TTL = 5 * 60 * 1000; // 5 min — stale but useful
+
+let allAlerts = [];
+let chartTimeline = null, chartAnomaly = null, chartRules = null, chartLevels = null;
+
+let filters = {
+  search:     "",
+  anomaly:    "all",
+  minLevel:   0,
+  timePeriod: "all",
+  agent:      "all",
+  sort:       "score",
+  dateFrom:   null,
+  dateTo:     null,
+};
+
+// ================================================================
+//  Utilities
+// ================================================================
+function escapeHtml(s) {
+  const d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function parseTs(ts) {
+  if (!ts) return null;
+  try {
+    return new Date(ts.replace(/\+0000$/, "Z"));
+  } catch { return null; }
+}
+
+function fmtTs(ts) {
+  const d = parseTs(ts);
+  if (!d) return ts || "";
+  return d.toISOString().replace("T", " ").slice(0, 19);
+}
+
+function getLevelClass(l) { return "level-" + Math.min(l, 15); }
+function getLevelLabel(l) {
+  if (l <= 3) return "INFO";
+  if (l <= 5) return "WARNING";
+  if (l <= 8) return "ERROR";
+  return "CRITICAL";
+}
+function isComplianceTag(t) { return /^(pci_dss|gdpr|hipaa|nist|gpg|tsc)/.test(t); }
+function getAnomalyClass(lbl) {
+  if (lbl === "HIGH")        return "anomaly-high";
+  if (lbl === "SUSPICIOUS")  return "anomaly-suspicious";
+  if (lbl === "BENIGN")      return "anomaly-benign";
+  return "";
+}
+function getBarColor(lbl) {
+  if (lbl === "HIGH")       return "#da3633";
+  if (lbl === "SUSPICIOUS") return "#d29922";
+  if (lbl === "NORMAL")     return "#3fb950";
+  if (lbl === "BENIGN")     return "#238636";
+  return "#6e7681";
+}
+
+// ================================================================
+//  Stats
+// ================================================================
+function updateStats(displayed) {
+  const total = displayed.length;
+  const high  = displayed.filter(a => a.anomaly_label === "HIGH").length;
+  const susp  = displayed.filter(a => a.anomaly_label === "SUSPICIOUS").length;
+  const norm  = displayed.filter(a => a.anomaly_label === "NORMAL").length;
+  const ben   = displayed.filter(a => a.anomaly_label === "BENIGN").length;
+
+  const scored = displayed.filter(a => a.anomaly_score != null);
+  const avg = scored.length
+    ? Math.round(scored.reduce((s, a) => s + a.anomaly_score, 0) / scored.length)
+    : 0;
+
+  const pct = (n) => total ? Math.round(n / total * 100) : 0;
+
+  document.getElementById("statTotal").textContent     = total.toLocaleString();
+  document.getElementById("statHigh").textContent      = high.toLocaleString();
+  document.getElementById("statSuspicious").textContent= susp.toLocaleString();
+  document.getElementById("statNormal").textContent    = norm.toLocaleString();
+  document.getElementById("statBenign").textContent    = ben.toLocaleString();
+  document.getElementById("statAvgScore").textContent  = avg;
+
+  document.getElementById("statHighPct").textContent   = pct(high)  + "% of total";
+  document.getElementById("statSuspPct").textContent   = pct(susp)  + "% of total";
+  document.getElementById("statNormPct").textContent   = pct(norm)  + "% of total";
+  document.getElementById("statBenignPct").textContent = pct(ben)   + "% of total";
+
+  const agents = new Set(displayed.map(a => a.agent_name).filter(Boolean));
+  const rules  = new Set(displayed.map(a => String(a.rule_id)).filter(Boolean));
+  document.getElementById("statAgents").textContent   = agents.size + " agent" + (agents.size !== 1 ? "s" : "");
+  document.getElementById("statUniqRules").textContent= rules.size  + " unique rule" + (rules.size !== 1 ? "s" : "");
+
+  // header HIGH badge
+  const badge = document.getElementById("highBadge");
+  if (high > 0) { badge.textContent = high; badge.style.display = ""; }
+  else badge.style.display = "none";
+}
+
+// ================================================================
+//  Charts — Chart.js setup
+// ================================================================
+Chart.defaults.color = "#6e7681";
+Chart.defaults.borderColor = "#21262d";
+Chart.defaults.font.family = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
+Chart.defaults.font.size = 11;
+
+const CHART_COLORS = {
+  high:       "rgba(218,54,51,0.85)",
+  suspicious: "rgba(210,153,34,0.85)",
+  normal:     "rgba(63,185,80,0.85)",
+  benign:     "rgba(35,134,54,0.85)",
+  blue:       "rgba(88,166,255,0.85)",
+  purple:     "rgba(163,113,247,0.85)",
+};
+
+function buildTimelineBuckets(alerts) {
+  const now = new Date();
+  const labels = [], allCounts = [], highCounts = [];
+
+  for (let i = 23; i >= 0; i--) {
+    const h = new Date(now.getTime() - i * 3600000);
+    labels.push(
+      h.getHours().toString().padStart(2, "0") + ":00"
+    );
+    allCounts.push(0);
+    highCounts.push(0);
+  }
+
+  alerts.forEach(a => {
+    const ts = parseTs(a.timestamp);
+    if (!ts) return;
+    const hoursAgo = (now - ts) / 3600000;
+    if (hoursAgo < 0 || hoursAgo > 24) return;
+    const idx = 23 - Math.floor(hoursAgo);
+    if (idx >= 0 && idx < 24) {
+      allCounts[idx]++;
+      if (a.anomaly_label === "HIGH") highCounts[idx]++;
+    }
+  });
+
+  return { labels, allCounts, highCounts };
+}
+
+function initCharts() {
+  const gridColor = "#21262d";
+  const tickColor = "#6e7681";
+
+  // 1 — Timeline
+  chartTimeline = new Chart(document.getElementById("chartTimeline"), {
+    type: "bar",
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: "All alerts",
+          data: [],
+          backgroundColor: "rgba(56,139,253,0.35)",
+          borderColor: "rgba(56,139,253,0.7)",
+          borderWidth: 1,
+          borderRadius: 3,
+          order: 2,
+        },
+        {
+          label: "HIGH anomaly",
+          data: [],
+          backgroundColor: "rgba(218,54,51,0.7)",
+          borderColor: "rgba(218,54,51,0.9)",
+          borderWidth: 1,
+          borderRadius: 3,
+          order: 1,
+        },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      onClick: (evt, elements) => {
+        if (!elements.length) return;
+        const idx = elements[0].index;
+        const label = chartTimeline.data.labels[idx];
+        // Filter alert list to that hour
+        document.getElementById("filterSearch").value = "";
+        // Use hour as custom filter
+        const now2 = new Date();
+        const hourStart = new Date(now2.getFullYear(), now2.getMonth(), now2.getDate(),
+          parseInt(label.split(":")[0]), 0, 0);
+        // Find the actual day: might be yesterday for early hours
+        if (hourStart > now2) hourStart.setDate(hourStart.getDate() - 1);
+        const hourEnd = new Date(hourStart.getTime() + 3600000);
+        const pad = (n) => n.toString().padStart(2, "0");
+        document.getElementById("dateFrom").value =
+          `${hourStart.getFullYear()}-${pad(hourStart.getMonth()+1)}-${pad(hourStart.getDate())}T${pad(hourStart.getHours())}:00`;
+        document.getElementById("dateTo").value =
+          `${hourEnd.getFullYear()}-${pad(hourEnd.getMonth()+1)}-${pad(hourEnd.getDate())}T${pad(hourEnd.getHours())}:00`;
+        filters.dateFrom = hourStart;
+        filters.dateTo   = hourEnd;
+        // Clear time period buttons
+        document.querySelectorAll("[data-time]").forEach(b => {
+          b.classList.remove("active","time");
+          if (b.dataset.time === "all") b.classList.add("active","time");
+        });
+        filters.timePeriod = "custom";
+        applyFilters();
+      },
+      plugins: { legend: { display: true, labels: { color: tickColor, boxWidth: 10, font: { size: 11 } } }, tooltip: { mode: "index", intersect: false } },
+      scales: {
+        x: { stacked: false, grid: { color: gridColor }, ticks: { color: tickColor, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } },
+        y: { grid: { color: gridColor }, ticks: { color: tickColor, stepSize: 1 } },
+      },
+    },
+  });
+
+  // 2 — Anomaly donut
+  chartAnomaly = new Chart(document.getElementById("chartAnomaly"), {
+    type: "doughnut",
+    data: {
+      labels: ["HIGH", "SUSPICIOUS", "NORMAL", "BENIGN", "UNKNOWN"],
+      datasets: [{
+        data: [0, 0, 0, 0, 0],
+        backgroundColor: [
+          CHART_COLORS.high, CHART_COLORS.suspicious, CHART_COLORS.normal, CHART_COLORS.benign, "#484f58",
+        ],
+        borderColor: "#161b22",
+        borderWidth: 2,
+        hoverOffset: 8,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: "62%",
+      onClick: (evt, elements) => {
+        if (!elements.length) return;
+        const lbl = chartAnomaly.data.labels[elements[0].index];
+        const map = { HIGH: "HIGH", SUSPICIOUS: "SUSPICIOUS", NORMAL: "NORMAL", BENIGN: "BENIGN", UNKNOWN: "all" };
+        const v = map[lbl] || "all";
+        setAnomalyFilter(v);
+      },
+      plugins: {
+        legend: { position: "bottom", labels: { color: tickColor, boxWidth: 10, padding: 10, font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+              const pct = total ? ((ctx.raw / total) * 100).toFixed(1) : 0;
+              return ` ${ctx.label}: ${ctx.raw} (${pct}%)`;
+            },
+          },
+        },
+      },
+    },
+  });
+
+  // 3 — Top rules (horizontal bar)
+  chartRules = new Chart(document.getElementById("chartRules"), {
+    type: "bar",
+    data: { labels: [], datasets: [{ label: "Alerts", data: [], backgroundColor: [], borderRadius: 3 }] },
+    options: {
+      indexAxis: "y",
+      responsive: true, maintainAspectRatio: false,
+      onClick: (evt, elements) => {
+        if (!elements.length) return;
+        const label = chartRules.data.labels[elements[0].index];
+        const ruleId = label.split(" ")[1];
+        if (ruleId) {
+          document.getElementById("filterSearch").value = ruleId;
+          filters.search = ruleId;
+          applyFilters();
+        }
+      },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { title: (items) => items[0].label } } },
+      scales: {
+        x: { grid: { color: gridColor }, ticks: { color: tickColor, stepSize: 1 } },
+        y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 10 }, callback: (v, i, ticks) => {
+          const lbl = chartRules.data.labels[i] || "";
+          return lbl.length > 32 ? lbl.slice(0, 31) + "…" : lbl;
+        }}},
+      },
+    },
+  });
+
+  // 4 — Level distribution
+  chartLevels = new Chart(document.getElementById("chartLevels"), {
+    type: "bar",
+    data: {
+      labels: ["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15"],
+      datasets: [{ label: "Alerts", data: Array(15).fill(0), backgroundColor: [], borderRadius: 3 }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: gridColor }, ticks: { color: tickColor } },
+        y: { grid: { color: gridColor }, ticks: { color: tickColor, stepSize: 1 } },
+      },
+    },
+  });
+
+  // Assign level bar colors
+  chartLevels.data.datasets[0].backgroundColor = Array.from({ length: 15 }, (_, i) => {
+    const l = i + 1;
+    if (l <= 3) return "rgba(56,139,253,0.7)";
+    if (l <= 5) return "rgba(210,153,34,0.7)";
+    if (l <= 8) return "rgba(248,81,73,0.7)";
+    return "rgba(218,54,51,0.85)";
+  });
+  chartLevels.update();
+}
+
+function updateCharts(alerts) {
+  // Timeline — always uses allAlerts (global view)
+  const tl = buildTimelineBuckets(allAlerts);
+  chartTimeline.data.labels             = tl.labels;
+  chartTimeline.data.datasets[0].data   = tl.allCounts;
+  chartTimeline.data.datasets[1].data   = tl.highCounts;
+  chartTimeline.update("none");
+
+  // Anomaly donut — uses displayed (filtered) alerts
+  const counts = [0, 0, 0, 0, 0]; // HIGH SUSPICIOUS NORMAL BENIGN UNKNOWN
+  alerts.forEach(a => {
+    const lbl = a.anomaly_label || "UNKNOWN";
+    if      (lbl === "HIGH")       counts[0]++;
+    else if (lbl === "SUSPICIOUS") counts[1]++;
+    else if (lbl === "NORMAL")     counts[2]++;
+    else if (lbl === "BENIGN")     counts[3]++;
+    else                           counts[4]++;
+  });
+  chartAnomaly.data.datasets[0].data = counts;
+  chartAnomaly.update("none");
+
+  // Top 10 rules — from displayed alerts
+  const ruleMap = {};
+  alerts.forEach(a => {
+    const k = a.rule_id ? "Rule " + a.rule_id : "Unknown";
+    ruleMap[k] = (ruleMap[k] || 0) + 1;
+  });
+  const sorted = Object.entries(ruleMap).sort((a, b) => b[1] - a[1]).slice(0, 10).reverse();
+  const ruleLabels = sorted.map(([k]) => k);
+  const ruleCounts = sorted.map(([, v]) => v);
+  const ruleColors = sorted.map(([k]) => {
+    const id = parseInt(k.split(" ")[1]);
+    const match = alerts.find(a => a.rule_id == id);
+    if (!match) return CHART_COLORS.blue;
+    return getBarColor(match.anomaly_label || "UNKNOWN") + "cc";
+  });
+  chartRules.data.labels = ruleLabels;
+  chartRules.data.datasets[0].data = ruleCounts;
+  chartRules.data.datasets[0].backgroundColor = ruleColors;
+  chartRules.update("none");
+
+  // Level distribution — from displayed alerts
+  const lvlCounts = Array(15).fill(0);
+  alerts.forEach(a => {
+    const l = Math.min(Math.max(a.level || 0, 1), 15) - 1;
+    lvlCounts[l]++;
+  });
+  chartLevels.data.datasets[0].data = lvlCounts;
+  chartLevels.update("none");
+}
+
+// ================================================================
+//  Agent dropdown
+// ================================================================
+function refreshAgentDropdown(alerts) {
+  const sel = document.getElementById("filterAgent");
+  const current = sel.value;
+  const agents = [...new Set(alerts.map(a => a.agent_name).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="all">All agents</option>';
+  agents.forEach(ag => {
+    const opt = document.createElement("option");
+    opt.value = ag;
+    opt.textContent = ag;
+    if (ag === current) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+// ================================================================
+//  Filter logic
+// ================================================================
+function filterAlerts(alerts) {
+  const now = Date.now();
+
+  return alerts.filter(a => {
+    // Time period (quick buttons)
+    if (filters.timePeriod !== "all" && filters.timePeriod !== "custom") {
+      const ms = { "1h": 3600000, "6h": 21600000, "24h": 86400000, "7d": 604800000 }[filters.timePeriod];
+      const ts = parseTs(a.timestamp);
+      if (!ts || now - ts.getTime() > ms) return false;
+    }
+    // Custom date range
+    if (filters.timePeriod === "custom" && (filters.dateFrom || filters.dateTo)) {
+      const ts = parseTs(a.timestamp);
+      if (!ts) return false;
+      if (filters.dateFrom && ts < filters.dateFrom) return false;
+      if (filters.dateTo   && ts > filters.dateTo)   return false;
+    }
+    // Anomaly
+    if (filters.anomaly !== "all" && a.anomaly_label !== filters.anomaly) return false;
+    // Min level
+    if (filters.minLevel > 0 && (a.level || 0) < filters.minLevel) return false;
+    // Agent
+    if (filters.agent !== "all" && a.agent_name !== filters.agent) return false;
+    // Search
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
+      const hay = [
+        String(a.rule_id || ""),
+        (a.rule_description || "").toLowerCase(),
+        (a.full_log || "").toLowerCase(),
+        (a.agent_name || "").toLowerCase(),
+        (a.mitre_ids || []).join(" ").toLowerCase(),
+      ].join(" ");
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function sortAlerts(alerts) {
+  const s = filters.sort;
+  return [...alerts].sort((a, b) => {
+    if (s === "score") return (b.anomaly_score || 0) - (a.anomaly_score || 0);
+    if (s === "level") return (b.level || 0) - (a.level || 0);
+    if (s === "time") {
+      const ta = parseTs(a.timestamp), tb = parseTs(b.timestamp);
+      return (tb?.getTime() || 0) - (ta?.getTime() || 0);
+    }
+    return 0;
+  });
+}
+
+function applyFilters() {
+  const filtered = filterAlerts(allAlerts);
+  const sorted   = sortAlerts(filtered);
+
+  updateStats(sorted);
+  updateCharts(sorted);
+  renderAlertList(sorted);
+
+  document.getElementById("filterCount").innerHTML =
+    `<strong>${sorted.length.toLocaleString()}</strong> / ${allAlerts.length.toLocaleString()} alerts`;
+}
+
+// ================================================================
+//  Render alert list
+// ================================================================
+const alertsEl = document.getElementById("alerts");
+const emptyEl  = document.getElementById("empty");
+
+function renderAlertList(alerts) {
+  alertsEl.innerHTML = "";
+  if (alerts.length === 0) {
+    emptyEl.style.display = "block";
+  } else {
+    emptyEl.style.display = "none";
+    alerts.forEach(a => alertsEl.appendChild(createAlertCard(a)));
+  }
+}
+
+function createAlertCard(alert) {
+  const card = document.createElement("div");
+  const anomClass = getAnomalyClass(alert.anomaly_label);
+  card.className = "alert-card" + (anomClass ? " " + anomClass : "");
+
+  // Header
+  const header = document.createElement("div");
+  header.className = "alert-header";
+
+  const ts = document.createElement("span");
+  ts.className = "timestamp";
+  ts.textContent = fmtTs(alert.timestamp);
+  header.appendChild(ts);
+
+  const lbadge = document.createElement("span");
+  lbadge.className = "level-badge " + getLevelClass(alert.level);
+  lbadge.textContent = getLevelLabel(alert.level) + " (L" + alert.level + ")";
+  header.appendChild(lbadge);
+
+  if (alert.anomaly_label && alert.anomaly_label !== "UNKNOWN") {
+    const ab = document.createElement("span");
+    ab.className = "anomaly-badge " + alert.anomaly_label.toLowerCase();
+    if (alert.anomaly_label === "BENIGN") {
+      ab.textContent = "BENIGN EXCEPTION";
+    } else {
+      const sc = alert.anomaly_score != null ? alert.anomaly_score + "/100 " : "";
+      ab.textContent = sc + alert.anomaly_label;
+    }
+    header.appendChild(ab);
+  }
+  card.appendChild(header);
+
+  // Score bar
+  if (alert.anomaly_score != null) {
+    const bw = document.createElement("div");
+    bw.className = "score-bar-wrap";
+    bw.innerHTML = `<div class="score-bar-bg"><div class="score-bar-fill" style="width:${alert.anomaly_score}%;background:${getBarColor(alert.anomaly_label)}"></div></div>`;
+    card.appendChild(bw);
+  }
+
+  // Rule info
+  if (alert.rule_id || alert.rule_description) {
+    const ri = document.createElement("div");
+    ri.className = "rule-info";
+    if (alert.rule_id) {
+      const rid = document.createElement("span");
+      rid.className = "rule-id";
+      rid.textContent = "Rule " + alert.rule_id;
+      rid.title = "Click to filter by this rule";
+      rid.addEventListener("click", () => {
+        document.getElementById("filterSearch").value = String(alert.rule_id);
+        filters.search = String(alert.rule_id);
+        applyFilters();
+      });
+      ri.appendChild(rid);
+    }
+    if (alert.rule_description) {
+      const rd = document.createElement("span");
+      rd.className = "rule-description";
+      rd.textContent = alert.rule_description;
+      ri.appendChild(rd);
+    }
+    card.appendChild(ri);
+  }
+
+  // Meta + log
+  const main = document.createElement("div");
+  main.className = "alert-main";
+  const meta = document.createElement("div");
+  meta.className = "alert-meta";
+  if (alert.agent_name) meta.innerHTML += `<div class="meta-item"><span class="meta-label">Agent:</span> <span class="meta-value hostname">${escapeHtml(alert.agent_name)}</span></div>`;
+  if (alert.agent_ip)   meta.innerHTML += `<div class="meta-item"><span class="meta-label">IP:</span> <span class="meta-value">${escapeHtml(alert.agent_ip)}</span></div>`;
+  if (alert.mitre_ids?.length) meta.innerHTML += `<div class="meta-item"><span class="meta-label">MITRE:</span> <span class="meta-value program">${escapeHtml(alert.mitre_ids.join(", "))}</span></div>`;
+  main.appendChild(meta);
+  if (alert.full_log) {
+    const msg = document.createElement("div");
+    msg.className = "message";
+    msg.textContent = alert.full_log;
+    main.appendChild(msg);
+  }
+  card.appendChild(main);
+
+  // Tags
+  const allTags = alert.groups || [];
+  if (allTags.length) {
+    const tags = document.createElement("div");
+    tags.className = "tags";
+    allTags.slice(0, 12).forEach(t => {
+      const el = document.createElement("span");
+      const isSusp = _activeSuspiciousGroups.has(t);
+      el.className = isComplianceTag(t) ? "tag compliance" : (isSusp ? "tag tag-suspicious" : "tag");
+      el.appendChild(document.createTextNode(t));
+      if (!isComplianceTag(t)) {
+        const tgl = document.createElement("span");
+        tgl.className = "tag-toggle";
+        tgl.title = isSusp ? "Stop treating as suspicious" : "Mark as suspicious group";
+        tgl.textContent = isSusp ? "×" : "+";
+        tgl.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          isSusp ? await removeSuspiciousGroup(t) : await addSuspiciousGroup(t, "");
+        });
+        el.appendChild(tgl);
+      }
+      tags.appendChild(el);
+    });
+    card.appendChild(tags);
+  }
+
+  // Footer
+  const footer = document.createElement("div");
+  footer.className = "alert-footer";
+  if (alert.rule_id) {
+    if (alert.anomaly_label === "BENIGN") {
+      const bt = document.createElement("span");
+      bt.className = "benign-tag";
+      bt.textContent = "Benign Exception";
+      footer.appendChild(bt);
+    } else {
+      const mb = document.createElement("button");
+      mb.className = "mark-benign-btn";
+      mb.textContent = "Mark as Benign";
+      mb.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        mb.disabled = true; mb.textContent = "Saving…";
+        await markAsBenign(alert.rule_id, alert.rule_description || "");
+      });
+      footer.appendChild(mb);
+    }
+  }
+  const inv = document.createElement("button");
+  inv.className = "investigate-btn";
+  inv.textContent = "Investigate with AI";
+  inv.addEventListener("click", () => {
+    const parts = [];
+    if (alert.rule_description) parts.push(alert.rule_description);
+    if (alert.rule_id)          parts.push("rule " + alert.rule_id);
+    if (alert.full_log)         parts.push(alert.full_log.slice(0, 150));
+    let q = "Analyze this alert: " + parts.join(" — ");
+    if (alert.anomaly_score != null) q += ` [Score: ${alert.anomaly_score}/100 (${alert.anomaly_label}), Level: ${alert.level}]`;
+    openChatWith(q);
+  });
+  footer.appendChild(inv);
+  card.appendChild(footer);
+
+  return card;
+}
+
+// ================================================================
+//  Alert cache helpers (stale-while-revalidate via localStorage)
+// ================================================================
+// readAlertsCache returns { alerts, server_start } or null.
+// Returns null if expired OR if server_start doesn't match (server was restarted).
+function readAlertsCache(currentServerStart) {
+  try {
+    const raw = localStorage.getItem(ALERTS_CACHE_KEY);
+    if (!raw) return null;
+    const cached = JSON.parse(raw);
+    if (!cached.alerts || !cached.alerts.length) return null;
+    if (Date.now() - cached.ts > ALERTS_CACHE_TTL) return null;
+    // If we already know the server start time, reject stale-server cache immediately
+    if (currentServerStart && cached.server_start && cached.server_start !== currentServerStart) return null;
+    return cached;
+  } catch (_) { return null; }
+}
+
+function writeAlertsCache(alerts, serverStart) {
+  try {
+    localStorage.setItem(ALERTS_CACHE_KEY, JSON.stringify({ alerts, ts: Date.now(), server_start: serverStart }));
+  } catch (_) {} // ignore QuotaExceededError silently
+}
+
+// Remembered across the lifetime of this page so periodic refreshes don't re-check.
+let _knownServerStart = null;
+
+// ================================================================
+//  Data loading (main fetch — stale-while-revalidate)
+// ================================================================
+async function loadScoredAlerts() {
+  // 1. Paint stale cache immediately — but only if it belongs to the same server session.
+  //    On first call _knownServerStart is null, so we can't verify yet; show it optimistically
+  //    and let step 2 clear it if the server was restarted.
+  const cached = readAlertsCache(_knownServerStart);
+  if (cached && allAlerts.length === 0) {
+    allAlerts = cached.alerts;
+    refreshAgentDropdown(allAlerts);
+    applyFilters();
+    updateMap(allAlerts);
+    document.getElementById("refreshInfo").textContent = "Cached — refreshing…";
+    setLiveDot("loading");
+  } else {
+    setLiveDot("loading");
+  }
+
+  // 2. Fetch fresh data
+  try {
+    const resp = await fetch(API + "/api/alerts/scored?limit=500");
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    const data = await resp.json();
+
+    // If the server was restarted since we cached, drop the stale alerts
+    if (_knownServerStart && data.server_start && _knownServerStart !== data.server_start) {
+      allAlerts = [];
+    }
+    _knownServerStart = data.server_start || _knownServerStart;
+
+    allAlerts = data.alerts || [];
+    writeAlertsCache(allAlerts, _knownServerStart);
+    refreshAgentDropdown(allAlerts);
+    applyFilters();
+    updateMap(allAlerts);
+
+    const now = new Date().toLocaleTimeString();
+    document.getElementById("refreshInfo").textContent = "Updated " + now;
+    setLiveDot("connected");
+  } catch (err) {
+    setLiveDot("error");
+    console.error("Failed to load alerts:", err);
+    if (allAlerts.length > 0) {
+      document.getElementById("refreshInfo").textContent = "Refresh failed — showing cached data";
+    }
+  }
+}
+
+function setLiveDot(state) {
+  const dot = document.getElementById("liveDot");
+  dot.className = "live-dot" + (state !== "connected" ? " " + state : "");
+}
+
+// ================================================================
+//  Filter bar wiring
+// ================================================================
+function setAnomalyFilter(val) {
+  filters.anomaly = val;
+  document.querySelectorAll("[data-anomaly]").forEach(b => {
+    b.classList.remove("active", "all", "high", "suspicious", "normal", "benign");
+    if (b.dataset.anomaly === val) {
+      b.classList.add("active", val.toLowerCase());
+    }
+  });
+  applyFilters();
+}
+
+// Time period buttons
+document.querySelectorAll("[data-time]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    filters.timePeriod = btn.dataset.time;
+    filters.dateFrom   = null;
+    filters.dateTo     = null;
+    document.getElementById("dateFrom").value = "";
+    document.getElementById("dateTo").value   = "";
+    document.querySelectorAll("[data-time]").forEach(b => {
+      b.classList.remove("active", "time");
+      if (b.dataset.time === btn.dataset.time) b.classList.add("active", "time");
+    });
+    applyFilters();
+  });
+});
+
+// Anomaly buttons
+document.querySelectorAll("[data-anomaly]").forEach(btn => {
+  btn.addEventListener("click", () => setAnomalyFilter(btn.dataset.anomaly));
+});
+
+// Sort buttons
+document.querySelectorAll("[data-sort]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    filters.sort = btn.dataset.sort;
+    document.querySelectorAll("[data-sort]").forEach(b => {
+      b.classList.remove("active", "sort");
+      if (b.dataset.sort === btn.dataset.sort) b.classList.add("active", "sort");
+    });
+    applyFilters();
+  });
+});
+
+// Level select
+document.getElementById("filterLevel").addEventListener("change", e => {
+  filters.minLevel = parseInt(e.target.value, 10);
+  applyFilters();
+});
+
+// Agent select
+document.getElementById("filterAgent").addEventListener("change", e => {
+  filters.agent = e.target.value;
+  applyFilters();
+});
+
+// Search input (debounced)
+let searchTimer = null;
+document.getElementById("filterSearch").addEventListener("input", e => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    filters.search = e.target.value.trim().toLowerCase();
+    applyFilters();
+  }, 200);
+});
+
+// Date range pickers
+function parseDateInput(val) {
+  if (!val) return null;
+  try { return new Date(val); } catch { return null; }
+}
+document.getElementById("dateFrom").addEventListener("change", e => {
+  filters.dateFrom = parseDateInput(e.target.value);
+  if (filters.dateFrom || filters.dateTo) {
+    filters.timePeriod = "custom";
+    document.querySelectorAll("[data-time]").forEach(b => b.classList.remove("active","time"));
+  }
+  applyFilters();
+});
+document.getElementById("dateTo").addEventListener("change", e => {
+  filters.dateTo = parseDateInput(e.target.value);
+  if (filters.dateFrom || filters.dateTo) {
+    filters.timePeriod = "custom";
+    document.querySelectorAll("[data-time]").forEach(b => b.classList.remove("active","time"));
+  }
+  applyFilters();
+});
+
+// Clear filters
+document.getElementById("clearFiltersBtn").addEventListener("click", () => {
+  filters = { search: "", anomaly: "all", minLevel: 0, timePeriod: "all", agent: "all", sort: "score", dateFrom: null, dateTo: null };
+  document.getElementById("filterSearch").value = "";
+  document.getElementById("filterLevel").value  = "0";
+  document.getElementById("filterAgent").value  = "all";
+  document.getElementById("dateFrom").value      = "";
+  document.getElementById("dateTo").value        = "";
+  document.querySelectorAll("[data-time]").forEach(b => {
+    b.classList.remove("active","time");
+    if (b.dataset.time === "all") b.classList.add("active","time");
+  });
+  document.querySelectorAll("[data-anomaly]").forEach(b => {
+    b.classList.remove("active","all","high","suspicious","normal","benign");
+    if (b.dataset.anomaly === "all") b.classList.add("active","all");
+  });
+  document.querySelectorAll("[data-sort]").forEach(b => {
+    b.classList.remove("active","sort");
+    if (b.dataset.sort === "score") b.classList.add("active","sort");
+  });
+  applyFilters();
+});
+
+// ================================================================
+//  Suspicious Groups
+// ================================================================
+let _activeSuspiciousGroups = new Set();
+
+async function loadSuspiciousGroupsData() {
+  try {
+    const resp = await fetch(API + "/api/suspicious-groups");
+    if (!resp.ok) return;
+    const data = await resp.json();
+    _activeSuspiciousGroups = new Set((data.groups || []).map(g => g.group_name));
+  } catch (e) { console.error(e); }
+}
+async function addSuspiciousGroup(name, desc) {
+  try {
+    await fetch(API + "/api/suspicious-groups", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ group_name: name, description: desc }),
+    });
+    await loadSuspiciousGroupsData(); applyFilters();
+  } catch (e) { alert("Error: " + e.message); }
+}
+async function removeSuspiciousGroup(name) {
+  try {
+    await fetch(API + "/api/suspicious-groups/" + encodeURIComponent(name), { method: "DELETE" });
+    await loadSuspiciousGroupsData(); applyFilters(); await loadSuspiciousModal();
+  } catch (e) { alert("Error: " + e.message); }
+}
+async function loadSuspiciousModal() {
+  const [ar, sr] = await Promise.all([fetch(API + "/api/suspicious-groups"), fetch(API + "/api/suggested-suspicious-groups")]);
+  const ad = ar.ok ? await ar.json() : { groups: [] };
+  const sd = sr.ok ? await sr.json() : { groups: [] };
+  renderActiveSuspiciousGroups(ad.groups || []);
+  renderSuggestedSuspiciousGroups(sd.groups || [], new Set((ad.groups || []).map(g => g.group_name)));
+}
+function renderActiveSuspiciousGroups(groups) {
+  const el = document.getElementById("activeSuspiciousGroupsList");
+  if (!groups.length) { el.innerHTML = '<div class="benign-empty">No suspicious groups defined.</div>'; return; }
+  el.innerHTML = "";
+  groups.forEach(g => {
+    const row = document.createElement("div"); row.className = "benign-rule-row";
+    row.innerHTML = `<span class="br-id" style="color:#e3b341">${escapeHtml(g.group_name)}</span><span class="br-desc">${escapeHtml(g.description||"")}</span><span class="br-date">${(g.added_at||"").replace("T"," ").replace("Z"," UTC")}</span>`;
+    const rm = document.createElement("button"); rm.className = "remove-benign-btn"; rm.textContent = "Ignore";
+    rm.onclick = () => removeSuspiciousGroup(g.group_name);
+    row.appendChild(rm); el.appendChild(row);
+  });
+}
+function renderSuggestedSuspiciousGroups(suggested, active) {
+  const el = document.getElementById("suggestedSuspiciousGroupsList");
+  const filtered = suggested.filter(g => !active.has(g.group_name));
+  if (!filtered.length) { el.innerHTML = '<div class="benign-empty">All suggested groups are active.</div>'; return; }
+  el.innerHTML = "";
+  filtered.forEach(g => {
+    const row = document.createElement("div"); row.className = "suggested-rule-row";
+    row.innerHTML = `<span class="br-id" style="color:#e3b341">${escapeHtml(g.group_name)}</span><span class="br-desc">${escapeHtml(g.description)}</span>`;
+    const btn = document.createElement("button"); btn.className = "add-suggested-btn"; btn.textContent = "Add";
+    btn.onclick = async () => { btn.disabled = true; btn.textContent = "Adding…"; await addSuspiciousGroup(g.group_name, g.description); await loadSuspiciousModal(); };
+    row.appendChild(btn); el.appendChild(row);
+  });
+}
+const suspiciousModal = document.getElementById("suspiciousModal");
+document.getElementById("openSuspiciousBtn").addEventListener("click", () => { suspiciousModal.classList.add("open"); loadSuspiciousModal(); });
+document.getElementById("closeSuspiciousModal").addEventListener("click", () => suspiciousModal.classList.remove("open"));
+suspiciousModal.addEventListener("click", e => { if (e.target === suspiciousModal) suspiciousModal.classList.remove("open"); });
+
+// ================================================================
+//  Benign Rules
+// ================================================================
+async function markAsBenign(ruleId, desc) {
+  try {
+    await fetch(API + "/api/benign-rules", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rule_id: ruleId, rule_description: desc }),
+    });
+    await loadScoredAlerts();
+  } catch (e) { alert("Error: " + e.message); }
+}
+async function removeBenignRule(ruleId) {
+  try {
+    await fetch(API + "/api/benign-rules/" + encodeURIComponent(ruleId), { method: "DELETE" });
+    await loadBenignRules(); await loadScoredAlerts();
+  } catch (e) { alert("Error: " + e.message); }
+}
+async function loadBenignRules() {
+  const [ur, sr] = await Promise.all([fetch(API + "/api/benign-rules"), fetch(API + "/api/suggested-benign-rules")]);
+  const ud = ur.ok ? await ur.json() : { rules: [] };
+  const sd = sr.ok ? await sr.json() : { rules: [] };
+  renderBenignRules(ud.rules || []);
+  renderSuggestedRules(sd.rules || [], new Set((ud.rules || []).map(r => r.rule_id)));
+}
+function renderBenignRules(rules) {
+  const el = document.getElementById("benignRulesList");
+  if (!rules.length) { el.innerHTML = '<div class="benign-empty">No exceptions yet.</div>'; return; }
+  el.innerHTML = "";
+  rules.forEach(r => {
+    const row = document.createElement("div"); row.className = "benign-rule-row";
+    row.innerHTML = `<span class="br-id">Rule ${escapeHtml(r.rule_id)}</span><span class="br-desc">${escapeHtml(r.rule_description||"")}</span><span class="br-date">${(r.added_at||"").replace("T"," ").replace("Z"," UTC")}</span>`;
+    const rm = document.createElement("button"); rm.className = "remove-benign-btn"; rm.textContent = "Remove";
+    rm.onclick = () => removeBenignRule(r.rule_id);
+    row.appendChild(rm); el.appendChild(row);
+  });
+}
+function renderSuggestedRules(suggested, added) {
+  const el = document.getElementById("suggestedRulesList");
+  const filtered = suggested.filter(r => !added.has(r.rule_id));
+  if (!filtered.length) { el.innerHTML = '<div class="benign-empty">All suggested rules added.</div>'; return; }
+  el.innerHTML = "";
+  filtered.forEach(r => {
+    const row = document.createElement("div"); row.className = "suggested-rule-row";
+    row.innerHTML = `<span class="br-id">Rule ${escapeHtml(r.rule_id)}</span><span class="br-desc">${escapeHtml(r.rule_description)}</span>`;
+    const btn = document.createElement("button"); btn.className = "add-suggested-btn"; btn.textContent = "Add";
+    btn.onclick = async () => { btn.disabled = true; btn.textContent = "Adding…"; await markAsBenign(r.rule_id, r.rule_description); await loadBenignRules(); };
+    row.appendChild(btn); el.appendChild(row);
+  });
+}
+const benignModal = document.getElementById("benignModal");
+document.getElementById("openBenignBtn").addEventListener("click", () => { benignModal.classList.add("open"); loadBenignRules(); });
+document.getElementById("closeBenignModal").addEventListener("click", () => benignModal.classList.remove("open"));
+benignModal.addEventListener("click", e => { if (e.target === benignModal) benignModal.classList.remove("open"); });
+
+// ================================================================
+//  Chat panel
+// ================================================================
+const chatPanel    = document.getElementById("chatPanel");
+const chatMessages = document.getElementById("chatMessages");
+const chatInput    = document.getElementById("chatInput");
+const chatSendBtn  = document.getElementById("chatSendBtn");
+const chatTyping   = document.getElementById("chatTyping");
+const chatWelcome  = document.getElementById("chatWelcome");
+let chatSessionId  = null;
+
+document.getElementById("openChatBtn").addEventListener("click", () => { chatPanel.classList.add("open"); chatInput.focus(); });
+document.getElementById("closeChatBtn").addEventListener("click", () => chatPanel.classList.remove("open"));
+document.getElementById("newChatBtn").addEventListener("click", () => {
+  if (chatSessionId) fetch(API + "/api/chat/sessions?session_id=" + chatSessionId, { method: "DELETE" });
+  chatSessionId = null;
+  chatMessages.innerHTML = ""; chatMessages.appendChild(chatWelcome);
+  chatWelcome.style.display = "block"; chatInput.focus();
+});
+chatInput.addEventListener("input", () => {
+  chatInput.style.height = "auto";
+  chatInput.style.height = Math.min(chatInput.scrollHeight, 90) + "px";
+});
+chatInput.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } });
+chatSendBtn.addEventListener("click", sendChat);
+
+function openChatWith(query) { chatPanel.classList.add("open"); chatInput.value = query; setTimeout(sendChat, 200); }
+function chatAsk(text) { chatInput.value = text; sendChat(); }
+
+function renderMd(t) {
+  t = t.replace(/```(\w*)\n([\s\S]*?)```/g, (_, l, c) => "<pre><code>" + escapeHtml(c.trim()) + "</code></pre>");
+  t = t.replace(/`([^`]+)`/g, "<code>$1</code>");
+  t = t.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  t = t.replace(/\*(.+?)\*/g, "<em>$1</em>");
+  t = t.replace(/^- (.+)$/gm, "<li>$1</li>");
+  t = t.replace(/(<li>.*<\/li>\n?)+/g, m => "<ul>" + m + "</ul>");
+  t = t.replace(/^\d+\.\s(.+)$/gm, "<li>$1</li>");
+  t = t.replace(/\n/g, "<br>");
+  t = t.replace(/<br><\/ul>/g, "</ul>").replace(/<ul><br>/g, "<ul>");
+  t = t.replace(/<br><li>/g, "<li>").replace(/<\/li><br>/g, "</li>");
+  return t;
+}
+function addChatMsg(role, content, sources) {
+  chatWelcome.style.display = "none";
+  const row = document.createElement("div"); row.className = "chat-msg " + role;
+  const av = document.createElement("div"); av.className = "chat-avatar"; av.textContent = role === "user" ? "U" : "AI";
+  const col = document.createElement("div");
+  col.style.cssText = "display:flex;flex-direction:column;gap:4px;min-width:0;max-width:85%";
+  const bubble = document.createElement("div"); bubble.className = "chat-bubble";
+  if (role === "assistant") bubble.innerHTML = renderMd(content); else bubble.textContent = content;
+  col.appendChild(bubble);
+  if (role === "assistant" && sources?.length) {
+    const sd = document.createElement("div"); sd.className = "chat-sources";
+    const seen = new Set();
+    sources.forEach(s => {
+      const k = s.type + ":" + s.id; if (seen.has(k)) return; seen.add(k);
+      const t = document.createElement("span");
+      let cls = "src-tag";
+      if (s.type === "mitre_attack") cls += " mitre";
+      else if (s.type === "yara_rule") cls += " yara";
+      else if (s.type === "vendor_advisory") cls += " vendor";
+      else if (s.type === "wazuh_alert") cls += " wazuh";
+      t.className = cls; t.textContent = s.id; t.title = s.summary || "";
+      sd.appendChild(t);
+    });
+    col.appendChild(sd);
+  }
+  row.appendChild(av); row.appendChild(col);
+  chatMessages.appendChild(row); chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+async function sendChat() {
+  const text = chatInput.value.trim(); if (!text) return;
+  chatInput.value = ""; chatInput.style.height = "auto"; chatSendBtn.disabled = true;
+  addChatMsg("user", text);
+  chatTyping.classList.add("visible"); chatMessages.scrollTop = chatMessages.scrollHeight;
+  try {
+    const resp = await fetch(API + "/api/chat", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text, session_id: chatSessionId }),
+    });
+    const data = await resp.json();
+    if (data.error) addChatMsg("assistant", "Error: " + data.error, []);
+    else { chatSessionId = data.session_id; addChatMsg("assistant", data.reply, data.sources || []); }
+  } catch (err) {
+    addChatMsg("assistant", "Connection error: " + err.message, []);
+  } finally {
+    chatTyping.classList.remove("visible"); chatSendBtn.disabled = false; chatInput.focus();
+  }
+}
+
+// ================================================================
+//  Attack Origin Map
+// ================================================================
+const GEO_CACHE_KEY = "wazuh_geo_v1";
+const GEO_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 h
+
+let _map        = null;
+let _mapMarkers = [];
+let _geoCache   = {};   // ip -> { lat, lon, country, city, ts }
+
+(function loadGeoCache() {
+  try { const r = localStorage.getItem(GEO_CACHE_KEY); if (r) _geoCache = JSON.parse(r); }
+  catch (_) { _geoCache = {}; }
+})();
+
+function saveGeoCache() {
+  try { localStorage.setItem(GEO_CACHE_KEY, JSON.stringify(_geoCache)); } catch (_) {}
+}
+
+function isPublicIP(ip) {
+  if (!ip || typeof ip !== "string") return false;
+  const p = ip.trim().split(".").map(Number);
+  if (p.length !== 4 || p.some(n => isNaN(n) || n < 0 || n > 255)) return false;
+  if (p[0] === 10) return false;
+  if (p[0] === 127) return false;
+  if (p[0] === 172 && p[1] >= 16 && p[1] <= 31) return false;
+  if (p[0] === 192 && p[1] === 168) return false;
+  if (p[0] === 169 && p[1] === 254) return false;
+  if (p[0] === 0 || p[0] >= 224) return false;
+  return true;
+}
+
+// Build ip -> { count, maxScore, label } from the full allAlerts list (unfiltered).
+function extractIPStats(alerts) {
+  const map = {};
+  for (const a of alerts) {
+    const ip = a.data && a.data.srcip;
+    if (!isPublicIP(ip)) continue;
+    if (!map[ip]) map[ip] = { count: 0, maxScore: 0, label: "NORMAL" };
+    map[ip].count++;
+    const s = a.anomaly_score || 0;
+    if (s > map[ip].maxScore) {
+      map[ip].maxScore = s;
+      map[ip].label = a.anomaly_label || "NORMAL";
+    }
+  }
+  return map;
+}
+
+async function geolocateBatch(ips) {
+  const now = Date.now();
+  const unknown = ips.filter(ip => !_geoCache[ip] || now - _geoCache[ip].ts > GEO_CACHE_TTL);
+  if (!unknown.length) return;
+
+  for (let i = 0; i < unknown.length; i += 100) {
+    const chunk = unknown.slice(i, i + 100);
+    try {
+      const resp = await fetch(
+        "http://ip-api.com/batch?fields=status,query,country,countryCode,city,lat,lon",
+        { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(chunk) }
+      );
+      if (!resp.ok) continue;
+      const results = await resp.json();
+      for (const r of results) {
+        if (r.status === "success") {
+          _geoCache[r.query] = {
+            lat: r.lat, lon: r.lon,
+            country: r.country, countryCode: r.countryCode, city: r.city,
+            ts: Date.now()
+          };
+        }
+      }
+      saveGeoCache();
+    } catch (e) { console.warn("[geomap] lookup failed:", e); }
+  }
+}
+
+function _markerColor(label) {
+  if (label === "HIGH")        return "#ff3355";
+  if (label === "SUSPICIOUS")  return "#ffaa00";
+  if (label === "BENIGN")      return "#4a5a72";
+  return "#00e676";
+}
+
+function initMap() {
+  if (_map) return;
+  _map = L.map("attackMap", { center: [20, 0], zoom: 2, zoomControl: true });
+  L.tileLayer(
+    "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    { attribution: '© <a href="https://openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> © <a href="https://carto.com/" target="_blank">CARTO</a>',
+      subdomains: "abcd", maxZoom: 18 }
+  ).addTo(_map);
+}
+
+async function updateMap(alerts) {
+  initMap();
+
+  const ipStats = extractIPStats(alerts);
+  const ips = Object.keys(ipStats);
+
+  // Clear old markers
+  _mapMarkers.forEach(m => _map.removeLayer(m));
+  _mapMarkers = [];
+
+  if (!ips.length) {
+    document.getElementById("mapHint").textContent = "no external IPs in current alerts";
+    return;
+  }
+
+  await geolocateBatch(ips);
+
+  const bounds = [];
+  for (const ip of ips) {
+    const geo = _geoCache[ip];
+    if (!geo) continue;
+    const info = ipStats[ip];
+    const color = _markerColor(info.label);
+    const radius = Math.min(7 + Math.log1p(info.count) * 3, 20);
+
+    const m = L.circleMarker([geo.lat, geo.lon], {
+      radius, fillColor: color, color: color,
+      fillOpacity: 0.75, opacity: 0.9, weight: 1.5,
+    }).bindPopup(
+      `<strong style="color:${color}">${ip}</strong><br>
+       ${geo.city ? geo.city + ", " : ""}${geo.country || "Unknown"}
+       ${geo.countryCode ? '<span style="margin-left:4px;opacity:.7">(' + geo.countryCode + ')</span>' : ""}<br>
+       Alerts: <strong>${info.count}</strong> &nbsp;·&nbsp;
+       Score: <strong style="color:${color}">${info.maxScore}/100</strong> (${info.label})`,
+      { className: "geo-popup" }
+    );
+    m.addTo(_map);
+    _mapMarkers.push(m);
+    bounds.push([geo.lat, geo.lon]);
+  }
+
+  if (bounds.length > 0) _map.fitBounds(bounds, { padding: [40, 40], maxZoom: 6 });
+
+  const countries = new Set(ips.map(ip => _geoCache[ip]?.country).filter(Boolean));
+  document.getElementById("mapHint").textContent =
+    `${_mapMarkers.length} origin${_mapMarkers.length !== 1 ? "s" : ""} · ${countries.size} countr${countries.size !== 1 ? "ies" : "y"}`;
+}
+
+// ================================================================
+//  Bootstrap
+// ================================================================
+initCharts();
+loadSuspiciousGroupsData().then(() => {
+  loadScoredAlerts();
+  setInterval(loadScoredAlerts, REFRESH_MS);
+});
+</script>
+</body>
+</html>

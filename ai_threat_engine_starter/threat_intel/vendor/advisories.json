@@ -1,15 +1,27 @@
 {
   "advisories": [
     {
-      "id": "WAZUH-RELEASE-277060153",
-      "title": "Wazuh v4.14.3 - RC 1",
-      "description": "# [v4.14.3]\r\n\r\n## Manager\r\n\r\n### Fixed\r\n\r\n- Scaped document ID when necessary before sending document to indexer. ([#33464](https://github.com/wazuh/wazuh/pull/33464))\r\n- Extended timestamp conversion helpers to support additional input formats and normalize ISO8601 strings. ([#33551](https://github.com/wazuh/wazuh/pull/33551))\r\n- Restricted cluster file transfer write paths. ([#33705](https://github.com/wazuh/wazuh/pull/33705))\r\n- Hardened cluster deserialization by restricting callable decoding to Wazuh modules and improving error handling. ([#33910](https://github.com/wazuh/wazuh/pull/33910))\r\n- Added query size checks for syscollector delta sync SQL generation to prevent buffer overflows. ([#33803](https://github.com/wazuh/wazuh/pull/33803))\r\n- Replaced unsafe `sprintf` calls in the SCA decoder to prevent buffer overflows. ([#33756](https://github.com/wazuh/wazuh/pull/33756))\r\n- Fixed a memory leak in the CIS-CAT decoder when database operations fail. ([#33739](https://github.com/w",
-      "url": "https://github.com/wazuh/wazuh/releases/tag/v4.14.3-rc1",
+      "id": "WAZUH-RELEASE-297832425",
+      "title": "Wazuh v4.14.4",
+      "description": "## Manager\r\n\r\n### Fixed\r\n\r\n- Fixed heap-based null WRITE Buffer Underflows. ([34658](https://github.com/wazuh/wazuh/pull/34658))\r\n\r\n## Agent\r\n\r\n### Fixed\r\n\r\n- Fixed MS Graph default rules not triggering properly. ([#34240](https://github.com/wazuh/wazuh/pull/34240))\r\n- Unified date formats in Active Response logs to ensure consistent timestamp formatting. ([#34473](https://github.com/wazuh/wazuh/pull/34473))\r\n- Updated Docker integration rules to improve detection coverage and compatibility. ([#34376](https://github.com/wazuh/wazuh/pull/34376))\r\n- Fixed heap-based NULL write buffer underflow in `GetAlertData`. ([#34501](https://github.com/wazuh/wazuh/pull/34501))\r\n- Retained MSI installer log after Windows agent upgrade to improve troubleshooting visibility. ([#34517](https://github.com/wazuh/wazuh/pull/34517))\r\n- Fixed incorrect Windows 11 edition detection after upgrading the agent to version 4.14.3. ([#34530](https://github.com/wazuh/wazuh/pull/34530))\r\n- Fixed macOS agent crash dur",
+      "url": "https://github.com/wazuh/wazuh/releases/tag/v4.14.4",
       "source": "Wazuh GitHub Releases",
-      "published_at": "2026-01-15T13:46:31Z",
-      "tag_name": "v4.14.3-rc1",
+      "published_at": "2026-03-17T08:51:22Z",
+      "tag_name": "v4.14.4",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759306",
+      "ingested_at": "2026-03-26T08:23:13.463968",
+      "freshness_score": 0.9
+    },
+    {
+      "id": "WAZUH-RELEASE-285172918",
+      "title": "Wazuh v4.14.3",
+      "description": "## Manager\r\n\r\n### Fixed\r\n\r\n- Scaped document ID when necessary before sending document to indexer. ([#33464](https://github.com/wazuh/wazuh/pull/33464))\r\n- Extended timestamp conversion helpers to support additional input formats and normalize ISO8601 strings. ([#33551](https://github.com/wazuh/wazuh/pull/33551))\r\n- Restricted cluster file transfer write paths. ([#33705](https://github.com/wazuh/wazuh/pull/33705))\r\n- Hardened cluster deserialization by restricting callable decoding to Wazuh modules and improving error handling. ([#33910](https://github.com/wazuh/wazuh/pull/33910))\r\n- Added query size checks for syscollector delta sync SQL generation to prevent buffer overflows. ([#33803](https://github.com/wazuh/wazuh/pull/33803))\r\n- Replaced unsafe `sprintf` calls in the SCA decoder to prevent buffer overflows. ([#33756](https://github.com/wazuh/wazuh/pull/33756))\r\n- Fixed a memory leak in the CIS-CAT decoder when database operations fail. ([#33739](https://github.com/wazuh/wazuh/pull",
+      "url": "https://github.com/wazuh/wazuh/releases/tag/v4.14.3",
+      "source": "Wazuh GitHub Releases",
+      "published_at": "2026-02-11T15:04:36Z",
+      "tag_name": "v4.14.3",
+      "is_security_related": true,
+      "ingested_at": "2026-03-26T08:23:13.464046",
       "freshness_score": 0.9
     },
     {
@@ -21,7 +33,7 @@
       "published_at": "2026-01-15T11:19:35Z",
       "tag_name": "v4.14.2",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759401",
+      "ingested_at": "2026-03-26T08:23:13.464075",
       "freshness_score": 0.9
     },
     {
@@ -33,7 +45,7 @@
       "published_at": "2025-11-12T18:11:43Z",
       "tag_name": "v4.14.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759419",
+      "ingested_at": "2026-03-26T08:23:13.464088",
       "freshness_score": 0.9
     },
     {
@@ -45,7 +57,7 @@
       "published_at": "2025-10-23T17:45:30Z",
       "tag_name": "v4.14.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759442",
+      "ingested_at": "2026-03-26T08:23:13.464209",
       "freshness_score": 0.9
     },
     {
@@ -57,7 +69,7 @@
       "published_at": "2025-09-25T15:43:49Z",
       "tag_name": "v4.13.1",
       "is_security_related": false,
-      "ingested_at": "2026-01-19T22:35:57.759451",
+      "ingested_at": "2026-03-26T08:23:13.464231",
       "freshness_score": 0.9
     },
     {
@@ -69,7 +81,7 @@
       "published_at": "2025-09-19T07:02:27Z",
       "tag_name": "v4.13.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759521",
+      "ingested_at": "2026-03-26T08:23:13.464344",
       "freshness_score": 0.9
     },
     {
@@ -81,7 +93,7 @@
       "published_at": "2025-08-19T18:51:00Z",
       "tag_name": "v4.10.3",
       "is_security_related": false,
-      "ingested_at": "2026-01-19T22:35:57.759538",
+      "ingested_at": "2026-03-26T08:23:13.464363",
       "freshness_score": 0.9
     },
     {
@@ -93,7 +105,7 @@
       "published_at": "2025-05-23T11:56:41Z",
       "tag_name": "v4.10.2",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759549",
+      "ingested_at": "2026-03-26T08:23:13.464378",
       "freshness_score": 0.9
     },
     {
@@ -105,7 +117,7 @@
       "published_at": "2025-05-08T13:27:46Z",
       "tag_name": "v4.12.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759564",
+      "ingested_at": "2026-03-26T08:23:13.464399",
       "freshness_score": 0.9
     },
     {
@@ -117,7 +129,7 @@
       "published_at": "2025-04-02T13:40:18Z",
       "tag_name": "v4.11.2",
       "is_security_related": false,
-      "ingested_at": "2026-01-19T22:35:57.759578",
+      "ingested_at": "2026-03-26T08:23:13.464416",
       "freshness_score": 0.9
     },
     {
@@ -129,7 +141,7 @@
       "published_at": "2025-03-13T11:01:26Z",
       "tag_name": "v4.11.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759589",
+      "ingested_at": "2026-03-26T08:23:13.464429",
       "freshness_score": 0.9
     },
     {
@@ -141,7 +153,7 @@
       "published_at": "2025-02-24T08:37:40Z",
       "tag_name": "v4.11.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759597",
+      "ingested_at": "2026-03-26T08:23:13.464439",
       "freshness_score": 0.9
     },
     {
@@ -153,7 +165,7 @@
       "published_at": "2025-01-17T17:33:48Z",
       "tag_name": "v4.10.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759604",
+      "ingested_at": "2026-03-26T08:23:13.464448",
       "freshness_score": 0.9
     },
     {
@@ -165,7 +177,7 @@
       "published_at": "2025-01-10T12:29:33Z",
       "tag_name": "v4.10.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759621",
+      "ingested_at": "2026-03-26T08:23:13.464467",
       "freshness_score": 0.9
     },
     {
@@ -177,7 +189,7 @@
       "published_at": "2024-11-04T18:48:03Z",
       "tag_name": "v4.9.2",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759628",
+      "ingested_at": "2026-03-26T08:23:13.464475",
       "freshness_score": 0.9
     },
     {
@@ -189,7 +201,7 @@
       "published_at": "2024-10-17T15:48:27Z",
       "tag_name": "v4.9.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759636",
+      "ingested_at": "2026-03-26T08:23:13.464485",
       "freshness_score": 0.9
     },
     {
@@ -201,7 +213,7 @@
       "published_at": "2024-09-05T16:04:09Z",
       "tag_name": "v4.9.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759649",
+      "ingested_at": "2026-03-26T08:23:13.464502",
       "freshness_score": 0.9
     },
     {
@@ -213,7 +225,7 @@
       "published_at": "2024-08-22T09:09:03Z",
       "tag_name": "v4.8.2",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759657",
+      "ingested_at": "2026-03-26T08:23:13.464511",
       "freshness_score": 0.9
     },
     {
@@ -225,7 +237,7 @@
       "published_at": "2024-07-22T11:05:01Z",
       "tag_name": "v4.8.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759668",
+      "ingested_at": "2026-03-26T08:23:13.464525",
       "freshness_score": 0.9
     },
     {
@@ -237,7 +249,7 @@
       "published_at": "2024-06-13T14:35:58Z",
       "tag_name": "v4.8.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759696",
+      "ingested_at": "2026-03-26T08:23:13.464562",
       "freshness_score": 0.9
     },
     {
@@ -249,7 +261,7 @@
       "published_at": "2024-05-31T06:20:58Z",
       "tag_name": "v4.7.5",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759706",
+      "ingested_at": "2026-03-26T08:23:13.464574",
       "freshness_score": 0.9
     },
     {
@@ -261,7 +273,7 @@
       "published_at": "2024-04-30T06:47:57Z",
       "tag_name": "v4.7.4",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759715",
+      "ingested_at": "2026-03-26T08:23:13.464584",
       "freshness_score": 0.9
     },
     {
@@ -273,7 +285,7 @@
       "published_at": "2024-03-05T09:33:11Z",
       "tag_name": "v4.7.3",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759723",
+      "ingested_at": "2026-03-26T08:23:13.464594",
       "freshness_score": 0.9
     },
     {
@@ -285,7 +297,7 @@
       "published_at": "2024-01-11T18:30:56Z",
       "tag_name": "v4.7.2",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759733",
+      "ingested_at": "2026-03-26T08:23:13.464662",
       "freshness_score": 0.9
     },
     {
@@ -297,7 +309,7 @@
       "published_at": "2023-12-22T03:07:01Z",
       "tag_name": "v4.7.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759746",
+      "ingested_at": "2026-03-26T08:23:13.464684",
       "freshness_score": 0.9
     },
     {
@@ -309,7 +321,7 @@
       "published_at": "2023-11-28T16:52:57Z",
       "tag_name": "v4.7.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759765",
+      "ingested_at": "2026-03-26T08:23:13.464703",
       "freshness_score": 0.9
     },
     {
@@ -321,7 +333,7 @@
       "published_at": "2023-11-07T07:28:43Z",
       "tag_name": "v4.6.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759783",
+      "ingested_at": "2026-03-26T08:23:13.464720",
       "freshness_score": 0.9
     },
     {
@@ -333,7 +345,7 @@
       "published_at": "2023-10-23T15:13:19Z",
       "tag_name": "v4.5.4",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759801",
+      "ingested_at": "2026-03-26T08:23:13.464740",
       "freshness_score": 0.9
     },
     {
@@ -345,7 +357,7 @@
       "published_at": "2023-10-10T10:15:45Z",
       "tag_name": "v4.5.3",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759829",
+      "ingested_at": "2026-03-26T08:23:13.464752",
       "freshness_score": 0.9
     },
     {
@@ -357,7 +369,7 @@
       "published_at": "2023-09-06T13:01:47Z",
       "tag_name": "v4.5.2",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759839",
+      "ingested_at": "2026-03-26T08:23:13.464762",
       "freshness_score": 0.9
     },
     {
@@ -369,7 +381,7 @@
       "published_at": "2023-08-24T10:56:51Z",
       "tag_name": "v4.5.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759857",
+      "ingested_at": "2026-03-26T08:23:13.464776",
       "freshness_score": 0.9
     },
     {
@@ -381,7 +393,7 @@
       "published_at": "2023-08-10T15:57:05Z",
       "tag_name": "v4.5.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759866",
+      "ingested_at": "2026-03-26T08:23:13.464783",
       "freshness_score": 0.9
     },
     {
@@ -393,7 +405,7 @@
       "published_at": "2023-07-11T06:11:19Z",
       "tag_name": "v4.4.5",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759875",
+      "ingested_at": "2026-03-26T08:23:13.464791",
       "freshness_score": 0.9
     },
     {
@@ -405,7 +417,7 @@
       "published_at": "2023-06-14T08:29:39Z",
       "tag_name": "v4.4.4",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759887",
+      "ingested_at": "2026-03-26T08:23:13.464797",
       "freshness_score": 0.9
     },
     {
@@ -417,7 +429,7 @@
       "published_at": "2023-05-26T05:59:55Z",
       "tag_name": "v4.4.3",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759901",
+      "ingested_at": "2026-03-26T08:23:13.464809",
       "freshness_score": 0.9
     },
     {
@@ -429,7 +441,7 @@
       "published_at": "2023-05-18T14:50:20Z",
       "tag_name": "v4.4.2",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759912",
+      "ingested_at": "2026-03-26T08:23:13.464818",
       "freshness_score": 0.9
     },
     {
@@ -441,7 +453,7 @@
       "published_at": "2023-04-20T07:16:35Z",
       "tag_name": "v4.3.11",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759920",
+      "ingested_at": "2026-03-26T08:23:13.464824",
       "freshness_score": 0.9
     },
     {
@@ -453,7 +465,7 @@
       "published_at": "2023-04-12T09:53:51Z",
       "tag_name": "v4.4.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759933",
+      "ingested_at": "2026-03-26T08:23:13.464837",
       "freshness_score": 0.9
     },
     {
@@ -465,7 +477,7 @@
       "published_at": "2023-03-28T20:45:28Z",
       "tag_name": "v4.4.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759963",
+      "ingested_at": "2026-03-26T08:23:13.464859",
       "freshness_score": 0.9
     },
     {
@@ -477,7 +489,7 @@
       "published_at": "2022-11-16T16:22:52Z",
       "tag_name": "v4.3.10",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759973",
+      "ingested_at": "2026-03-26T08:23:13.464866",
       "freshness_score": 0.9
     },
     {
@@ -489,7 +501,7 @@
       "published_at": "2022-10-13T12:09:07Z",
       "tag_name": "v4.3.9",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759983",
+      "ingested_at": "2026-03-26T08:23:13.464874",
       "freshness_score": 0.9
     },
     {
@@ -501,7 +513,7 @@
       "published_at": "2022-09-19T13:13:20Z",
       "tag_name": "v4.3.8",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.759995",
+      "ingested_at": "2026-03-26T08:23:13.464883",
       "freshness_score": 0.9
     },
     {
@@ -513,7 +525,7 @@
       "published_at": "2022-09-15T09:34:28Z",
       "tag_name": "v3.13.6",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760005",
+      "ingested_at": "2026-03-26T08:23:13.464890",
       "freshness_score": 0.9
     },
     {
@@ -525,7 +537,7 @@
       "published_at": "2022-08-24T12:40:31Z",
       "tag_name": "v4.3.7",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760018",
+      "ingested_at": "2026-03-26T08:23:13.464901",
       "freshness_score": 0.9
     },
     {
@@ -537,7 +549,7 @@
       "published_at": "2022-08-24T12:40:04Z",
       "tag_name": "v3.13.5",
       "is_security_related": false,
-      "ingested_at": "2026-01-19T22:35:57.760027",
+      "ingested_at": "2026-03-26T08:23:13.464909",
       "freshness_score": 0.9
     },
     {
@@ -549,7 +561,7 @@
       "published_at": "2022-07-20T14:45:35Z",
       "tag_name": "v4.3.6",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760040",
+      "ingested_at": "2026-03-26T08:23:13.464920",
       "freshness_score": 0.9
     },
     {
@@ -561,7 +573,7 @@
       "published_at": "2022-06-29T10:16:06Z",
       "tag_name": "v4.3.5",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760054",
+      "ingested_at": "2026-03-26T08:23:13.464931",
       "freshness_score": 0.9
     },
     {
@@ -573,7 +585,7 @@
       "published_at": "2022-06-09T09:01:36Z",
       "tag_name": "v4.3.4",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760068",
+      "ingested_at": "2026-03-26T08:23:13.464945",
       "freshness_score": 0.9
     },
     {
@@ -585,7 +597,7 @@
       "published_at": "2022-05-31T22:16:57Z",
       "tag_name": "v4.3.3",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760076",
+      "ingested_at": "2026-03-26T08:23:13.464952",
       "freshness_score": 0.9
     },
     {
@@ -597,7 +609,7 @@
       "published_at": "2022-05-30T14:37:59Z",
       "tag_name": "v4.3.2",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760084",
+      "ingested_at": "2026-03-26T08:23:13.464958",
       "freshness_score": 0.9
     },
     {
@@ -609,7 +621,7 @@
       "published_at": "2022-05-30T13:01:40Z",
       "tag_name": "v4.2.7",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760091",
+      "ingested_at": "2026-03-26T08:23:13.464964",
       "freshness_score": 0.9
     },
     {
@@ -621,7 +633,7 @@
       "published_at": "2022-05-30T17:29:23Z",
       "tag_name": "v3.13.4",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760099",
+      "ingested_at": "2026-03-26T08:23:13.464970",
       "freshness_score": 0.9
     },
     {
@@ -633,7 +645,7 @@
       "published_at": "2022-05-18T10:12:43Z",
       "tag_name": "v4.3.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760110",
+      "ingested_at": "2026-03-26T08:23:13.464979",
       "freshness_score": 0.9
     },
     {
@@ -645,7 +657,7 @@
       "published_at": "2022-05-05T16:06:52Z",
       "tag_name": "v4.3.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760200",
+      "ingested_at": "2026-03-26T08:23:13.465013",
       "freshness_score": 0.9
     },
     {
@@ -657,7 +669,7 @@
       "published_at": "2022-03-25T12:57:29Z",
       "tag_name": "v4.2.6",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760219",
+      "ingested_at": "2026-03-26T08:23:13.465019",
       "freshness_score": 0.9
     },
     {
@@ -669,7 +681,7 @@
       "published_at": "2021-11-12T16:10:44Z",
       "tag_name": "v4.2.5",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760231",
+      "ingested_at": "2026-03-26T08:23:13.465028",
       "freshness_score": 0.9
     },
     {
@@ -681,7 +693,7 @@
       "published_at": "2021-10-20T10:09:45Z",
       "tag_name": "v4.2.4",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760241",
+      "ingested_at": "2026-03-26T08:23:13.465034",
       "freshness_score": 0.9
     },
     {
@@ -693,7 +705,7 @@
       "published_at": "2021-10-06T08:22:50Z",
       "tag_name": "v4.2.3",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760250",
+      "ingested_at": "2026-03-26T08:23:13.465040",
       "freshness_score": 0.9
     },
     {
@@ -705,7 +717,7 @@
       "published_at": "2021-09-28T08:18:03Z",
       "tag_name": "v4.2.2",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760271",
+      "ingested_at": "2026-03-26T08:23:13.465055",
       "freshness_score": 0.9
     },
     {
@@ -717,7 +729,7 @@
       "published_at": "2021-09-06T07:19:50Z",
       "tag_name": "v4.2.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760283",
+      "ingested_at": "2026-03-26T08:23:13.465062",
       "freshness_score": 0.9
     },
     {
@@ -729,7 +741,7 @@
       "published_at": "2021-08-25T18:14:22Z",
       "tag_name": "v4.2.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760491",
+      "ingested_at": "2026-03-26T08:23:13.465165",
       "freshness_score": 0.9
     },
     {
@@ -741,7 +753,7 @@
       "published_at": "2021-04-28T06:27:52Z",
       "tag_name": "v3.13.3",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760514",
+      "ingested_at": "2026-03-26T08:23:13.465171",
       "freshness_score": 0.9
     },
     {
@@ -753,7 +765,7 @@
       "published_at": "2021-04-22T16:14:05Z",
       "tag_name": "v4.1.5",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760527",
+      "ingested_at": "2026-03-26T08:23:13.465177",
       "freshness_score": 0.9
     },
     {
@@ -765,7 +777,7 @@
       "published_at": "2021-03-25T22:16:34Z",
       "tag_name": "v4.1.4",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760547",
+      "ingested_at": "2026-03-26T08:23:13.465183",
       "freshness_score": 0.9
     },
     {
@@ -777,7 +789,7 @@
       "published_at": "2021-03-23T15:45:48Z",
       "tag_name": "v4.1.3",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760578",
+      "ingested_at": "2026-03-26T08:23:13.465192",
       "freshness_score": 0.9
     },
     {
@@ -789,7 +801,7 @@
       "published_at": "2021-03-08T16:02:59Z",
       "tag_name": "v4.1.2",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760612",
+      "ingested_at": "2026-03-26T08:23:13.465204",
       "freshness_score": 0.9
     },
     {
@@ -801,7 +813,7 @@
       "published_at": "2021-02-25T16:50:28Z",
       "tag_name": "v4.1.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760644",
+      "ingested_at": "2026-03-26T08:23:13.465220",
       "freshness_score": 0.9
     },
     {
@@ -813,7 +825,7 @@
       "published_at": "2021-02-15T17:12:25Z",
       "tag_name": "v4.1.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760664",
+      "ingested_at": "2026-03-26T08:23:13.465233",
       "freshness_score": 0.9
     },
     {
@@ -825,7 +837,7 @@
       "published_at": "2021-01-14T17:50:15Z",
       "tag_name": "v4.0.4",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760682",
+      "ingested_at": "2026-03-26T08:23:13.465244",
       "freshness_score": 0.9
     },
     {
@@ -837,7 +849,7 @@
       "published_at": "2020-11-30T16:07:21Z",
       "tag_name": "v4.0.3",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760694",
+      "ingested_at": "2026-03-26T08:23:13.465252",
       "freshness_score": 0.9
     },
     {
@@ -849,7 +861,7 @@
       "published_at": "2020-11-24T16:17:51Z",
       "tag_name": "v4.0.2",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760706",
+      "ingested_at": "2026-03-26T08:23:13.465259",
       "freshness_score": 0.9
     },
     {
@@ -861,7 +873,7 @@
       "published_at": "2020-11-11T12:12:40Z",
       "tag_name": "v4.0.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760717",
+      "ingested_at": "2026-03-26T08:23:13.465265",
       "freshness_score": 0.9
     },
     {
@@ -873,7 +885,7 @@
       "published_at": "2020-10-23T07:52:41Z",
       "tag_name": "v4.0.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760849",
+      "ingested_at": "2026-03-26T08:23:13.465328",
       "freshness_score": 0.9
     },
     {
@@ -885,7 +897,7 @@
       "published_at": "2020-09-22T07:11:18Z",
       "tag_name": "v3.13.2",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760859",
+      "ingested_at": "2026-03-26T08:23:13.465333",
       "freshness_score": 0.9
     },
     {
@@ -897,7 +909,7 @@
       "published_at": "2020-07-15T09:02:25Z",
       "tag_name": "v3.13.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760872",
+      "ingested_at": "2026-03-26T08:23:13.465339",
       "freshness_score": 0.9
     },
     {
@@ -909,7 +921,7 @@
       "published_at": "2020-06-22T16:38:19Z",
       "tag_name": "v3.13.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760896",
+      "ingested_at": "2026-03-26T08:23:13.465356",
       "freshness_score": 0.9
     },
     {
@@ -921,7 +933,7 @@
       "published_at": "2020-04-30T10:12:26Z",
       "tag_name": "v3.12.3",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760913",
+      "ingested_at": "2026-03-26T08:23:13.465367",
       "freshness_score": 0.9
     },
     {
@@ -933,7 +945,7 @@
       "published_at": "2020-04-09T12:52:11Z",
       "tag_name": "v3.12.2",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760925",
+      "ingested_at": "2026-03-26T08:23:13.465372",
       "freshness_score": 0.9
     },
     {
@@ -945,7 +957,7 @@
       "published_at": "2020-04-08T17:11:52Z",
       "tag_name": "v3.12.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760957",
+      "ingested_at": "2026-03-26T08:23:13.465389",
       "freshness_score": 0.9
     },
     {
@@ -957,7 +969,7 @@
       "published_at": "2020-03-24T10:18:00Z",
       "tag_name": "v3.12.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.760987",
+      "ingested_at": "2026-03-26T08:23:13.465408",
       "freshness_score": 0.9
     },
     {
@@ -969,7 +981,7 @@
       "published_at": "2020-02-25T16:46:03Z",
       "tag_name": "v3.11.4",
       "is_security_related": false,
-      "ingested_at": "2026-01-19T22:35:57.761002",
+      "ingested_at": "2026-03-26T08:23:13.465418",
       "freshness_score": 0.9
     },
     {
@@ -981,7 +993,7 @@
       "published_at": "2020-01-28T16:40:25Z",
       "tag_name": "v3.11.3",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761012",
+      "ingested_at": "2026-03-26T08:23:13.465424",
       "freshness_score": 0.9
     },
     {
@@ -993,7 +1005,7 @@
       "published_at": "2020-01-22T14:07:36Z",
       "tag_name": "v3.11.2",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761023",
+      "ingested_at": "2026-03-26T08:23:13.465430",
       "freshness_score": 0.9
     },
     {
@@ -1005,7 +1017,7 @@
       "published_at": "2020-01-10T08:06:51Z",
       "tag_name": "v3.11.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761034",
+      "ingested_at": "2026-03-26T08:23:13.465436",
       "freshness_score": 0.9
     },
     {
@@ -1017,7 +1029,7 @@
       "published_at": "2019-12-23T16:06:21Z",
       "tag_name": "v3.11.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761074",
+      "ingested_at": "2026-03-26T08:23:13.465452",
       "freshness_score": 0.9
     },
     {
@@ -1029,7 +1041,7 @@
       "published_at": "2019-09-23T17:30:48Z",
       "tag_name": "v3.10.2",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761095",
+      "ingested_at": "2026-03-26T08:23:13.465458",
       "freshness_score": 0.9
     },
     {
@@ -1041,7 +1053,7 @@
       "published_at": "2019-09-19T20:12:53Z",
       "tag_name": "v3.10.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761123",
+      "ingested_at": "2026-03-26T08:23:13.465466",
       "freshness_score": 0.9
     },
     {
@@ -1053,7 +1065,7 @@
       "published_at": "2019-09-18T08:27:58Z",
       "tag_name": "v3.10.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761159",
+      "ingested_at": "2026-03-26T08:23:13.465490",
       "freshness_score": 0.9
     },
     {
@@ -1065,7 +1077,7 @@
       "published_at": "2019-08-08T14:46:53Z",
       "tag_name": "v3.9.5",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761175",
+      "ingested_at": "2026-03-26T08:23:13.465497",
       "freshness_score": 0.9
     },
     {
@@ -1077,7 +1089,7 @@
       "published_at": "2019-08-07T11:51:22Z",
       "tag_name": "v3.9.4",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761204",
+      "ingested_at": "2026-03-26T08:23:13.465514",
       "freshness_score": 0.9
     },
     {
@@ -1089,7 +1101,7 @@
       "published_at": "2019-07-09T15:33:21Z",
       "tag_name": "v3.9.3",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761219",
+      "ingested_at": "2026-03-26T08:23:13.465522",
       "freshness_score": 0.9
     },
     {
@@ -1101,7 +1113,7 @@
       "published_at": "2019-06-10T15:02:02Z",
       "tag_name": "v3.9.2",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761238",
+      "ingested_at": "2026-03-26T08:23:13.465533",
       "freshness_score": 0.9
     },
     {
@@ -1113,7 +1125,7 @@
       "published_at": "2019-05-21T19:40:04Z",
       "tag_name": "v3.9.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761253",
+      "ingested_at": "2026-03-26T08:23:13.465542",
       "freshness_score": 0.9
     },
     {
@@ -1125,7 +1137,7 @@
       "published_at": "2019-05-02T21:05:29Z",
       "tag_name": "v3.9.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761274",
+      "ingested_at": "2026-03-26T08:23:13.465553",
       "freshness_score": 0.9
     },
     {
@@ -1137,7 +1149,7 @@
       "published_at": "2019-01-31T05:29:04Z",
       "tag_name": "v3.8.2",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761288",
+      "ingested_at": "2026-03-26T08:23:13.465561",
       "freshness_score": 0.9
     },
     {
@@ -1149,7 +1161,7 @@
       "published_at": "2019-01-25T00:22:58Z",
       "tag_name": "v3.8.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761302",
+      "ingested_at": "2026-03-26T08:23:13.465567",
       "freshness_score": 0.9
     },
     {
@@ -1161,7 +1173,7 @@
       "published_at": "2019-01-19T00:11:11Z",
       "tag_name": "v3.8.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761341",
+      "ingested_at": "2026-03-26T08:23:13.465593",
       "freshness_score": 0.9
     },
     {
@@ -1173,7 +1185,7 @@
       "published_at": "2018-12-17T17:12:15Z",
       "tag_name": "v3.7.2",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761361",
+      "ingested_at": "2026-03-26T08:23:13.465602",
       "freshness_score": 0.9
     },
     {
@@ -1185,7 +1197,7 @@
       "published_at": "2018-12-05T18:11:03Z",
       "tag_name": "v3.7.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761388",
+      "ingested_at": "2026-03-26T08:23:13.465619",
       "freshness_score": 0.9
     },
     {
@@ -1197,7 +1209,7 @@
       "published_at": "2018-11-10T10:46:20Z",
       "tag_name": "v3.7.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761416",
+      "ingested_at": "2026-03-26T08:23:13.465637",
       "freshness_score": 0.9
     },
     {
@@ -1209,7 +1221,7 @@
       "published_at": "2018-09-07T20:12:47Z",
       "tag_name": "v3.6.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761433",
+      "ingested_at": "2026-03-26T08:23:13.465645",
       "freshness_score": 0.9
     },
     {
@@ -1221,7 +1233,7 @@
       "published_at": "2018-08-29T23:04:42Z",
       "tag_name": "v3.6.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761458",
+      "ingested_at": "2026-03-26T08:23:13.465662",
       "freshness_score": 0.9
     },
     {
@@ -1233,7 +1245,7 @@
       "published_at": "2018-08-10T09:00:04Z",
       "tag_name": "v3.5.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761476",
+      "ingested_at": "2026-03-26T08:23:13.465673",
       "freshness_score": 0.9
     },
     {
@@ -1245,7 +1257,7 @@
       "published_at": "2018-07-24T19:28:03Z",
       "tag_name": "v3.4.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761537",
+      "ingested_at": "2026-03-26T08:23:13.465717",
       "freshness_score": 0.9
     },
     {
@@ -1257,7 +1269,7 @@
       "published_at": "2018-06-18T18:49:18Z",
       "tag_name": "v3.3.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761562",
+      "ingested_at": "2026-03-26T08:23:13.465733",
       "freshness_score": 0.9
     },
     {
@@ -1269,7 +1281,7 @@
       "published_at": "2018-06-08T19:10:20Z",
       "tag_name": "v3.3.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761588",
+      "ingested_at": "2026-03-26T08:23:13.465749",
       "freshness_score": 0.9
     },
     {
@@ -1281,7 +1293,7 @@
       "published_at": "2018-06-01T18:15:05Z",
       "tag_name": "v3.2.4",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761602",
+      "ingested_at": "2026-03-26T08:23:13.465757",
       "freshness_score": 0.9
     },
     {
@@ -1293,7 +1305,7 @@
       "published_at": "2018-05-28T16:29:20Z",
       "tag_name": "v3.2.3",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761618",
+      "ingested_at": "2026-03-26T08:23:13.465766",
       "freshness_score": 0.9
     },
     {
@@ -1305,7 +1317,7 @@
       "published_at": "2018-05-07T16:33:08Z",
       "tag_name": "v3.2.2",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761634",
+      "ingested_at": "2026-03-26T08:23:13.465776",
       "freshness_score": 0.9
     },
     {
@@ -1317,7 +1329,7 @@
       "published_at": "2018-03-03T01:28:02Z",
       "tag_name": "v3.2.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761654",
+      "ingested_at": "2026-03-26T08:23:13.465787",
       "freshness_score": 0.9
     },
     {
@@ -1329,7 +1341,7 @@
       "published_at": "2018-02-08T19:36:10Z",
       "tag_name": "v3.2.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761671",
+      "ingested_at": "2026-03-26T08:23:13.465794",
       "freshness_score": 0.9
     },
     {
@@ -1341,7 +1353,7 @@
       "published_at": "2017-12-22T03:29:11Z",
       "tag_name": "v3.1.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761686",
+      "ingested_at": "2026-03-26T08:23:13.465803",
       "freshness_score": 0.9
     },
     {
@@ -1353,7 +1365,7 @@
       "published_at": "2017-12-03T21:28:56Z",
       "tag_name": "v3.0.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761895",
+      "ingested_at": "2026-03-26T08:23:13.465906",
       "freshness_score": 0.9
     },
     {
@@ -1365,7 +1377,7 @@
       "published_at": "2017-09-25T14:31:36Z",
       "tag_name": "v2.1.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761913",
+      "ingested_at": "2026-03-26T08:23:13.465915",
       "freshness_score": 0.9
     },
     {
@@ -1377,7 +1389,7 @@
       "published_at": "2017-08-17T17:10:02Z",
       "tag_name": "v2.1.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761945",
+      "ingested_at": "2026-03-26T08:23:13.465935",
       "freshness_score": 0.9
     },
     {
@@ -1389,7 +1401,7 @@
       "published_at": "2017-07-24T21:09:55Z",
       "tag_name": "v2.0.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.761974",
+      "ingested_at": "2026-03-26T08:23:13.465953",
       "freshness_score": 0.9
     },
     {
@@ -1401,7 +1413,7 @@
       "published_at": "2017-04-24T09:50:01Z",
       "tag_name": "v2.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.762085",
+      "ingested_at": "2026-03-26T08:23:13.465965",
       "freshness_score": 0.9
     },
     {
@@ -1413,7 +1425,7 @@
       "published_at": "2016-05-12T12:15:13Z",
       "tag_name": "v1.1.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.762103",
+      "ingested_at": "2026-03-26T08:23:13.465974",
       "freshness_score": 0.9
     },
     {
@@ -1425,7 +1437,7 @@
       "published_at": "2016-04-13T19:31:50Z",
       "tag_name": "v1.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.762125",
+      "ingested_at": "2026-03-26T08:23:13.465987",
       "freshness_score": 0.9
     },
     {
@@ -1437,7 +1449,7 @@
       "published_at": "2016-02-24T20:23:39Z",
       "tag_name": "v1.0.4",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.762143",
+      "ingested_at": "2026-03-26T08:23:13.465997",
       "freshness_score": 0.9
     },
     {
@@ -1449,7 +1461,7 @@
       "published_at": "2016-02-12T19:52:32Z",
       "tag_name": "v1.0.3",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.762221",
+      "ingested_at": "2026-03-26T08:23:13.466003",
       "freshness_score": 0.9
     },
     {
@@ -1461,7 +1473,7 @@
       "published_at": "2016-01-29T18:36:33Z",
       "tag_name": "v1.0.2",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.762247",
+      "ingested_at": "2026-03-26T08:23:13.466011",
       "freshness_score": 0.9
     },
     {
@@ -1473,7 +1485,7 @@
       "published_at": "2015-12-15T22:11:05Z",
       "tag_name": "v1.0.1",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.762265",
+      "ingested_at": "2026-03-26T08:23:13.466017",
       "freshness_score": 0.9
     },
     {
@@ -1485,82 +1497,9 @@
       "published_at": "2015-11-23T17:45:32Z",
       "tag_name": "v1.0",
       "is_security_related": true,
-      "ingested_at": "2026-01-19T22:35:57.762277",
+      "ingested_at": "2026-03-26T08:23:13.466021",
       "freshness_score": 0.9
-    },
-    {
-      "id": "WAZUH-BLOG-bac3d1d536f7",
-      "title": "Join the Wazuh Ambassadors program to help drive open source security",
-      "description": "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nJoin the Wazuh Ambassadors program to help drive open source security | Wazuh\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nSkip to content\n\n\n\n\n\n\n\n\n\n\n \n \n\n\n\n\n\n\n\n\n\n\n \n\n\n\n\nBlog\nCommunity\nContact us\n Twitter\nLinkedIn\nReddit\nGitHub\nDiscord\nSlack\nMailing list\n \n\n\n\n\n\n\nSearch here\n\n\n\n\n\nClose\n\n\n\nSearch\n\n\n\n\n\n\n\n\n\n\n\n\nGo home\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n \n\n\n\n\n\nOpen mobile search\n\n\n\n\n\n\n\n\n\n\n\nPlatform \n\nOverview\nXDR\nSIEM\n\n\nCloud\nCTI\nDocumentation\nServices \n\nProfessional support\nConsulting services\nTraining courses\n\n\nPartners \n\nBecome a partner\nFind a partner\n\n\nBlog\nCompany \n\nCustomers\nAbout us\nOur team\nResources\n\n\nCommunity\nContact us\nInstall Wazuh\n Log in\n \n\n\n\n\n\n\n\n\n\nSearch here\n\n\n\n\n\nClose\n\n\n\nSearch\n\n\n\n\n\n\n\n\n\n\n\n\n\nContact us\n\n\n\n\n\n\n\n\n\n\n\n\nBlog\n              \n\n\n\n                    News                    \n\n\n\nAll categories\n\nEngineeringNewsReleases \n\n\n\n\n\nSearch here\n\n\n\n\n\nClose\n\n\n\n\nSearch\n\n\n\n\n\n\n\n\n\n\n\n \n\n\n\n\n \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nJoin the Wazuh Ambassadors program to help drive open source security \n\n\t\t\t\t\t\t\t\tJanuary 15th 2026\t\t\t\t\t\t\t\n\n\t\t\t\t\t\t\t\t| by Wazuh \n\n\t\t\t\t\t\t\t\t| Wazuh 4.14.0\t\t\t\t\t\t\t\n\n\n\n\n\n\n \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nThe Wazuh Ambassadors program brings together security practitioners who actively support the global Wazuh community. Ambassadors share hands-on knowledge, create educational resources, and help others adopt and maximize the benefits of Wazuh through collaboration and open source engagement.\u00a0\nThe program empowers ambassadors to promote open source security awareness. Their contributions help bridge the gap between organizations seeking practical cybersecurity solutions and the open source technologies that enable them.\nWho can join the Wazuh Ambassadors program\nThe program welcomes anyone passionate about cybersecurity and open source. Whether you are an industry expert, a community contributor, or someone eager to learn, teach, and connect with others, you are a great fit. Typical ambassadors include:\n\nOpen source advocates who believe ",
-      "url": "https://wazuh.com/blog/join-wazuh-ambassadors-program/",
-      "source": "Wazuh Blog",
-      "ingested_at": "2026-01-19T22:35:58.225356",
-      "freshness_score": 0.8
-    },
-    {
-      "id": "WAZUH-BLOG-355667af36ab",
-      "title": "Open source software as the future of cybersecurity",
-      "description": "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nOpen source software as the future of cybersecurity\u00a0 | Wazuh\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nSkip to content\n\n\n\n\n\n\n\n\n\n\n \n \n\n\n\n\n\n\n\n\n\n\n \n\n\n\n\nBlog\nCommunity\nContact us\n Twitter\nLinkedIn\nReddit\nGitHub\nDiscord\nSlack\nMailing list\n \n\n\n\n\n\n\nSearch here\n\n\n\n\n\nClose\n\n\n\nSearch\n\n\n\n\n\n\n\n\n\n\n\n\nGo home\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n \n\n\n\n\n\nOpen mobile search\n\n\n\n\n\n\n\n\n\n\n\nPlatform \n\nOverview\nXDR\nSIEM\n\n\nCloud\nCTI\nDocumentation\nServices \n\nProfessional support\nConsulting services\nTraining courses\n\n\nPartners \n\nBecome a partner\nFind a partner\n\n\nBlog\nCompany \n\nCustomers\nAbout us\nOur team\nResources\n\n\nCommunity\nContact us\nInstall Wazuh\n Log in\n \n\n\n\n\n\n\n\n\n\nSearch here\n\n\n\n\n\nClose\n\n\n\nSearch\n\n\n\n\n\n\n\n\n\n\n\n\n\nContact us\n\n\n\n\n\n\n\n\n\n\n\n\nBlog\n              \n\n\n\n                    Engineering                    \n\n\n\nAll categories\n\nEngineeringNewsReleases \n\n\n\n\n\nSearch here\n\n\n\n\n\nClose\n\n\n\n\nSearch\n\n\n\n\n\n\n\n\n\n\n\n \n\n\n\n\n \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nOpen source software as the future of cybersecurity\u00a0 \n\n\t\t\t\t\t\t\t\tJanuary 12th 2026\t\t\t\t\t\t\t\n\n\t\t\t\t\t\t\t\t| by John Olatunde \n\n\t\t\t\t\t\t\t\t| Wazuh 4.14.1\t\t\t\t\t\t\t\n\n\n\n\n\n\n \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nOpen source software makes its source code publicly available, allowing anyone to inspect, audit, and improve it. This transparency creates verifiable trust, where security claims can be independently validated by a global community instead of taken on faith. Open source licenses give users full control to understand, customize, and extend the software to meet their needs. As a result, security and reliability are strengthened through collective oversight, not constrained by vendor-controlled black boxes.\nClosed source software, in contrast, operates on a model of implicit trust by restricting access to its internal code. The lack of transparency forces organizations to rely entirely on the vendor\u2019s proprietary security practices. Without the ability to independently verify the code, security flaws can remain hidden and create a significant trust gap that ",
-      "url": "https://wazuh.com/blog/open-source-software-as-the-future-of-cybersecurity/",
-      "source": "Wazuh Blog",
-      "ingested_at": "2026-01-19T22:35:58.328618",
-      "freshness_score": 0.8
-    },
-    {
-      "id": "WAZUH-BLOG-303a43446411",
-      "title": "Detecting React CVE-2025-55182 RCE vulnerability with Wazuh",
-      "description": "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nDetecting React CVE-2025-55182 RCE vulnerability with Wazuh | Wazuh\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nSkip to content\n\n\n\n\n\n\n\n\n\n\n \n \n\n\n\n\n\n\n\n\n\n\n \n\n\n\n\nBlog\nCommunity\nContact us\n Twitter\nLinkedIn\nReddit\nGitHub\nDiscord\nSlack\nMailing list\n \n\n\n\n\n\n\nSearch here\n\n\n\n\n\nClose\n\n\n\nSearch\n\n\n\n\n\n\n\n\n\n\n\n\nGo home\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n \n\n\n\n\n\nOpen mobile search\n\n\n\n\n\n\n\n\n\n\n\nPlatform \n\nOverview\nXDR\nSIEM\n\n\nCloud\nCTI\nDocumentation\nServices \n\nProfessional support\nConsulting services\nTraining courses\n\n\nPartners \n\nBecome a partner\nFind a partner\n\n\nBlog\nCompany \n\nCustomers\nAbout us\nOur team\nResources\n\n\nCommunity\nContact us\nInstall Wazuh\n Log in\n \n\n\n\n\n\n\n\n\n\nSearch here\n\n\n\n\n\nClose\n\n\n\nSearch\n\n\n\n\n\n\n\n\n\n\n\n\n\nContact us\n\n\n\n\n\n\n\n\n\n\n\n\nBlog\n              \n\n\n\n                    Engineering                    \n\n\n\nAll categories\n\nEngineeringNewsReleases \n\n\n\n\n\nSearch here\n\n\n\n\n\nClose\n\n\n\n\nSearch\n\n\n\n\n\n\n\n\n\n\n\n \n\n\n\n\n \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nDetecting React CVE-2025-55182 RCE vulnerability with Wazuh \n\n\t\t\t\t\t\t\t\tDecember 18th 2025\t\t\t\t\t\t\t\n\n\t\t\t\t\t\t\t\t| by Henadence Anyam \n\n\t\t\t\t\t\t\t\t| Wazuh 4.14.1\t\t\t\t\t\t\t\n\n\n\n\n\n\n \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nA critical severity Remote Code Execution (RCE) vulnerability disclosed as CVE-2025-55182, has been identified affecting the React Server Components (RSC) protocol. This vulnerability is rated CVSS 10.0 and allows unauthenticated attackers to execute arbitrary code on the server via insecure deserialization of malicious HTTP requests. The flaws also affect frameworks and bundlers that use the RSC protocol. These frameworks include Next.js, React Router (RSC mode), Vite RSC plugin, Parcel RSC plugin, RedwoodSDK, and Waku.\nOriginally, the flaw was tracked as two vulnerabilities, CVE-2025-55182 (React) and\u00a0CVE-2025-66478 (Next.js), with an assigned severity rating of CVSS 10.0. CVE-2025-66478 has since been rejected as a duplicate of CVE-2025-55182.\nIn this blog post, we explain how Wazuh helps you identify potential exposure to this vulnerabi",
-      "url": "https://wazuh.com/blog/detecting-react-cve-2025-55182-rce-vulnerability-with-wazuh/",
-      "source": "Wazuh Blog",
-      "ingested_at": "2026-01-19T22:35:58.425871",
-      "freshness_score": 0.8
-    },
-    {
-      "id": "WAZUH-BLOG-bbe51614c7c7",
-      "title": "Detecting Next.js CVE-2025-66478 RCE vulnerability with Wazuh",
-      "description": "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nDetecting Next.js CVE-2025-66478 RCE vulnerability with Wazuh | Wazuh\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nSkip to content\n\n\n\n\n\n\n\n\n\n\n \n \n\n\n\n\n\n\n\n\n\n\n \n\n\n\n\nBlog\nCommunity\nContact us\n Twitter\nLinkedIn\nReddit\nGitHub\nDiscord\nSlack\nMailing list\n \n\n\n\n\n\n\nSearch here\n\n\n\n\n\nClose\n\n\n\nSearch\n\n\n\n\n\n\n\n\n\n\n\n\nGo home\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n \n\n\n\n\n\nOpen mobile search\n\n\n\n\n\n\n\n\n\n\n\nPlatform \n\nOverview\nXDR\nSIEM\n\n\nCloud\nCTI\nDocumentation\nServices \n\nProfessional support\nConsulting services\nTraining courses\n\n\nPartners \n\nBecome a partner\nFind a partner\n\n\nBlog\nCompany \n\nCustomers\nAbout us\nOur team\nResources\n\n\nCommunity\nContact us\nInstall Wazuh\n Log in\n \n\n\n\n\n\n\n\n\n\nSearch here\n\n\n\n\n\nClose\n\n\n\nSearch\n\n\n\n\n\n\n\n\n\n\n\n\n\nContact us\n\n\n\n\n\n\n\n\n\n\n\n\nBlog\n              \n\n\n\n                    Engineering                    \n\n\n\nAll categories\n\nEngineeringNewsReleases \n\n\n\n\n\nSearch here\n\n\n\n\n\nClose\n\n\n\n\nSearch\n\n\n\n\n\n\n\n\n\n\n\n \n\n\n\n\n \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nDetecting Next.js CVE-2025-66478 RCE vulnerability with Wazuh \n\n\t\t\t\t\t\t\t\tDecember 5th 2025\t\t\t\t\t\t\t\n\n\t\t\t\t\t\t\t\t| by Henadence Anyam \n\n\t\t\t\t\t\t\t\t| Wazuh 4.14.1\t\t\t\t\t\t\t\n\n\n\n\n\n\n \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nNote\nThis Next.js CVE-2025-66478 vulnerability has been rejected by NVD and marked as a duplicate of CVE-2025-55182. Visit here to learn more about the CVE-2025-55182 vulnerability.\n\nA critical severity Remote Code Execution (RCE) vulnerability affecting Next.js applications that use the App Router has been identified. This vulnerability is rated CVSS 10.0, disclosed as CVE-2025-66478 and allows remote code execution (RCE) when attacker-controlled requests are processed in unpatched environments. It stems from an upstream vulnerability in the React Server Components (RSC) protocol (CVE-2025-55182) affecting React 19 as well as frameworks and bundlers that use the RSC protocol. These frameworks include React Router (RSC mode), Vite RSC plugin, Parcel RSC plugin, RedwoodSDK, and Waku.\nIn this blog post, we explain how Wazuh helps you iden",
-      "url": "https://wazuh.com/blog/detecting-next-js-cve-2025-66478-rce-vulnerability-with-wazuh/",
-      "source": "Wazuh Blog",
-      "ingested_at": "2026-01-19T22:35:58.534792",
-      "freshness_score": 0.8
-    },
-    {
-      "id": "WAZUH-BLOG-9a8ec1126d96",
-      "title": "Wazuh Partners with connecT SYSTEMHAUS AG to Enhance Managed Security",
-      "description": "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nWazuh Partners with connecT SYSTEMHAUS AG to Enhance Managed Security | Wazuh\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nSkip to content\n\n\n\n\n\n\n\n\n\n\n \n \n\n\n\n\n\n\n\n\n\n\n \n\n\n\n\nBlog\nCommunity\nContact us\n Twitter\nLinkedIn\nReddit\nGitHub\nDiscord\nSlack\nMailing list\n \n\n\n\n\n\n\nSearch here\n\n\n\n\n\nClose\n\n\n\nSearch\n\n\n\n\n\n\n\n\n\n\n\n\nGo home\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n \n\n\n\n\n\nOpen mobile search\n\n\n\n\n\n\n\n\n\n\n\nPlatform \n\nOverview\nXDR\nSIEM\n\n\nCloud\nCTI\nDocumentation\nServices \n\nProfessional support\nConsulting services\nTraining courses\n\n\nPartners \n\nBecome a partner\nFind a partner\n\n\nBlog\nCompany \n\nCustomers\nAbout us\nOur team\nResources\n\n\nCommunity\nContact us\nInstall Wazuh\n Log in\n \n\n\n\n\n\n\n\n\n\nSearch here\n\n\n\n\n\nClose\n\n\n\nSearch\n\n\n\n\n\n\n\n\n\n\n\n\n\nContact us\n\n\n\n\n\n\n\n\n\n\n\n\nBlog\n              \n\n\n\n                    News                    \n\n\n\nAll categories\n\nEngineeringNewsReleases \n\n\n\n\n\nSearch here\n\n\n\n\n\nClose\n\n\n\n\nSearch\n\n\n\n\n\n\n\n\n\n\n\n \n\n\n\n\n \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nWazuh Partners with connecT SYSTEMHAUS AG to Enhance Managed Security \n\n\t\t\t\t\t\t\t\tDecember 5th 2025\t\t\t\t\t\t\t\n\n\t\t\t\t\t\t\t\t| by Wazuh \n\n\n\n\n\n\n \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nSan Jose, California, November 2025 \u2013 Wazuh, the leading open-source Security Information and Event Management (SIEM) and Extended Detection and Response (XDR) solution, announced a partnership with connecT SYSTEMHAUS AG, an owner-managed IT services provider based in Siegen, Germany. The partnership enables connecT to expand its Managed Security Services with Wazuh\u2019s SIEM and XDR capabilities, offering German organizations a transparent, scalable, and standards-aligned cybersecurity solution.\nFounded in 1996, connecT SYSTEMHAUS AG specializes in strategic IT management and operates with a team of around 130 experts. The company designs and manages IT architectures and security solutions across sectors such as manufacturing, trade, healthcare, automotive, energy, finance, and insurance. Its services include Managed Security aligned with ISO 27001, compliance consulting",
-      "url": "https://wazuh.com/blog/wazuh-partners-with-connect-systemhaus-ag-to-enhance-managed-security/",
-      "source": "Wazuh Blog",
-      "ingested_at": "2026-01-19T22:35:58.629461",
-      "freshness_score": 0.8
-    },
-    {
-      "id": "WAZUH-BLOG-69405c65978a",
-      "title": "Detecting Chrome CVE-2025-13223 vulnerability with Wazuh",
-      "description": "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nDetecting Chrome CVE-2025-13223 vulnerability with Wazuh | Wazuh\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nSkip to content\n\n\n\n\n\n\n\n\n\n\n \n \n\n\n\n\n\n\n\n\n\n\n \n\n\n\n\nBlog\nCommunity\nContact us\n Twitter\nLinkedIn\nReddit\nGitHub\nDiscord\nSlack\nMailing list\n \n\n\n\n\n\n\nSearch here\n\n\n\n\n\nClose\n\n\n\nSearch\n\n\n\n\n\n\n\n\n\n\n\n\nGo home\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n \n\n\n\n\n\nOpen mobile search\n\n\n\n\n\n\n\n\n\n\n\nPlatform \n\nOverview\nXDR\nSIEM\n\n\nCloud\nCTI\nDocumentation\nServices \n\nProfessional support\nConsulting services\nTraining courses\n\n\nPartners \n\nBecome a partner\nFind a partner\n\n\nBlog\nCompany \n\nCustomers\nAbout us\nOur team\nResources\n\n\nCommunity\nContact us\nInstall Wazuh\n Log in\n \n\n\n\n\n\n\n\n\n\nSearch here\n\n\n\n\n\nClose\n\n\n\nSearch\n\n\n\n\n\n\n\n\n\n\n\n\n\nContact us\n\n\n\n\n\n\n\n\n\n\n\n\nBlog\n              \n\n\n\n                    Engineering                    \n\n\n\nAll categories\n\nEngineeringNewsReleases \n\n\n\n\n\nSearch here\n\n\n\n\n\nClose\n\n\n\n\nSearch\n\n\n\n\n\n\n\n\n\n\n\n \n\n\n\n\n \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nDetecting Chrome CVE-2025-13223 vulnerability with Wazuh \n\n\t\t\t\t\t\t\t\tNovember 26th 2025\t\t\t\t\t\t\t\n\n\t\t\t\t\t\t\t\t| by Francis Jeremiah \n\n\t\t\t\t\t\t\t\t| Wazuh 4.14.1\t\t\t\t\t\t\t\n\n\n\n\n\n\n \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nAnother zero-day vulnerability tracked as CVE-2025-13223 has been discovered to affect Google Chrome and Chromium web browsers on Windows, macOS, and Linux endpoints. It follows the earlier disclosure of CVE-2025-4664, which also affects these web browsers. This is a high-severity flaw with a CVSS score of 8.8 reported to be actively exploited in the wild.\u00a0 This latest discovery highlights that browser-based zero-day vulnerabilities are becoming more common, showing that modern browsers are increasingly targeted by threat actors. With billions of users relying on Chromium-powered browsers for everything from business operations to cloud access, any flaw in the underlying engine immediately becomes a high-impact security concern.\nThe vulnerability\nThe flaw stems from improper handling of object types within V8, a JavaScript and WebAssembly engine",
-      "url": "https://wazuh.com/blog/detecting-chrome-cve-2025-13223-vulnerability-with-wazuh/",
-      "source": "Wazuh Blog",
-      "ingested_at": "2026-01-19T22:35:58.735277",
-      "freshness_score": 0.8
-    },
-    {
-      "id": "WAZUH-BLOG-41a66fc112fa",
-      "title": "Wazuh and Athena Security Group Announce Partnership to Enhance Cyber Defense Capabilities",
-      "description": "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nWazuh and Athena Security Group Announce Partnership to Enhance Cyber Defense Capabilities | Wazuh\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nSkip to content\n\n\n\n\n\n\n\n\n\n\n \n \n\n\n\n\n\n\n\n\n\n\n \n\n\n\n\nBlog\nCommunity\nContact us\n Twitter\nLinkedIn\nReddit\nGitHub\nDiscord\nSlack\nMailing list\n \n\n\n\n\n\n\nSearch here\n\n\n\n\n\nClose\n\n\n\nSearch\n\n\n\n\n\n\n\n\n\n\n\n\nGo home\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n \n\n\n\n\n\nOpen mobile search\n\n\n\n\n\n\n\n\n\n\n\nPlatform \n\nOverview\nXDR\nSIEM\n\n\nCloud\nCTI\nDocumentation\nServices \n\nProfessional support\nConsulting services\nTraining courses\n\n\nPartners \n\nBecome a partner\nFind a partner\n\n\nBlog\nCompany \n\nCustomers\nAbout us\nOur team\nResources\n\n\nCommunity\nContact us\nInstall Wazuh\n Log in\n \n\n\n\n\n\n\n\n\n\nSearch here\n\n\n\n\n\nClose\n\n\n\nSearch\n\n\n\n\n\n\n\n\n\n\n\n\n\nContact us\n\n\n\n\n\n\n\n\n\n\n\n\nBlog\n              \n\n\n\n                    News                    \n\n\n\nAll categories\n\nEngineeringNewsReleases \n\n\n\n\n\nSearch here\n\n\n\n\n\nClose\n\n\n\n\nSearch\n\n\n\n\n\n\n\n\n\n\n\n \n\n\n\n\n \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nWazuh and Athena Security Group Announce Partnership to Enhance Cyber Defense Capabilities \n\n\t\t\t\t\t\t\t\tOctober 29th 2025\t\t\t\t\t\t\t\n\n\t\t\t\t\t\t\t\t| by Wazuh \n\n\n\n\n\n\n \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nSan Jose, California, October 2025 \u2013 Wazuh, the leading open-source Security Information and Event Management (SIEM) and Extended Detection and Response (XDR) solution, announced a partnership with Athena Security Group, a cybersecurity company providing advanced cyber defense software and services.\nThrough this partnership, Athena Security Group integrates Wazuh\u2019s SIEM, EDR, and XDR capabilities as the foundation of its Security Operations (SecOps) platform. Wazuh\u2019s open-source architecture enables Athena to extend and build upon the platform, delivering enhanced detection, visibility, and automation capabilities tailored to customer needs.\nPeter J Worth Jr, President & CEO at Athena Security Group, said: \u201cWazuh\u2019s SIEM & XDR platform is one of the most advanced on the market, and its open-source delivery model allows partners ",
-      "url": "https://wazuh.com/blog/wazuh-and-athena-security-group-announce-partnership-to-enhance-cyber-defense-capabilities/",
-      "source": "Wazuh Blog",
-      "ingested_at": "2026-01-19T22:35:58.834959",
-      "freshness_score": 0.8
-    },
-    {
-      "id": "WAZUH-DOCS-SECURITY-b9268cf11e98",
-      "title": "Wazuh Security Documentation",
-      "description": "\n\n\n\n\n\n\n\n\n \u00c2\u00b7 Wazuh documentation\n\n\n\n\n\n\n\n\nThis content was moved\n\n\n\nRedirecting ...\nReturn home\n\n\n\n\n\n\n\n\n \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n",
-      "url": "https://documentation.wazuh.com/current/security/index.html",
-      "source": "Wazuh Documentation",
-      "related_links": [],
-      "ingested_at": "2026-01-19T22:35:58.949621",
-      "freshness_score": 0.7
     }
   ],
-  "last_updated": "2026-01-19T22:35:58.953661"
+  "last_updated": "2026-03-26T08:23:16.548534"
 }

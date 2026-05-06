@@ -1,0 +1,17 @@
+{
+  "attack":                  "Generic attack classification",
+  "authentication_failed":   "Authentication failed events",
+  "authentication_failures": "Multiple authentication failures",
+  "bruteforce":              "Brute force attack attempts",
+  "exploit":                 "Exploitation attempts",
+  "failed-login":            "Failed login attempts",
+  "firewall_drop":           "Firewall dropped connections",
+  "ids":                     "Intrusion detection events",
+  "invalid_login":           "Invalid login attempts",
+  "rootcheck":               "Rootkit detection checks",
+  "sql_injection":           "SQL injection attempts",
+  "sshd":                    "SSH daemon events (failed logins, brute force)",
+  "syscheck":                "File integrity monitoring events",
+  "web_attack":              "Web application attacks",
+  "wordpress":               "WordPress application attacks"
+}

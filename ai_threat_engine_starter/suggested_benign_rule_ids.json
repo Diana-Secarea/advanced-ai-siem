@@ -1,0 +1,22 @@
+{
+  "502":   "Wazuh server started",
+  "530":   "Login session opened",
+  "531":   "Login session closed",
+  "533":   "Netstat port change (fires on every Wazuh restart)",
+  "1002":  "Audit: Command execution",
+  "2901":  "dpkg: package requested",
+  "2902":  "dpkg: package installed",
+  "2904":  "dpkg: package half-configured",
+  "5400":  "User executed a command with sudo",
+  "5402":  "Successful sudo to ROOT",
+  "5403":  "PAM: sudo session opened",
+  "5404":  "PAM: sudo session closed",
+  "5501":  "PAM: User login (session opened)",
+  "5502":  "PAM: User logout (session closed)",
+  "5555":  "PAM: User changed password",
+  "5715":  "sshd: authentication success",
+  "5905":  "User login using su",
+  "5906":  "User login using su (with password)",
+  "19004": "SCA/CIS benchmark policy check",
+  "19010": "SCA/CIS benchmark policy check result"
+}

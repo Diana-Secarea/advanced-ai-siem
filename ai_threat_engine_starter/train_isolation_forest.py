@@ -32,53 +32,39 @@ def load_real_alerts(alerts_file):
     return alerts
 
 
-ATTACK_KEYWORDS = {
-    'failed', 'denied', 'invalid', 'non-existent', 'brute force',
-    'authentication_failed', 'invalid_login', 'authentication_failures',
-    'multiple failed', 'error', 'attack', 'exploit',
-}
+from attack_labels import is_attack_alert as _is_attack_alert
 
-ATTACK_RULE_IDS = {
-    '5503',   # PAM: User login failed
-    '5710',   # sshd: non-existent user
-    '5760',   # sshd: authentication failed
-    '5758',   # sshd: max auth attempts
-    '5712',   # sshd: brute force (non-existent)
-    '5720',   # sshd: Multiple failed logins
-    '2502',   # User missed password for UID change
-}
+def _load_user_benign_ids():
+    """Load user-defined benign rule IDs from the UI-managed benign_rules.json."""
+    rules_file = Path(__file__).resolve().parent.parent / "backend" / "benign_rules.json"
+    try:
+        if rules_file.exists():
+            with open(rules_file, "r") as f:
+                data = json.load(f)
+            user_ids = set(data.keys())
+            if user_ids:
+                print(f"[benign] Loaded {len(user_ids)} user-defined benign rule IDs from benign_rules.json")
+            return user_ids
+    except Exception as e:
+        print(f"[benign] Could not load benign_rules.json: {e}")
+    return set()
+
+
+# Only user-defined exceptions are treated as benign during training.
+# See suggested_benign_rule_ids.json for common candidates.
+BENIGN_RULE_IDS = _load_user_benign_ids()
 
 
 def is_attack_alert(alert):
-    """Classify an alert as attack or benign based on rule metadata."""
-    rule = alert.get('rule', {})
-    rule_id = str(rule.get('id', ''))
-    description = rule.get('description', '').lower()
-    groups = set(rule.get('groups', []))
-    level = rule.get('level', 0)
-
-    # Rule ID match
-    if rule_id in ATTACK_RULE_IDS:
-        return True
-    # High severity
-    if level >= 8:
-        return True
-    # Keyword match in description
-    if any(kw in description for kw in ATTACK_KEYWORDS):
-        return True
-    # Suspicious groups
-    if groups & {'authentication_failed', 'invalid_login', 'attack', 'exploit'}:
-        return True
-    # Has MITRE ATT&CK tags (strong signal)
-    mitre = rule.get('mitre', {})
-    if mitre.get('technique'):
-        return True
-
-    return False
+    return _is_attack_alert(alert, BENIGN_RULE_IDS)
 
 
-def train_on_real_data(alerts_file, output_model_path):
-    """Train Isolation Forest on CLEAN (benign-only) alerts, then evaluate on attacks."""
+def train_on_real_data(alerts_file, output_model_path, test_file=None):
+    """Train Isolation Forest on CLEAN (benign-only) alerts, then evaluate on attacks.
+
+    If test_file is provided, evaluation is done on that separate file instead of
+    the attack-labelled alerts extracted from the training data.
+    """
     print(f"Loading alerts from: {alerts_file}")
     alerts = load_real_alerts(alerts_file)
 
@@ -168,7 +154,18 @@ def train_on_real_data(alerts_file, output_model_path):
 
     print(f"\nModel trained on {len(clean_features)} clean alerts")
 
-    # --- Evaluate on attack data ---
+    # --- Evaluate on test data (separate file) or fall back to training attacks ---
+    if test_file:
+        print(f"\nLoading separate test set from: {test_file}")
+        test_alerts = load_real_alerts(test_file)
+        test_clean   = [a for a in test_alerts if not is_attack_alert(a)]
+        attack_alerts = [a for a in test_alerts if is_attack_alert(a)]
+        print(f"  Test set: {len(test_clean)} clean, {len(attack_alerts)} attack alerts")
+        # Use test clean alerts for false-positive check instead of training clean
+        clean_alerts_for_fp = test_clean if test_clean else clean_alerts
+    else:
+        clean_alerts_for_fp = clean_alerts
+
     if attack_alerts:
         print(f"\n{'='*50}")
         print(f"EVALUATION: Scoring {len(attack_alerts)} attack alerts")
@@ -193,15 +190,16 @@ def train_on_real_data(alerts_file, output_model_path):
         # Also check false positives on clean data
         clean_fp = 0
         clean_scores = []
-        for alert in clean_alerts:
+        for alert in clean_alerts_for_fp:
             result = detector.detect_anomaly(alert)
             clean_scores.append(result['anomaly_score'])
             if result['is_anomaly']:
                 clean_fp += 1
 
-        fp_rate = clean_fp * 100 / len(clean_alerts)
-        print(f"\n  Clean false positives:        {clean_fp}/{len(clean_alerts)} ({fp_rate:.1f}%)")
-        print(f"  Average clean score:          {sum(clean_scores)/len(clean_scores):.1f}/100")
+        fp_rate = clean_fp * 100 / len(clean_alerts_for_fp)
+        label = "test" if test_file else "training"
+        print(f"\n  Clean false positives ({label}): {clean_fp}/{len(clean_alerts_for_fp)} ({fp_rate:.1f}%)")
+        print(f"  Average clean score:           {sum(clean_scores)/len(clean_scores):.1f}/100")
 
         # Show top-scored attacks
         print(f"\n--- Top 10 highest-scored attack alerts ---")
@@ -222,17 +220,21 @@ def train_on_real_data(alerts_file, output_model_path):
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Train Isolation Forest on Wazuh alerts")
+    parser.add_argument("--test-file", type=str, default=None,
+                        help="Path to separate test set for evaluation (default: use attack alerts from training data)")
+    args = parser.parse_args()
+
     SCRIPT_DIR = Path(__file__).parent
 
-    # Priority order for training data:
-    #   1. Combined training data (collected over days/weeks)
-    #   2. Live Wazuh alerts file
-    #   3. Local sample alerts (dev/test)
     COMBINED_TRAINING = SCRIPT_DIR / "data" / "training" / "combined" / "all_alerts.json"
-    WAZUH_LIVE = Path("/var/ossec/logs/alerts/alerts.json")
-    LOCAL_SAMPLE = SCRIPT_DIR / "data" / "alerts.json"
+    COMBINED_TEST     = SCRIPT_DIR / "data" / "test" / "all_test_alerts.json"
+    WAZUH_LIVE        = Path("/var/ossec/logs/alerts/alerts.json")
+    LOCAL_SAMPLE      = SCRIPT_DIR / "data" / "alerts.json"
 
-    MODEL_PATH_PROD = "/var/ossec/ai_models/anomaly_detector.pkl"
+    MODEL_PATH_PROD  = "/var/ossec/ai_models/anomaly_detector.pkl"
     MODEL_PATH_LOCAL = str(SCRIPT_DIR / "data" / "ai_models" / "anomaly_detector.pkl")
 
     if COMBINED_TRAINING.exists() and COMBINED_TRAINING.stat().st_size > 0:
@@ -245,6 +247,12 @@ if __name__ == "__main__":
         ALERTS_FILE = str(LOCAL_SAMPLE)
         print("[Using local sample alerts — collect real data for better results]")
 
+    # Resolve test file: CLI arg > auto-detected > None (falls back to training attacks)
+    test_file = args.test_file
+    if test_file is None and COMBINED_TEST.exists() and COMBINED_TEST.stat().st_size > 0:
+        test_file = str(COMBINED_TEST)
+        print(f"[Using separate test set from data/test/]")
+
     try:
         MODEL_PATH = MODEL_PATH_PROD if Path(MODEL_PATH_PROD).parent.exists() else MODEL_PATH_LOCAL
     except PermissionError:
@@ -253,10 +261,10 @@ if __name__ == "__main__":
     print("========================================")
     print("Isolation Forest Training")
     print("========================================\n")
-    print(f"Alerts file: {ALERTS_FILE}")
+    print(f"Alerts file:  {ALERTS_FILE}")
+    print(f"Test file:    {test_file or '(using attack alerts from training data)'}")
     print(f"Model output: {MODEL_PATH}\n")
 
-    # Show collection status if training directory exists
     daily_dir = SCRIPT_DIR / "data" / "training" / "daily_logs"
     if daily_dir.exists():
         daily_files = sorted(daily_dir.glob("*.json"))
@@ -265,7 +273,7 @@ if __name__ == "__main__":
             print(f"Training data: {len(daily_files)} days, {total} total alerts")
             print(f"Date range: {daily_files[0].stem} to {daily_files[-1].stem}\n")
 
-    success = train_on_real_data(ALERTS_FILE, MODEL_PATH)
+    success = train_on_real_data(ALERTS_FILE, MODEL_PATH, test_file=test_file)
 
     if success:
         print("\n✅ Model ready to use!")

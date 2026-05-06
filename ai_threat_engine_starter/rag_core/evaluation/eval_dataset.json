@@ -1,0 +1,190 @@
+[
+  {
+    "query": "SSH brute force detection",
+    "relevant": ["T1110", "T1110.001", "T1110.003"],
+    "category": "credential-access"
+  },
+  {
+    "query": "How does process injection work on Linux?",
+    "relevant": ["T1055", "T1055.008", "T1055.009"],
+    "category": "defense-evasion"
+  },
+  {
+    "query": "YARA rules for detecting web shells",
+    "relevant": [
+      "yara-YARA-Yara-Rules/rules-WShell_APT_Laudanum",
+      "yara-YARA-Yara-Rules/rules-WShell_ASPXSpy",
+      "yara-YARA-Yara-Rules/rules-WShell_ChinaChopper",
+      "yara-YARA-Yara-Rules/rules-WShell_Drupalgeddon2_icos"
+    ],
+    "category": "yara"
+  },
+  {
+    "query": "What is credential dumping and how to detect it?",
+    "relevant": ["T1003", "T1003.001", "T1003.007", "T1003.008"],
+    "category": "credential-access"
+  },
+  {
+    "query": "Techniques for data exfiltration over network",
+    "relevant": ["T1020", "T1041", "T1048", "T1567", "T1011"],
+    "category": "exfiltration"
+  },
+  {
+    "query": "Scheduled task and cron persistence mechanisms",
+    "relevant": ["T1053", "T1053.003", "T1053.005", "T1053.006"],
+    "category": "persistence"
+  },
+  {
+    "query": "Rootkit detection techniques",
+    "relevant": ["T1014", "T1215", "T1601.001"],
+    "category": "defense-evasion"
+  },
+  {
+    "query": "Phishing and spearphishing attack methods",
+    "relevant": ["T1566", "T1566.001", "T1566.002", "T1566.003"],
+    "category": "initial-access"
+  },
+  {
+    "query": "Ransomware encryption impact techniques",
+    "relevant": ["T1486", "T1531", "T1490"],
+    "category": "impact"
+  },
+  {
+    "query": "DLL hijacking and search order abuse",
+    "relevant": ["T1574.001", "T1038", "T1055.001"],
+    "category": "defense-evasion"
+  },
+  {
+    "query": "Lateral movement via remote services",
+    "relevant": ["T1021", "T1021.001", "T1021.002", "T1021.004"],
+    "category": "lateral-movement"
+  },
+  {
+    "query": "PowerShell and command-line scripting attacks",
+    "relevant": ["T1059", "T1059.001", "T1059.003", "T1059.004"],
+    "category": "execution"
+  },
+  {
+    "query": "How do attackers obfuscate malicious files?",
+    "relevant": ["T1027", "T1027.001", "T1027.009", "T1027.013", "T1140"],
+    "category": "defense-evasion"
+  },
+  {
+    "query": "Mimikatz credential theft detection",
+    "relevant": [
+      "T1003",
+      "T1003.001",
+      "yara-YARA-Yara-Rules/rules-MALW_kirbi_mimikatz",
+      "yara-YARA-Yara-Rules/rules-TOOLKIT_Gen_powerkatz"
+    ],
+    "category": "credential-access"
+  },
+  {
+    "query": "SSH hijacking and remote access abuse",
+    "relevant": ["T1563.001", "T1021.004"],
+    "category": "lateral-movement"
+  },
+  {
+    "query": "APT29 threat group indicators",
+    "relevant": [
+      "yara-YARA-Yara-Rules/rules-APT_APT29_Grizzly_Steppe",
+      "yara-YARA-Yara-Rules/rules-APT_Grizzlybear_uscert"
+    ],
+    "category": "apt"
+  },
+  {
+    "query": "Cobalt Strike detection rules",
+    "relevant": ["yara-YARA-Yara-Rules/rules-APT_Cobalt"],
+    "category": "apt"
+  },
+  {
+    "query": "Disabling or modifying firewalls for defense evasion",
+    "relevant": ["T1562", "T1562.004"],
+    "category": "defense-evasion"
+  },
+  {
+    "query": "Boot and logon persistence scripts",
+    "relevant": ["T1037", "T1547", "T1546.013"],
+    "category": "persistence"
+  },
+  {
+    "query": "Data staging before exfiltration",
+    "relevant": ["T1074.001", "T1074.002", "T1560.001"],
+    "category": "collection"
+  },
+  {
+    "query": "Password spraying and credential stuffing attacks",
+    "relevant": ["T1110.003", "T1110.004", "T1110"],
+    "category": "credential-access"
+  },
+  {
+    "query": "Keylogging and input capture techniques",
+    "relevant": ["T1056.001", "T1056"],
+    "category": "credential-access"
+  },
+  {
+    "query": "DNS tunneling and covert command and control channels",
+    "relevant": ["T1071", "T1071.004", "T1001", "T1572"],
+    "category": "command-and-control"
+  },
+  {
+    "query": "Systemd service persistence on Linux",
+    "relevant": ["T1501", "T1053.006"],
+    "category": "persistence"
+  },
+  {
+    "query": "How to detect privilege escalation via SUID binaries",
+    "relevant": ["T1548.001", "T1548"],
+    "category": "privilege-escalation"
+  },
+  {
+    "query": "Network share discovery and enumeration",
+    "relevant": ["T1135", "T1018"],
+    "category": "discovery"
+  },
+  {
+    "query": "Encoding and encrypted C2 communication",
+    "relevant": ["T1132.001", "T1573", "T1001"],
+    "category": "command-and-control"
+  },
+  {
+    "query": "Account manipulation and backdoor user creation",
+    "relevant": ["T1098", "T1136", "T1136.001"],
+    "category": "persistence"
+  },
+  {
+    "query": "Log deletion and indicator removal on host",
+    "relevant": ["T1070", "T1070.001", "T1070.002", "T1070.003"],
+    "category": "defense-evasion"
+  },
+  {
+    "query": "Container escape and cloud exploitation",
+    "relevant": ["T1611", "T1610", "T1059.013"],
+    "category": "privilege-escalation"
+  },
+  {
+    "query": "Carbanak APT group malware detection",
+    "relevant": ["yara-YARA-Yara-Rules/rules-APT_Carbanak"],
+    "category": "apt"
+  },
+  {
+    "query": "Archive and compress data for exfiltration",
+    "relevant": ["T1560", "T1560.001", "T1560.002", "T1560.003"],
+    "category": "exfiltration"
+  },
+  {
+    "query": "What techniques use ptrace on Linux?",
+    "relevant": ["T1055.008"],
+    "category": "defense-evasion"
+  },
+  {
+    "query": "Windows remote management and WinRM abuse",
+    "relevant": ["T1021.006", "T1021"],
+    "category": "lateral-movement"
+  },
+  {
+    "query": "Application layer protocol for command and control",
+    "relevant": ["T1071", "T1071.001", "T1071.004"],
+    "category": "command-and-control"
+  }
+]

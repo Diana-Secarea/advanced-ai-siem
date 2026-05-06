@@ -3,11 +3,39 @@ Anomaly Detection using Isolation Forest
 """
 
 import json
+import ipaddress
 import numpy as np
 import os
 import joblib
+from pathlib import Path
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
+
+
+def _load_user_benign_ids():
+    """Read user-defined benign rule IDs from the UI-managed benign_rules.json."""
+    rules_file = Path(__file__).resolve().parent.parent.parent / "backend" / "benign_rules.json"
+    try:
+        if rules_file.exists():
+            with open(rules_file, "r") as f:
+                data = json.load(f)
+            return set(data.keys())
+    except Exception:
+        pass
+    return set()
+
+
+def _load_user_suspicious_groups():
+    """Read user-defined suspicious groups from the UI-managed suspicious_groups.json."""
+    groups_file = Path(__file__).resolve().parent.parent.parent / "backend" / "suspicious_groups.json"
+    try:
+        if groups_file.exists():
+            with open(groups_file, "r") as f:
+                data = json.load(f)
+            return set(data.keys())
+    except Exception:
+        pass
+    return set()
 
 class AnomalyDetector:
     def __init__(self, model_path=None):
@@ -21,6 +49,9 @@ class AnomalyDetector:
         # Default 50 = anything above the midpoint of the clean data range is anomalous
         self.anomaly_threshold = 50
         self.load_model()
+        # Load user-defined exceptions from the UI-managed files.
+        self._effective_benign_ids = _load_user_benign_ids()
+        self.SUSPICIOUS_GROUPS = _load_user_suspicious_groups()
     
     def load_model(self):
         """Load or create model"""
@@ -63,12 +94,8 @@ class AnomalyDetector:
             self.save_model()
             print("Anomaly detection model trained and saved")
     
-    # Groups that indicate suspicious/attack activity in Wazuh alerts
-    SUSPICIOUS_GROUPS = {
-        'authentication_failed', 'invalid_login', 'authentication_failures',
-        'sshd', 'rootcheck', 'syscheck', 'attack', 'exploit',
-        'web_attack', 'sql_injection', 'ids', 'firewall_drop',
-    }
+    # Populated at __init__ time from the UI-managed suspicious_groups.json.
+    # See suggested_suspicious_groups.json for a curated list of candidates.
 
     def generate_sample_training_data(self, n_samples=1000):
         """Generate sample training data matching the 13-feature schema (benign baseline)"""
@@ -89,13 +116,86 @@ class AnomalyDetector:
                 np.random.poisson(1),                                   # 7: process_count
                 np.random.choice([3, 3, 3, 3, 4]),                      # 8: rule_level (low for benign)
                 np.random.choice([501, 502, 530, 531, 5402, 5501]),     # 9: rule_id
-                0,                                                      # 10: mitre_count (0 for benign)
-                0,                                                      # 11: suspicious_group_count
-                np.random.randint(0, 2),                                # 12: data_field_count
+                0,                                                      # 10: suspicious_group_count
+                np.random.randint(0, 2),                                # 11: data_field_count
+                0,                                                      # 12: is_external_srcip (benign = internal)
+                0,                                                      # 13: url_suspicious (benign = no attack URLs)
+                0,                                                      # 14: unknown_user_flag (benign = known users)
+                0,                                                      # 15: privileged_account_change (benign = no group/mode changes)
             ]
             data.append(features)
 
         return data
+
+    # Rule IDs and groups for privileged OS-level changes that are rare in normal
+    # operation but high-value for attackers: group creation, group membership
+    # changes, and network interface promiscuous mode (passive sniffing).
+    # These need a dedicated feature because their feature vectors (level=8, no
+    # IPs, no keywords, no URLs) look almost identical to benign events — only
+    # the rule_id itself distinguishes them, and rule_id alone has too high a
+    # cardinality for the Isolation Forest to isolate on one-off values.
+    PRIVILEGED_CHANGE_RULE_IDS = frozenset({5901, 5902, 5903, 5904, 5104})
+    PRIVILEGED_CHANGE_GROUPS   = frozenset({'adduser', 'groupmod',
+                                             'network_changes', 'promisc_mode'})
+
+    # URL patterns that appear in web/app attacks regardless of rule classification.
+    # These are checked against the full raw text of the alert, so they fire even
+    # on completely unknown rules as long as the log contains the pattern.
+    # NOTE: 'wp-admin' is intentionally excluded — legitimate WordPress admin sessions
+    # always contain it, causing every admin action to score as suspicious.
+    SUSPICIOUS_URL_PATTERNS = (
+        'wp-login', 'phpmyadmin', 'login.php',
+        '/shell', '/cmd', '/exec', '/.git', '/.env',
+        '/etc/passwd', '/proc/', '../', '%2e%2e', 'xmlrpc.php',
+    )
+
+    # Cloudflare CDN / reverse-proxy IP ranges. Traffic from these addresses is
+    # a legitimate CDN hop (WordPress, email delivery, etc.) — not an attacker.
+    # We exclude them from the external-IP feature so that WordPress admin events
+    # don't get flagged purely because their src IP routes through Cloudflare.
+    _CDN_NETWORKS = None  # lazy-initialised on first call
+
+    @staticmethod
+    def _get_cdn_networks():
+        """Return list of CDN/proxy ipaddress.IPv4Network objects (built once)."""
+        if AnomalyDetector._CDN_NETWORKS is None:
+            cdn_cidrs = [
+                '162.158.0.0/15',   # Cloudflare
+                '172.64.0.0/13',    # Cloudflare
+                '104.16.0.0/13',    # Cloudflare
+                '104.24.0.0/14',    # Cloudflare
+                '108.162.192.0/18', # Cloudflare
+                '141.101.64.0/18',  # Cloudflare
+                '188.114.96.0/20',  # Cloudflare
+                '103.21.244.0/22',  # Cloudflare
+                '103.22.200.0/22',  # Cloudflare
+                '103.31.4.0/22',    # Cloudflare
+                '173.245.48.0/20',  # Cloudflare
+                '198.41.128.0/17',  # Cloudflare
+            ]
+            AnomalyDetector._CDN_NETWORKS = [
+                ipaddress.ip_network(c) for c in cdn_cidrs
+            ]
+        return AnomalyDetector._CDN_NETWORKS
+
+    @staticmethod
+    def _is_external_ip(ip_str: str) -> int:
+        """Return 1 if ip_str is a routable public IP that is NOT a CDN/proxy, 0 otherwise.
+
+        Private/reserved ranges (RFC1918, loopback, link-local) are benign
+        internal infrastructure. Known CDN hops (Cloudflare) are also excluded
+        so legitimate WordPress or email traffic doesn't inflate anomaly scores.
+        """
+        try:
+            ip = ipaddress.ip_address(ip_str.strip())
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                return 0
+            for net in AnomalyDetector._get_cdn_networks():
+                if ip in net:
+                    return 0
+            return 1
+        except ValueError:
+            return 0
 
     def extract_features(self, event):
         """Extract 13 numerical features from a Wazuh alert"""
@@ -110,19 +210,28 @@ class AnomalyDetector:
 
         # --- Original features (fixed) ---
 
-        # 0: Word count (message complexity)
-        features.append(len(message.split()))
+        # 0: Word count (message complexity) — capped at 60.
+        # CIS/SCA compliance scan blobs can exceed 180 words; without capping,
+        # a verbose but benign compliance report scores like a complex attack log.
+        features.append(min(len(message.split()), 60))
 
         # 1: Log size in bytes
         features.append(len(json.dumps(event)))
 
-        # 2: Failed/denied count — now reads full_log where these keywords actually appear
-        failed_count = (
-            message_lower.count('failed')
-            + message_lower.count('denied')
-            + message_lower.count('invalid')
-            + message_lower.count('error')
-        )
+        # 2: Failed/denied count — reads full_log where these keywords actually appear.
+        # Exclude "failed → passed" CIS compliance transitions: the word "failed" there
+        # describes a previous state, not a current failure event.
+        is_compliance_transition = ('failed to passed' in message_lower
+                                    or 'status changed from failed' in message_lower)
+        if is_compliance_transition:
+            failed_count = 0
+        else:
+            failed_count = (
+                message_lower.count('failed')
+                + message_lower.count('denied')
+                + message_lower.count('invalid')
+                + message_lower.count('error')
+            )
         features.append(failed_count)
 
         # 3: Hour of day
@@ -182,22 +291,58 @@ class AnomalyDetector:
         except (ValueError, TypeError):
             features.append(0)
 
-        # 10: MITRE ATT&CK technique count (attacks have MITRE tags, normal events often don't)
-        mitre = rule.get('mitre', {})
-        mitre_count = len(mitre.get('technique', []))
-        features.append(mitre_count)
-
-        # 11: Suspicious group count (how many attack-related groups this alert belongs to)
+        # 10: Suspicious group count (how many attack-related groups this alert belongs to)
         groups = set(rule.get('groups', []))
         suspicious_count = len(groups & self.SUSPICIOUS_GROUPS)
         features.append(suspicious_count)
 
-        # 12: Data field count (attacks tend to have richer data: srcip, srcport, srcuser)
+        # 11: Data field count (attacks tend to have richer data: srcip, srcport, srcuser)
         data_section = event.get('data', {})
         if isinstance(data_section, dict):
             features.append(len(data_section))
         else:
             features.append(0)
+
+        # --- Behavioral features (rule-agnostic: fire on content, not metadata) ---
+        # These are designed to catch unknown attack types that have no matching rule ID,
+        # group name, or keyword — the Isolation Forest can only detect novel attacks if
+        # the features themselves are behavioral rather than signature-based.
+
+        # 12: External source IP — 1 if srcip is a routable public address.
+        srcip = ''
+        if isinstance(data_section, dict):
+            srcip = str(data_section.get('srcip', ''))
+        features.append(self._is_external_ip(srcip) if srcip else 0)
+
+        # 13: Suspicious URL pattern — 1 if any field contains a web-attack path.
+        all_text = (full_log + ' ' + json.dumps(data_section)).lower()
+        features.append(1 if any(p in all_text for p in self.SUSPICIOUS_URL_PATTERNS) else 0)
+
+        # 14: Unknown user flag — 1 if auth was attempted with an unrecognized identity.
+        unknown_signals = (
+            str(data_section.get('user_id', '1')) == '0'
+            or str(data_section.get('CurrentUserID', '1')) == '0'
+            or 'unknown user' in message_lower
+            or 'invalid user' in message_lower
+            or 'no such user' in message_lower
+        )
+        features.append(1 if unknown_signals else 0)
+
+        # 16: Privileged account/network change.
+        # "New group added", "Group membership changed", and "Interface entered
+        # promiscuous mode" events look exactly like benign alerts (level=8, no IPs,
+        # no keywords) — only their rule_id or group tag distinguishes them.
+        # A binary feature gives the model a clean signal to isolate on.
+        try:
+            rid_int = int(rule.get('id', 0))
+        except (ValueError, TypeError):
+            rid_int = 0
+        rule_groups_set = set(rule.get('groups', []))
+        priv_change = (
+            rid_int in self.PRIVILEGED_CHANGE_RULE_IDS
+            or bool(rule_groups_set & self.PRIVILEGED_CHANGE_GROUPS)
+        )
+        features.append(1 if priv_change else 0)
 
         return np.array(features).reshape(1, -1)
     
@@ -220,28 +365,35 @@ class AnomalyDetector:
         return max(0, min(100, int(normalized)))
 
     def detect_anomaly(self, event):
-        """Detect if event is anomalous using score-based threshold"""
+        """Detect if event is anomalous using score-based threshold."""
         try:
+            rule = event.get('rule', {})
+            rule_id = str(rule.get('id', ''))
+
             features = self.extract_features(event)
             X = self.scaler.transform(features)
             raw_score = self.model.decision_function(X)[0]
-
             normalized_score = self._normalize_score(raw_score)
-            # Use score-based threshold instead of model.predict()
-            # This gives much better detection since the scores are well-calibrated
+
+            # Post-inference override: hardcoded + user-defined benign rule IDs.
+            # The model may score these high if training data had few examples,
+            # but they are definitively routine OS events — not attacks.
+            if rule_id in self._effective_benign_ids:
+                normalized_score = min(normalized_score, 35)
+
             is_anomaly = normalized_score >= self.anomaly_threshold
 
             return {
                 'is_anomaly': is_anomaly,
                 'anomaly_score': normalized_score,
-                'confidence': abs(normalized_score - 50) * 2
+                'confidence': abs(normalized_score - 50) * 2,
             }
         except Exception as e:
             print(f"Anomaly detection error: {e}")
             return {
                 'is_anomaly': False,
                 'anomaly_score': 0,
-                'confidence': 0
+                'confidence': 0,
             }
     
     def save_model(self):

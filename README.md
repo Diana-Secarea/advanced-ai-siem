@@ -275,19 +275,8 @@ The agent is run on demand from the dashboard or scheduled via cron:
 
 ---
 
-## Documentation
-
-Thesis chapters (ETH Zürich), generated as `.docx`, live in `ai_threat_engine_starter/docs/`:
-
-- `IF_Evaluation_ETH.docx` — Isolation Forest evaluation
-- `Autoencoder_Ensemble_ETH.docx` — Autoencoder & ensemble
-- `RAG_Evaluation_ETH.docx` — RAG retrieval evaluation
-- `Scheduled_CVE_Agent_ETH.docx` — Scheduled CVE ingestion agent (architecture, RAG integration, audit design)
-
----
-
 ## Authors & License
 
-Wazuh Copyright (C) 2015-2023 Wazuh Inc. (License GPLv2). Based on the OSSEC project started by Daniel Cid.
+**Diana Maria Secarea** — author and developer of the AI-SIEM Threat Engine. This project is her **bachelor thesis application**, and her **third full-on production freelance project**.
 
-AI-SIEM Threat Engine built on top of Wazuh as a bachelor thesis project.
+Built on top of Wazuh. Wazuh Copyright (C) 2015-2023 Wazuh Inc. (License GPLv2); based on the OSSEC project started by Daniel Cid.

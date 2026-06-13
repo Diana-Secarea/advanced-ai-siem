@@ -1,107 +1,177 @@
 # AI-SIEM Threat Engine
 
-An AI-powered threat detection and intelligence engine built on top of [Wazuh](https://wazuh.com). It extends traditional SIEM capabilities with machine learning anomaly detection and a RAG-based threat intelligence chat system, enabling automated identification of sophisticated attacks that rule-based systems miss.
+An AI-powered threat detection and intelligence engine built on top of [Wazuh](https://wazuh.com). It extends a traditional SIEM with **unsupervised machine-learning anomaly detection**, a **RAG-based threat-intelligence assistant**, and an **agentic ingestion layer** that continuously keeps the knowledge base current — enabling automated identification of sophisticated attacks that rule-based systems miss, and closing the threat-intelligence lifecycle without manual curation.
+
+> Developed as a bachelor thesis project. The goal is both a working prototype and a production-grade design; the repository reflects both, and the distinction is called out where it matters.
+
+---
 
 ## Architecture
 
-The AI-SIEM Threat Engine consists of three core components that layer on top of a running Wazuh Manager:
+The engine layers five components on top of a running Wazuh Manager:
 
-1. **Anomaly Detection Engine** — An Isolation Forest model trained on clean baseline data to detect deviations in alert behavior
-2. **Real-Time Alert Monitor** — Continuously processes incoming Wazuh alerts and scores them for anomalous activity
-3. **RAG Threat Intelligence Chat** — A retrieval-augmented generation system that queries MITRE ATT&CK, YARA rules, and vendor advisories using a local LLM
+1. **Dual-Model Anomaly Detection** — an Isolation Forest and an Autoencoder, combined by a fixed-weight ensemble, score every alert for anomalous behavior (16 features).
+2. **Real-Time Alert Monitor** — a daemon that runs each incoming Wazuh alert through the ensemble and flags anomalies.
+3. **RAG Threat-Intelligence Assistant** — hybrid (dense + sparse) retrieval over a Qdrant vector store plus a local LLM (Ollama), answering natural-language security questions with source attribution.
+4. **Scheduled CVE Ingestion Agent** — a scheduled agentic workflow that fetches new CVEs (NVD, CISA-KEV), scores their relevance to *this* environment, and continuously enriches the RAG knowledge base. Every decision is recorded in PostgreSQL.
+5. **Web Dashboard** — a Flask-served UI: alert dashboard, threat-intel chat, vector-DB monitor, and the CVE-agent control/visibility page.
+
+### Data architecture
+
+Two stores play complementary roles:
+
+| Store | Role |
+|---|---|
+| **Qdrant** | Low-latency hybrid (dense + sparse + RRF) semantic retrieval for the RAG assistant. Holds **only verified intelligence**. |
+| **PostgreSQL** | The **audit & analytics backbone**: the CVE-decision ledger, ingestion run log, human-review queue, fetch cursors, and structured threat-intel records (with full JSONB). |
+
+---
 
 ## Capabilities
 
-**ML-Based Anomaly Detection**
+### Unsupervised anomaly detection (dual model)
 
-Uses an Isolation Forest algorithm trained exclusively on clean (baseline) data to learn normal alert patterns. Incoming alerts are scored on a 0–100 scale, with scores above the calibrated threshold flagged as anomalous. The model extracts 13 features from each alert including rule severity, MITRE technique count, suspicious group indicators, and temporal patterns.
+Two complementary detectors, both over the **same 16 features**, are combined at inference by a fixed-weight ensemble:
 
-**Real-Time Alert Scoring**
+- **Isolation Forest** — tree-based isolation; genuinely unsupervised.
+- **Autoencoder** — neural reconstruction error; self-supervised one-class classification.
 
-The monitor daemon watches for new Wazuh alerts and runs each one through the anomaly detection pipeline in real time. Alerts that exceed the anomaly threshold trigger elevated notifications, allowing security teams to focus on genuinely suspicious events rather than sifting through noise.
+Using both raises adversarial robustness: an attacker must simultaneously evade tree isolation *and* the neural manifold. Alerts are scored on a 0–100 scale; scores above the calibrated threshold are flagged. The score-based threshold (not the model's raw `predict()`) is used so the decision boundary is interpretable and tunable.
 
-**Threat Intelligence Chat (RAG)**
+### Real-time alert scoring
 
-A chat interface backed by a FAISS + BM25 hybrid retrieval index over 1,300+ threat intelligence episodes sourced from MITRE ATT&CK, YARA rule descriptions, and vendor security advisories. Users can ask natural-language questions about attack techniques, indicators of compromise, or detection strategies and receive contextual answers with source attribution.
+`monitor_alerts.py` watches for new Wazuh alerts and runs each through the ensemble in real time, surfacing anomalies so analysts focus on genuinely suspicious events instead of sifting noise.
 
-**Automated Training Data Collection**
+### RAG threat-intelligence chat
 
-A daily collection pipeline gathers Wazuh alerts, deduplicates them, and builds a clean training dataset. This supports continuous model retraining as the environment evolves, keeping detection baselines current.
+A chat interface backed by **Qdrant hybrid retrieval** (dense embeddings + BM25 sparse, fused with Reciprocal Rank Fusion) over threat-intelligence episodes sourced from MITRE ATT&CK, Sigma rules, YARA rules, CISA KEV, vendor advisories, MITRE Groups/Software/D3FEND, CIS controls, and AlienVault OTX. Answers are generated by a local Ollama LLM (`llama3.2`) with source tags. Users can also upload their own documents into the knowledge base.
 
-**Attack Simulation Coverage**
+### Scheduled CVE ingestion agent
 
-The engine has been validated against 14 categories of simulated attacks:
+A scheduled agentic workflow (`scheduled_agent/`) that **closes the threat-intelligence lifecycle**:
 
-- SSH brute force & credential stuffing
-- Privilege escalation (su/sudo abuse, SUID manipulation)
-- File integrity violations (critical system file modifications)
-- Malware simulation (reverse shells, base64 payloads, SUID shells)
-- Network reconnaissance (port scans, lateral movement, DNS recon)
-- Account manipulation (UID-0 backdoors, hidden users)
-- Reverse shell & C2 (Python/NC/Bash/Perl, HTTP beaconing, DNS tunneling)
-- Log tampering (wtmp clearing, fake injection, history wiping)
-- Persistence mechanisms (malicious cron jobs, systemd backdoor services)
-- Web attacks (SQL injection, XSS, directory traversal)
-- Rootkit simulation (hidden files, kernel module abuse)
-- Cryptomining simulation (download attempts, process spoofing)
-- Data exfiltration (DNS exfil, HTTP exfil, file staging)
-- Firewall manipulation (iptables flush, suspicious port opens)
+```
+fetch  →  dedup  →  boost  →  score  →  act  →  log
+```
+
+- **Fetch** new CVEs from **NVD** (incremental, publication-date cursor) and **CISA-KEV**.
+- **Dedup** against intelligence already in the knowledge base.
+- **Boost** relevance using environment evidence: a matching **Wazuh rule** (+3) or recent **alert history** touching the affected software (+2). This read-only feedback loop prioritizes vulnerabilities the environment actually shows.
+- **Score** 0–10 with the local LLM against the concrete **deployment profile** (Linux / OpenSSH / web / file-integrity), measuring *relevance*, not raw CVSS.
+- **Act** on the final score:
+
+  | Final score | Decision | Effect |
+  |---|---|---|
+  | ≥ 7 | `indexed` | indexed into Qdrant + `threat_intel`; immediately queryable in chat |
+  | 4–6 | `queued` | quarantined in PostgreSQL, **withheld from RAG** until a human approves it |
+  | 0–3 | `dropped` | audit-logged with the model's reasoning; never indexed |
+
+- **Log** every per-CVE decision and a per-run rollup to PostgreSQL.
+
+It is an **agentic scheduled workflow**, not an autonomous agent: control flow is fixed and the only reasoning step is the bounded relevance score — chosen for reproducibility and auditability. See `ai_threat_engine_starter/scheduled_agent/README.md` for full details, and `ai_threat_engine_starter/docs/Scheduled_CVE_Agent_ETH.docx` for the thesis chapter.
+
+### Web dashboard
+
+| Page | Purpose |
+|---|---|
+| `/` (`index.html`) | Home / navigation |
+| `/alerts.html` | Alert dashboard — scored alerts, charts, per-alert investigation, benign/suspicious-group tuning |
+| `/chat.html` | RAG threat-intel chat |
+| `/vectordb.html` | Live Qdrant monitoring (collections, embeddings, sources) |
+| `/cve-agent.html` | **CVE agent control & visibility** — run on demand, live console, review queue (approve/reject), recently-indexed list with clickable CVE detail, last-run status |
+
+### Attack-simulation coverage
+
+Validated against 14 categories of simulated attacks: SSH brute force, privilege escalation (su/sudo/SUID), file-integrity violations, malware (reverse shells, base64 payloads), network recon (port scans, lateral movement, DNS recon), account manipulation (UID-0 backdoors, hidden users), reverse shell & C2 (HTTP beaconing, DNS tunneling), log tampering, persistence (cron/systemd backdoors), web attacks (SQLi, XSS, traversal), rootkit simulation, cryptomining simulation, data exfiltration (DNS/HTTP exfil), and firewall manipulation.
+
+---
 
 ## Model Performance
 
+Latest full evaluation (16 features):
+
 | Metric | Value |
 |---|---|
-| Score separation (attack vs clean) | 44.1 points |
-| Anomaly threshold | 62/100 (90th percentile of clean) |
-| Real attack detection rate | ~95–100% across all attack categories |
-| False positive rate | 11.2% |
+| Score separation (attack avg 92.4 vs clean avg 17.3) | 75.1 points |
+| Anomaly threshold | 50/100 (90th percentile of clean) |
+| Precision | 83.4% |
+| Recall | 95.9% |
+| F1 | 89.2% |
+| False-positive rate | 8.0% |
+
+100% detection on: SSH brute force, WordPress failed logins, new users/groups, promiscuous mode, process execution at unusual time, CIS failures, web attacks (SQLi/XSS), C2, DNS exfil, reverse shell, malware download, and rootkit. The main residual miss is single `PAM: User login failed` events, which are statistically indistinguishable from benign login typos.
+
+---
 
 ## Feature Extraction
 
-The model extracts 13 features from each Wazuh alert:
+The detectors extract **16 features** from each Wazuh alert:
 
 | # | Feature | Description |
 |---|---|---|
-| 0 | `word_count` | Number of words in the alert message |
+| 0 | `word_count` | Words in the alert (capped at 60; CIS scans capped) |
 | 1 | `event_size` | Total size of the alert event |
-| 2 | `failed_count` | Count of failure-related keywords in `full_log` |
-| 3 | `hour` | Hour of day the alert was generated |
-| 4 | `off_hours` | Whether the alert occurred outside business hours |
-| 5 | `ip_count` | Number of unique IPs referenced |
-| 6 | `port_count` | Number of ports referenced |
-| 7 | `process_count` | Number of processes referenced |
-| 8 | `rule_level` | Wazuh rule severity level |
+| 2 | `failed_count` | Failure keywords in `full_log` (CIS-transition aware) |
+| 3 | `hour` | Hour of day |
+| 4 | `off_hours` | Outside business hours |
+| 5 | `ip_count` | Unique IPs referenced (counts `data.srcip`) |
+| 6 | `port_count` | Ports referenced |
+| 7 | `process_count` | Processes referenced |
+| 8 | `rule_level` | Wazuh rule severity |
 | 9 | `rule_id` | Numeric Wazuh rule ID |
-| 10 | `mitre_count` | Number of MITRE ATT&CK techniques tagged |
-| 11 | `suspicious_group_count` | Count of suspicious group indicators |
-| 12 | `data_field_count` | Number of populated data fields |
+| 10 | `suspicious_group_count` | Suspicious group indicators |
+| 11 | `data_field_count` | Populated data fields |
+| 12 | `is_external_srcip` | External source IP (Cloudflare/CDN excluded) |
+| 13 | `url_suspicious` | Suspicious URL pattern |
+| 14 | `unknown_user_flag` | Unknown user involved |
+| 15 | `privileged_account_change` | Privileged account/group change (rules 5901–5904/5104, adduser/groupmod) |
+
+> `mitre_count` was deliberately **removed**: Wazuh attaches MITRE tags to benign events (e.g. a successful SSH login), which diverged training data from production and caused false highs.
+
+---
 
 ## Project Structure
 
 ```
-ai_threat_engine_starter/
-├── ai_engine/
-│   └── anomaly_detector.py          # Isolation Forest detector (scoring & prediction)
+wazuh/                                  # fork of the Wazuh source + AI components
 ├── backend/
-│   └── start_server.sh              # Flask API server launcher
+│   ├── server.py                       # Flask API: alerts, chat, vector-db, CVE-agent endpoints
+│   ├── start_server.sh                 # launches Docker (Qdrant+Postgres), Ollama, Flask
+│   └── .env                            # secrets (git-ignored)
 ├── frontend/
-│   └── chat.html                    # RAG chat web interface
-├── rag_core/
-│   └── indexing/
-│       └── threat_intel_indexer.py   # FAISS + BM25 index builder
-├── train_isolation_forest.py        # Model training script
-├── evaluate_isolation_forest.py     # Evaluation & metrics report
-├── collect_training_data.py         # Daily alert collection pipeline
-├── collect_daily.sh                 # Cron wrapper for scheduled collection
-├── monitor_alerts.py                # Real-time alert processing daemon
-├── data/
-│   ├── training/                    # Training datasets
-│   │   ├── daily_logs/              # Per-day alert snapshots
-│   │   └── combined/                # Merged training data
-│   ├── ai_models/                   # Trained model artifacts (.pkl)
-│   └── threat_intel_index/          # FAISS + BM25 index files
-└── venv/                            # Python virtual environment
+│   ├── index.html  alerts.html  chat.html
+│   ├── vectordb.html                   # Qdrant monitoring dashboard
+│   └── cve-agent.html                  # CVE ingestion agent dashboard
+└── ai_threat_engine_starter/
+    ├── ai_engine/
+    │   └── anomaly_detector.py         # Isolation Forest detector
+    ├── autoencoders_approach/
+    │   ├── autoencoder_detector.py     # Autoencoder detector
+    │   ├── ensemble_detector.py        # fixed-weight IF + AE ensemble (inference only)
+    │   ├── train_autoencoder.py  evaluate_autoencoder.py  compare_models.py
+    ├── scheduled_agent/                # ── Scheduled CVE ingestion agent ──
+    │   ├── agent.py                    # pipeline orchestrator
+    │   ├── fetchers.py  normalize.py  dedup.py  boosts.py  scorer.py
+    │   ├── store.py                    # PostgreSQL backbone (ledger, run log, indexing)
+    │   ├── review.py                   # human review-queue approve/reject
+    │   ├── queries.py                  # audit/analytics SQL CLI
+    │   ├── schema_additions.sql        # cve_decisions ledger + run columns + view
+    │   ├── run_agent.sh  README.md
+    ├── rag_core/
+    │   ├── database/                   # qdrant_store.py, postgres_client.py, schema.sql
+    │   ├── indexing/                   # qdrant_indexer.py, threat_intel_indexer.py
+    │   ├── evaluation/                 # retrieval metrics + visualizations
+    │   └── agent/                      # SOC agent workflow
+    ├── train_isolation_forest.py  evaluate_isolation_forest.py
+    ├── monitor_alerts.py               # real-time ensemble scoring daemon
+    ├── collect_training_data.py  collect_daily.sh
+    ├── docker-compose.yml              # Qdrant + PostgreSQL
+    ├── data/                           # training data, models (.pkl), eval reports
+    ├── threat_intel/                   # source corpora (MITRE, Sigma, KEV, YARA, …)
+    └── docs/                           # ETH thesis chapters (.docx)
 ```
+
+---
 
 ## Getting Started
 
@@ -109,63 +179,115 @@ ai_threat_engine_starter/
 
 - Wazuh Manager (v4.x) installed and running
 - Python 3.10+
-- Ollama with a local LLM model (e.g., `llama3.2`) for the RAG chat system
+- Docker (for Qdrant + PostgreSQL)
+- Ollama with a local model (e.g. `llama3.2`)
 
 ### Setup
 
 ```bash
-# Create and activate virtual environment
 cd ai_threat_engine_starter
+
+# 1. Python environment
 python3 -m venv venv
 source venv/bin/activate
+pip install -r requirements.txt          # scikit-learn, numpy, joblib, flask, flask-cors,
+                                          # flask-limiter, qdrant-client, sentence-transformers,
+                                          # fastembed, psycopg2-binary, python-dotenv, requests …
 
-# Install dependencies
-pip install scikit-learn numpy joblib flask faiss-cpu rank_bm25
+# 2. Configure secrets
+cp ../backend/.env.example ../backend/.env   # set PG_PASSWORD, etc. (never committed)
 
-# Collect baseline training data
-python collect_training_data.py
+# 3. Start datastores (Qdrant + PostgreSQL); schema is auto-applied
+docker compose up -d
 
-# Train the anomaly detection model
+# 4. Build the threat-intelligence index (PostgreSQL + Qdrant)
+python -m rag_core.indexing.qdrant_indexer
+
+# 5. Train the anomaly models
 python train_isolation_forest.py
+python autoencoders_approach/train_autoencoder.py
 
-# Build the threat intelligence index
-python -m rag_core.indexing.threat_intel_indexer
-
-# Start the API server (includes chat endpoint)
-bash backend/start_server.sh
+# 6. Start the API server + web dashboard (sudo for alert-log access)
+bash ../backend/start_server.sh
 ```
+
+Open `http://localhost:5000`.
 
 ### Usage
 
 ```bash
-# Run the real-time alert monitor
+# Real-time alert monitor (runs the ensemble on every incoming alert)
 python monitor_alerts.py
 
-# Evaluate model performance
+# Evaluate models
 python evaluate_isolation_forest.py
+python autoencoders_approach/evaluate_autoencoder.py
+python autoencoders_approach/compare_models.py
 
-# Chat API (once server is running)
+# ── Scheduled CVE ingestion agent ──
+python -m scheduled_agent.agent --source all          # full run (writes to ledger + Qdrant)
+python -m scheduled_agent.agent --source nvd --dry-run # preview: score+print, no writes
+
+# Review queue
+python -m scheduled_agent.review list
+python -m scheduled_agent.review approve CVE-2024-12345
+python -m scheduled_agent.review reject  CVE-2024-12345
+
+# Audit / analytics queries
+python -m scheduled_agent.queries last-runs
+python -m scheduled_agent.queries decision-breakdown
+python -m scheduled_agent.queries queue
+python -m scheduled_agent.queries drops
+python -m scheduled_agent.queries boosted
+python -m scheduled_agent.queries indexed-over-time
+python -m scheduled_agent.queries cve CVE-2024-12345
+
+# Chat API
 curl -X POST http://localhost:5000/api/chat \
   -H "Content-Type: application/json" \
   -d '{"message": "What MITRE techniques relate to SSH brute force?"}'
 ```
 
+### Scheduling the agent
+
+The agent is run on demand from the dashboard or scheduled via cron:
+
+```cron
+0 2 * * * /path/to/ai_threat_engine_starter/scheduled_agent/run_agent.sh >> agent.log 2>&1
+```
+
+---
+
 ## Tech Stack
 
 | Component | Technology |
 |---|---|
-| SIEM Platform | Wazuh v4.x |
-| Anomaly Detection | scikit-learn (Isolation Forest) |
-| Threat Intel Index | FAISS + BM25 |
-| Local LLM | Ollama (llama3.2) |
-| API Server | Flask |
-| Chat Frontend | HTML/JS (dark theme) |
-| Model Serialization | joblib |
+| SIEM platform | Wazuh v4.x |
+| Anomaly detection | scikit-learn (Isolation Forest) + Autoencoder + ensemble |
+| Vector store / retrieval | Qdrant (hybrid dense + BM25 sparse, RRF) |
+| Relational store | PostgreSQL 17 (audit ledger, threat-intel records) |
+| Embeddings | `all-MiniLM-L6-v2` (dense) + `Qdrant/bm25` (sparse) |
+| Local LLM | Ollama (`llama3.2`) |
+| Threat-intel sources | NVD, CISA-KEV, MITRE ATT&CK/Groups/Software/D3FEND, Sigma, YARA, CIS, OTX |
+| API server | Flask (+ CORS, rate limiting) |
+| Frontend | HTML/JS (dark theme) |
+| Orchestration | Docker Compose, cron |
 
-## Authors
+---
 
-Wazuh Copyright (C) 2015-2023 Wazuh Inc. (License GPLv2)
+## Documentation
 
-Based on the OSSEC project started by Daniel Cid.
+Thesis chapters (ETH Zürich), generated as `.docx`, live in `ai_threat_engine_starter/docs/`:
 
-AI-SIEM Threat Engine built on top of Wazuh by the project maintainer.
+- `IF_Evaluation_ETH.docx` — Isolation Forest evaluation
+- `Autoencoder_Ensemble_ETH.docx` — Autoencoder & ensemble
+- `RAG_Evaluation_ETH.docx` — RAG retrieval evaluation
+- `Scheduled_CVE_Agent_ETH.docx` — Scheduled CVE ingestion agent (architecture, RAG integration, audit design)
+
+---
+
+## Authors & License
+
+Wazuh Copyright (C) 2015-2023 Wazuh Inc. (License GPLv2). Based on the OSSEC project started by Daniel Cid.
+
+AI-SIEM Threat Engine built on top of Wazuh as a bachelor thesis project.

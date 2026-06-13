@@ -1,23 +1,32 @@
+# AI-SIEM Threat Engine — Python dependencies
+# The Flask server, anomaly models, RAG pipeline, and CVE agent all run from
+# this single virtual environment.
+
+# ── Machine learning (anomaly detection: Isolation Forest + Autoencoder) ──
 scikit-learn>=1.3.0
-sentence-transformers>=2.2.0
-faiss-cpu>=1.7.4
-joblib>=1.3.0
 numpy>=1.24.0
+joblib>=1.3.0
 pandas>=2.0.0
-requests>=2.31.0
 
-# Advanced RAG dependencies
-rank-bm25>=0.2.2  # BM25 keyword search for hybrid search
+# ── RAG: vector store + embeddings ──
+qdrant-client>=1.17.0          # Qdrant vector DB (hybrid dense+sparse search)
+sentence-transformers>=2.2.0   # dense embeddings (all-MiniLM-L6-v2)
+fastembed>=0.3.0               # BM25 sparse vectors (Qdrant/bm25)
 
-# PostgreSQL support (optional, for rag_core database)
-psycopg2-binary>=2.9.0  # PostgreSQL adapter for Python
+# ── Relational store (audit backbone: ledger, threat-intel records) ──
+psycopg2-binary>=2.9.0         # PostgreSQL adapter
 
-# Optional: For GPU support
-# faiss-gpu>=1.7.4
+# ── Web API server + dashboard ──
+flask>=2.0
+flask-cors>=3.0
+flask-limiter>=3.0
+python-dotenv>=1.0             # loads backend/.env
 
-# Optional: For LLM integration
-# openai>=1.0.0
-# transformers>=4.30.0
+# ── Utilities ──
+requests>=2.31.0               # NVD / CISA-KEV fetchers, Ollama HTTP calls
 
-# Optional: For better embeddings (larger models)
-# sentence-transformers[all-mpnet-base-v2]  # Better quality, slower
+# ── Documentation (optional — only to (re)generate the ETH thesis .docx) ──
+python-docx>=1.0
+
+# Note: the RAG LLM runs via Ollama (external service, not a pip package).
+# Note: FAISS + rank-bm25 were removed — retrieval now uses Qdrant + fastembed.

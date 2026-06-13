@@ -272,10 +272,12 @@ def _search_wazuh_alerts(query: str, top_k: int = 10) -> list:
     return scored[:top_k]
 
 
-def _format_alert_context(scored_alerts: list, anomaly_scores: dict = None) -> tuple:
+def _format_alert_context(scored_alerts: list, anomaly_scores: dict = None,
+                           ae_scores: dict = None) -> tuple:
     """Format matched Wazuh alerts as context text and source list.
 
-    anomaly_scores: optional dict mapping list index -> {score, is_anomaly}
+    anomaly_scores: optional dict index -> {anomaly_label, combined_score, score}
+    ae_scores: ignored (kept for signature compatibility, no longer used)
     """
     context_parts = []
     sources = []
@@ -296,25 +298,28 @@ def _format_alert_context(scored_alerts: list, anomaly_scores: dict = None) -> t
         if mitre_ids:
             line += f" | MITRE: {mitre_ids}"
 
-        if anomaly_scores and (i - 1) in anomaly_scores:
-            info = anomaly_scores[i - 1]
-            label = "HIGH" if info["is_anomaly"] else "NORMAL"
-            line += f" | Anomaly Score: {info['score']}/100 ({label})"
+        idx = i - 1
+        if anomaly_scores and idx in anomaly_scores:
+            info  = anomaly_scores[idx]
+            label = info.get("anomaly_label", "UNKNOWN")
+            comb  = info.get("combined_score", info.get("score", "?"))
+            line += f" | {label} (combined {comb}/100)"
 
         line += f"\n     Agent: {agent_name} | Groups: {groups}"
         line += f"\n     Log: {full_log}"
         context_parts.append(line)
 
-        anomaly_label = ""
-        if anomaly_scores and (i - 1) in anomaly_scores:
-            info = anomaly_scores[i - 1]
-            label = "HIGH" if info["is_anomaly"] else "NORMAL"
-            anomaly_label = f" | Score: {info['score']}/100 ({label})"
+        score_label = ""
+        if anomaly_scores and idx in anomaly_scores:
+            info  = anomaly_scores[idx]
+            label = info.get("anomaly_label", "UNKNOWN")
+            comb  = info.get("combined_score", info.get("score", "?"))
+            score_label = f" | {label} (combined {comb}/100)"
 
         sources.append({
             "id": f"Rule {rid}",
             "type": "wazuh_alert",
-            "summary": f"[Level {level}] {desc} ({ts[:19]}){anomaly_label}",
+            "summary": f"[Level {level}] {desc} ({ts[:19]}){score_label}",
             "score": round(score / 10, 3),
         })
 
@@ -351,41 +356,36 @@ def _get_retrieval():
     return _rag_retrieval
 
 
-_anomaly_detector = None
+_ensemble = None
 
 
-def _get_anomaly_detector():
-    """Lazy-load the Isolation Forest anomaly detector on first use."""
-    global _anomaly_detector
-    if _anomaly_detector is not None:
-        return _anomaly_detector
+def _get_ensemble():
+    """Lazy-load the IF + Autoencoder ensemble on first use."""
+    global _ensemble
+    if _ensemble is not None:
+        return _ensemble
 
     ai_engine_path = Path(__file__).resolve().parent.parent / "ai_threat_engine_starter"
-    prod_model_path = Path("/var/ossec/ai_models/anomaly_detector.pkl")
-    local_model_path = ai_engine_path / "data" / "ai_models" / "anomaly_detector.pkl"
-
-    # Prefer the production path (written by train_isolation_forest.py when /var/ossec exists)
-    if prod_model_path.exists():
-        model_path = prod_model_path
-    elif local_model_path.exists():
-        model_path = local_model_path
-    else:
-        print(f"[anomaly] Model not found at {prod_model_path} or {local_model_path}, skipping scoring.")
-        return None
-
     engine_str = str(ai_engine_path)
     if engine_str not in sys.path:
         sys.path.insert(0, engine_str)
 
     try:
-        from ai_engine.anomaly_detector import AnomalyDetector
-        _anomaly_detector = AnomalyDetector(model_path=str(model_path))
-        print(f"[anomaly] Loaded anomaly detector (threshold={_anomaly_detector.anomaly_threshold})")
+        from autoencoders_approach.ensemble_detector import load_ensemble
+        _ensemble = load_ensemble()
+        ae_status = "IF+AE" if _ensemble.ae_det is not None else "IF-only"
+        print(f"[ensemble] Loaded anomaly ensemble ({ae_status})")
     except Exception as e:
-        print(f"[anomaly] Failed to load detector: {e}")
+        print(f"[ensemble] Failed to load ensemble: {e}")
         return None
 
-    return _anomaly_detector
+    return _ensemble
+
+
+# Keep legacy accessor so any code that calls _get_anomaly_detector() still works.
+def _get_anomaly_detector():
+    ens = _get_ensemble()
+    return ens.if_det if ens else None
 
 
 def _search_knowledge_base(query: str, top_k: int = 5) -> list:
@@ -644,7 +644,7 @@ def api_alerts_scored():
     # Take the most recent N alerts
     recent = alerts[-limit:] if len(alerts) > limit else alerts
 
-    detector = _get_anomaly_detector()
+    ensemble = _get_ensemble()
 
     result = []
     for alert in recent:
@@ -653,47 +653,50 @@ def api_alerts_scored():
         mitre = rule.get("mitre", {})
         data = alert.get("data", {})
 
-        anomaly_score = None
-        is_anomaly = None
-        anomaly_label = "UNKNOWN"
+        anomaly_score  = None
+        is_anomaly     = None
+        anomaly_label  = "UNKNOWN"
+        ae_score       = None
+        combined_score = None
 
-        if detector:
+        if ensemble:
             try:
-                r = detector.detect_anomaly(alert)
-                anomaly_score = r["anomaly_score"]
-                is_anomaly = bool(r["is_anomaly"])
-                if is_anomaly:
-                    anomaly_label = "HIGH"
-                elif anomaly_score >= 40:
-                    anomaly_label = "SUSPICIOUS"
-                else:
-                    anomaly_label = "NORMAL"
+                ens_r          = ensemble.score(alert)
+                anomaly_score  = ens_r["if_score"]
+                ae_score       = ens_r["ae_score"]
+                combined_score = ens_r["combined_score"]
+                is_anomaly     = ens_r["is_anomaly"]
+                anomaly_label  = ens_r["anomaly_label"]
             except Exception:
                 pass
 
-        # User-defined benign exceptions override any anomaly score.
+        # User-defined benign exceptions override ensemble verdict.
         rule_id_str = str(rule.get("id", ""))
         with _benign_rules_lock:
             is_user_benign = rule_id_str in _user_benign_rules
         if is_user_benign:
-            anomaly_score = 0
-            is_anomaly = False
-            anomaly_label = "BENIGN"
+            anomaly_score  = 0
+            ae_score       = 0
+            combined_score = 0
+            is_anomaly     = False
+            anomaly_label  = "BENIGN"
 
         result.append({
-            "timestamp": alert.get("timestamp", ""),
-            "level": rule.get("level", 0),
-            "rule_id": rule.get("id", ""),
+            "timestamp":       alert.get("timestamp", ""),
+            "level":           rule.get("level", 0),
+            "rule_id":         rule.get("id", ""),
             "rule_description": rule.get("description", ""),
-            "agent_name": agent.get("name", ""),
-            "agent_ip": agent.get("ip", ""),
-            "full_log": alert.get("full_log", "")[:500],
-            "groups": rule.get("groups", []),
-            "mitre_ids": mitre.get("id", []),
-            "data": {k: str(v) for k, v in data.items()} if isinstance(data, dict) else {},
-            "anomaly_score": anomaly_score,
-            "is_anomaly": is_anomaly,
-            "anomaly_label": anomaly_label,
+            "agent_name":      agent.get("name", ""),
+            "agent_ip":        agent.get("ip", ""),
+            "full_log":        alert.get("full_log", "")[:500],
+            "groups":          rule.get("groups", []),
+            "mitre_ids":       mitre.get("id", []),
+            "data":            {k: str(v) for k, v in data.items()} if isinstance(data, dict) else {},
+            "anomaly_score":   anomaly_score,
+            "autoencoder_score": ae_score,
+            "combined_score":  combined_score,
+            "is_anomaly":      is_anomaly,
+            "anomaly_label":   anomaly_label,
         })
 
     # Sort: highest anomaly score first
@@ -720,16 +723,18 @@ def chat():
     # --- Search Wazuh alerts first (needed to determine level gate) ---
     alert_matches = _search_wazuh_alerts(user_message, top_k=10)
 
-    # --- Score each matched alert with Isolation Forest ---
+    # --- Score each matched alert with the ensemble ---
     anomaly_scores = {}
-    detector = _get_anomaly_detector()
-    if detector:
+    ae_scores = {}
+    ensemble = _get_ensemble()
+    if ensemble:
         for idx, (_, alert) in enumerate(alert_matches):
             try:
-                result = detector.detect_anomaly(alert)
+                ens_r = ensemble.score(alert)
                 anomaly_scores[idx] = {
-                    "score": result["anomaly_score"],
-                    "is_anomaly": result["is_anomaly"],
+                    "anomaly_label": ens_r["anomaly_label"],
+                    "combined_score": ens_r["combined_score"],
+                    "score":         ens_r["if_score"],
                 }
             except Exception:
                 pass
@@ -769,7 +774,7 @@ def chat():
             "These are likely routine events. Do not map to attack techniques without further evidence."
         )
 
-    alert_block, alert_sources = _format_alert_context(alert_matches, anomaly_scores)
+    alert_block, alert_sources = _format_alert_context(alert_matches, anomaly_scores, ae_scores)
     sources.extend(alert_sources)
 
     if not alert_block:
@@ -824,14 +829,16 @@ def chat_stream():
     alert_matches = _search_wazuh_alerts(user_message, top_k=10)
 
     anomaly_scores = {}
-    detector = _get_anomaly_detector()
-    if detector:
+    ae_scores = {}
+    ensemble = _get_ensemble()
+    if ensemble:
         for idx, (_, alert) in enumerate(alert_matches):
             try:
-                result = detector.detect_anomaly(alert)
+                ens_r = ensemble.score(alert)
                 anomaly_scores[idx] = {
-                    "score": result["anomaly_score"],
-                    "is_anomaly": result["is_anomaly"],
+                    "anomaly_label": ens_r["anomaly_label"],
+                    "combined_score": ens_r["combined_score"],
+                    "score":         ens_r["if_score"],
                 }
             except Exception:
                 pass
@@ -868,7 +875,7 @@ def chat_stream():
             "These are likely routine events. Do not map to attack techniques without further evidence."
         )
 
-    alert_block, alert_sources = _format_alert_context(alert_matches, anomaly_scores)
+    alert_block, alert_sources = _format_alert_context(alert_matches, anomaly_scores, ae_scores)
     sources.extend(alert_sources)
     if not alert_block:
         alert_block = "No matching Wazuh alerts found."
@@ -1336,6 +1343,254 @@ def vectordb_stats():
         result["error"] = str(e)
 
     return jsonify(result)
+
+
+# ===========================================================================
+# CVE Ingestion Agent  (scheduled_agent/) — run + visibility endpoints
+# ===========================================================================
+AI_ENGINE_DIR = Path(__file__).resolve().parent.parent / "ai_threat_engine_starter"
+AGENT_VENV_PY = AI_ENGINE_DIR / "venv" / "bin" / "python3"
+
+# In-memory state for the currently/last running job (one at a time)
+_cve_run = {
+    "running": False, "source": None, "log": [],
+    "started_at": None, "finished_at": None, "returncode": None,
+}
+_cve_run_lock = threading.Lock()
+
+
+def _agent_db_conn():
+    """psycopg2 connection to the agent's Postgres, via rag_core."""
+    starter = str(AI_ENGINE_DIR)
+    if starter not in sys.path:
+        sys.path.insert(0, starter)
+    from rag_core.database.postgres_client import get_conn
+    return get_conn()
+
+
+def _run_cve_agent(source: str):
+    """Background thread: run the agent as a subprocess, stream its output."""
+    import subprocess
+    cmd = [str(AGENT_VENV_PY), "-m", "scheduled_agent.agent", "--source", source]
+    rc = -1
+    try:
+        proc = subprocess.Popen(
+            cmd, cwd=str(AI_ENGINE_DIR),
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, bufsize=1, env={**os.environ},
+        )
+        for line in proc.stdout:
+            with _cve_run_lock:
+                _cve_run["log"].append(line.rstrip("\n"))
+                if len(_cve_run["log"]) > 2000:
+                    _cve_run["log"] = _cve_run["log"][-2000:]
+        proc.wait()
+        rc = proc.returncode
+    except Exception as e:
+        with _cve_run_lock:
+            _cve_run["log"].append(f"[server] run failed: {e}")
+    finally:
+        with _cve_run_lock:
+            _cve_run["running"] = False
+            _cve_run["returncode"] = rc
+            _cve_run["finished_at"] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+@app.route("/api/cve-agent/run", methods=["POST"])
+def cve_agent_run():
+    """Trigger an agent run in the background. One run at a time."""
+    source = (request.get_json(silent=True) or {}).get("source", "all")
+    if source not in ("all", "nvd", "cisa_kev"):
+        source = "all"
+    with _cve_run_lock:
+        if _cve_run["running"]:
+            return jsonify({"error": "A run is already in progress", "running": True}), 409
+        _cve_run.update({
+            "running": True, "source": source, "log": [],
+            "started_at": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "finished_at": None, "returncode": None,
+        })
+    threading.Thread(target=_run_cve_agent, args=(source,), daemon=True).start()
+    return jsonify({"status": "started", "source": source})
+
+
+@app.route("/api/cve-agent/run-status", methods=["GET"])
+def cve_agent_run_status():
+    """Live status + log of the current/last run (frontend polls this)."""
+    with _cve_run_lock:
+        return jsonify({
+            "running":     _cve_run["running"],
+            "source":      _cve_run["source"],
+            "log":         list(_cve_run["log"]),
+            "started_at":  _cve_run["started_at"],
+            "finished_at": _cve_run["finished_at"],
+            "returncode":  _cve_run["returncode"],
+        })
+
+
+@app.route("/api/cve-agent/status", methods=["GET"])
+def cve_agent_status():
+    """Overview from the Postgres ledger: last run per source, totals, recent indexed."""
+    try:
+        conn = _agent_db_conn()
+    except Exception as e:
+        return jsonify({"error": f"Postgres unavailable: {e}"}), 503
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT DISTINCT ON (source_type)
+                       source_type, started_at, finished_at, status,
+                       cves_evaluated, cves_indexed, cves_queued,
+                       cves_dropped, cves_duplicate
+                FROM ingestion_log
+                WHERE source_type IN ('cve_agent_nvd', 'cve_agent_cisa_kev')
+                ORDER BY source_type, started_at DESC
+            """)
+            runs = [{
+                "source": r[0].replace("cve_agent_", ""),
+                "started_at": r[1].isoformat() if r[1] else None,
+                "finished_at": r[2].isoformat() if r[2] else None,
+                "status": r[3],
+                "evaluated": r[4], "indexed": r[5], "queued": r[6],
+                "dropped": r[7], "duplicate": r[8],
+            } for r in cur.fetchall()]
+
+            cur.execute("SELECT decision, COUNT(*) FROM cve_decisions GROUP BY decision")
+            totals = {row[0]: row[1] for row in cur.fetchall()}
+
+            cur.execute("""
+                SELECT cve_id, source_type, final_score, boost, decided_at
+                FROM cve_decisions WHERE decision = 'indexed'
+                ORDER BY decided_at DESC LIMIT 15
+            """)
+            recent = [{
+                "cve_id": r[0], "source": r[1], "score": r[2],
+                "boost": r[3], "decided_at": r[4].isoformat() if r[4] else None,
+            } for r in cur.fetchall()]
+
+            last_run = max(
+                (r["started_at"] for r in runs if r["started_at"]), default=None
+            )
+    finally:
+        conn.close()
+
+    return jsonify({
+        "runs": runs,
+        "totals": {
+            "indexed":   totals.get("indexed", 0),
+            "queued":    totals.get("queued", 0),
+            "dropped":   totals.get("dropped", 0),
+            "duplicate": totals.get("duplicate", 0),
+        },
+        "recent_indexed": recent,
+        "last_run": last_run,
+    })
+
+
+@app.route("/api/cve-agent/queue", methods=["GET"])
+def cve_agent_queue():
+    """Pending human-review queue (mid-score CVEs held out of RAG)."""
+    try:
+        conn = _agent_db_conn()
+    except Exception as e:
+        return jsonify({"error": f"Postgres unavailable: {e}"}), 503
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT cve_id, source_type, final_score, reasoning,
+                       boost_reason, decided_at
+                FROM pending_review LIMIT 100
+            """)
+            queue = [{
+                "cve_id": r[0], "source": r[1], "score": r[2],
+                "reasoning": r[3], "boost_reason": r[4],
+                "decided_at": r[5].isoformat() if r[5] else None,
+            } for r in cur.fetchall()]
+    finally:
+        conn.close()
+    return jsonify({"queue": queue, "total": len(queue)})
+
+
+@app.route("/api/cve-agent/cve/<path:cve_id>", methods=["GET"])
+def cve_agent_cve_detail(cve_id):
+    """Full ledger record + parsed details for one CVE (for the detail modal)."""
+    cve_id = cve_id.strip().upper()
+    try:
+        conn = _agent_db_conn()
+    except Exception as e:
+        return jsonify({"error": f"Postgres unavailable: {e}"}), 503
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT cve_id, source_type, base_score, boost, final_score,
+                       decision, reasoning, boost_reason, raw_cve, qdrant_id, decided_at
+                FROM cve_decisions WHERE cve_id = %s
+                ORDER BY decided_at DESC LIMIT 1
+            """, (cve_id,))
+            row = cur.fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return jsonify({"error": f"{cve_id} not found in the ledger"}), 404
+
+    (cid, source, base, boost, final, decision,
+     reasoning, boost_reason, raw, qid, decided) = row
+
+    starter = str(AI_ENGINE_DIR)
+    if starter not in sys.path:
+        sys.path.insert(0, starter)
+    try:
+        from scheduled_agent import normalize
+        parsed = (normalize.parse_nvd_item({"cve": raw}) if source == "nvd"
+                  else normalize.parse_kev_item(raw))
+    except Exception:
+        parsed = {"description": "", "products": [], "vendor": "", "cvss": None, "published": ""}
+
+    return jsonify({
+        "cve_id": cid, "source": source, "decision": decision,
+        "base_score": base, "boost": boost, "final_score": final,
+        "reasoning": reasoning, "boost_reason": boost_reason,
+        "decided_at": decided.isoformat() if decided else None,
+        "qdrant_id": qid,
+        "description": parsed.get("description", ""),
+        "products": parsed.get("products", []),
+        "vendor": parsed.get("vendor", ""),
+        "cvss": parsed.get("cvss"),
+        "published": parsed.get("published", ""),
+        "nvd_url": f"https://nvd.nist.gov/vuln/detail/{cid}",
+    })
+
+
+@app.route("/api/cve-agent/approve", methods=["POST"])
+def cve_agent_approve():
+    cve_id = (request.get_json(silent=True) or {}).get("cve_id", "").strip()
+    if not cve_id:
+        return jsonify({"error": "cve_id is required"}), 400
+    starter = str(AI_ENGINE_DIR)
+    if starter not in sys.path:
+        sys.path.insert(0, starter)
+    try:
+        from scheduled_agent import review
+        result = review.approve(cve_id)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    return jsonify(result), (200 if result.get("ok") else 404)
+
+
+@app.route("/api/cve-agent/reject", methods=["POST"])
+def cve_agent_reject():
+    cve_id = (request.get_json(silent=True) or {}).get("cve_id", "").strip()
+    if not cve_id:
+        return jsonify({"error": "cve_id is required"}), 400
+    starter = str(AI_ENGINE_DIR)
+    if starter not in sys.path:
+        sys.path.insert(0, starter)
+    try:
+        from scheduled_agent import review
+        result = review.reject(cve_id)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    return jsonify(result), (200 if result.get("ok") else 404)
 
 
 @app.route("/")

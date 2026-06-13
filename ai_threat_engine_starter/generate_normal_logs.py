@@ -38,6 +38,74 @@ HOME_IP    = "192.168.1.1"
 USER       = "sek"
 HOSTNAME   = "LAPTOP-M9GQ2F87"
 
+EXTERNAL_IPS = [
+    "5.188.10.250", "51.15.120.74", "77.234.42.11", "82.102.17.83",
+    "85.214.67.22", "93.184.216.34", "95.216.34.195", "213.32.75.110",
+    "37.59.100.201", "46.101.127.41", "54.72.9.51",  "62.210.138.7",
+    "78.47.250.30",  "89.234.157.254","91.121.88.21", "94.23.33.92",
+    "130.185.250.68","136.243.154.56","151.80.119.120","163.172.6.50",
+    "176.9.0.67",    "178.63.48.166", "188.165.200.156","194.32.107.41",
+    HOME_IP, HOME_IP, HOME_IP, "10.0.0.50", "10.0.0.100",
+]
+
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64; rv:125.0) Gecko/20100101 Firefox/125.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0",
+    "python-requests/2.31.0", "curl/7.88.1",
+    "Googlebot/2.1 (+http://www.google.com/bot.html)",
+    "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)",
+]
+
+WEB_PAGES = [
+    "/", "/index.html", "/about", "/about-us", "/contact", "/contact-us",
+    "/products", "/services", "/portfolio", "/team", "/faq", "/pricing",
+    "/blog/", "/blog/getting-started-with-siem/", "/blog/threat-detection-tips/",
+    "/blog/network-security-best-practices/", "/blog/wazuh-configuration-guide/",
+    "/page/2/", "/page/3/", "/category/security/", "/category/tutorials/",
+    "/tag/wazuh/", "/tag/siem/", "/search?q=security+monitoring",
+    "/dashboard", "/profile", "/settings", "/reports", "/alerts",
+    "/wp-content/themes/astra/style.css", "/wp-content/themes/twentytwenty/index.php",
+    "/wp-json/wp/v2/posts", "/wp-json/wp/v2/posts?per_page=10",
+    "/wp-json/wp/v2/categories", "/wp-admin/admin-ajax.php",
+    "/feed/", "/sitemap.xml", "/robots.txt",
+    "/wp-content/plugins/contact-form-7/includes/js/scripts.js",
+    "/wp-content/uploads/2026/01/security-report.pdf",
+]
+
+WEB_STATIC = [
+    "/css/main.css", "/css/style.css", "/css/bootstrap.min.css",
+    "/js/app.min.js", "/js/jquery.min.js", "/js/bootstrap.bundle.min.js",
+    "/images/logo.png", "/images/hero-bg.jpg", "/images/icons/shield.svg",
+    "/fonts/roboto-v30-latin-regular.woff2", "/favicon.ico", "/favicon.png",
+    "/assets/img/banner.webp", "/static/reports/monthly-2026-01.pdf",
+]
+
+WEB_API = [
+    "/api/v1/alerts", "/api/v1/alerts?page=1&limit=20", "/api/v1/alerts/stats",
+    "/api/v1/dashboard", "/api/v1/dashboard/metrics", "/api/v1/users/me",
+    "/api/v1/rules", "/api/v1/agents/status", "/api/v1/reports/summary",
+    "/api/v1/health", "/api/v1/status", "/api/v2/threats?severity=high",
+    "/api/chat", "/api/v1/search?q=brute+force",
+]
+
+WEB_POST_URLS = [
+    "/api/v1/data", "/api/v1/submit", "/api/v1/authenticate",
+    "/api/v1/feedback", "/api/v2/events", "/api/chat",
+    "/contact/send", "/newsletter/subscribe", "/form/submit",
+    "/wp-comments-post.php", "/wp-admin/admin-ajax.php",
+]
+
+WEB_REFERRERS = [
+    "-", "-", "-",
+    "https://google.com/", "https://www.google.com/search?q=wazuh+siem",
+    "https://mysite.com/blog/", "https://mysite.com/", "https://github.com/",
+]
+
 # Normal rule IDs and their metadata (rule_id, level, description, decoder, mitre=[])
 NORMAL_RULES = [
     # ── SSH ──────────────────────────────────────────────────────────────────
@@ -232,76 +300,137 @@ NORMAL_RULES = [
         "data": {"srcip": HOME_IP, "srcuser": USER},
         "mitre": [],
     },
+    # ── Web traffic — normal GET page requests ────────────────────────────────
+    {
+        "id": 31100, "level": 2, "description": "Web request.",
+        "decoder": "web-accesslog",
+        "full_log_tpl": '{srcip_web} - - [{ts_fmt}] "GET {url_page} HTTP/1.1" {status} {size} "{referer}" "{useragent}"',
+        "data": {}, "mitre": [], "data_web": True,
+        "statuses": ["200","200","200","200","301","302","304"], "size_range": (512, 65536), "url_type": "page",
+    },
+    # ── Web traffic — static file requests ───────────────────────────────────
+    {
+        "id": 31108, "level": 2, "description": "Web request - static content cached.",
+        "decoder": "web-accesslog",
+        "full_log_tpl": '{srcip_web} - - [{ts_fmt}] "GET {url_page} HTTP/1.1" {status} {size} "{referer}" "{useragent}"',
+        "data": {}, "mitre": [], "data_web": True,
+        "statuses": ["200","304","304","304"], "size_range": (100, 200000), "url_type": "static",
+    },
+    # ── Web traffic — API GET requests ────────────────────────────────────────
+    {
+        "id": 31110, "level": 2, "description": "Web request - API.",
+        "decoder": "web-accesslog",
+        "full_log_tpl": '{srcip_web} - {user} [{ts_fmt}] "GET {url_page} HTTP/1.1" {status} {size} "-" "{useragent}"',
+        "data": {}, "mitre": [], "data_web": True,
+        "statuses": ["200","200","200","304"], "size_range": (128, 8192), "url_type": "api",
+    },
+    # ── Web traffic — POST submissions ────────────────────────────────────────
+    {
+        "id": 31111, "level": 2, "description": "Web request - POST submission.",
+        "decoder": "web-accesslog",
+        "full_log_tpl": '{srcip_web} - {user} [{ts_fmt}] "POST {url_page} HTTP/1.1" {status} {size} "{referer}" "{useragent}"',
+        "data": {}, "mitre": [], "data_web": True,
+        "statuses": ["200","201","302","204"], "size_range": (64, 2048), "url_type": "post",
+    },
+    # ── Web traffic — 404 not found ───────────────────────────────────────────
+    {
+        "id": 31112, "level": 2, "description": "Web request - 404 not found.",
+        "decoder": "web-accesslog",
+        "full_log_tpl": '{srcip_web} - - [{ts_fmt}] "GET {url_page} HTTP/1.1" 404 {size} "{referer}" "{useragent}"',
+        "data": {}, "mitre": [], "data_web": True,
+        "statuses": ["404"], "size_range": (200, 2048), "url_type": "page",
+    },
+    # ── Web traffic — crawler ─────────────────────────────────────────────────
+    {
+        "id": 31113, "level": 2, "description": "Web request - crawler.",
+        "decoder": "web-accesslog",
+        "full_log_tpl": '{srcip_web} - - [{ts_fmt}] "GET {url_page} HTTP/1.1" 200 {size} "-" "Googlebot/2.1 (+http://www.google.com/bot.html)"',
+        "data": {}, "mitre": [], "data_web": True,
+        "statuses": ["200"], "size_range": (1024, 32768), "url_type": "page",
+    },
 ]
 
 # ── Weight by how often each event really occurs during a work day ────────────
 RULE_WEIGHTS = {
-    5501: 12,  # PAM session open — very common
-    5502: 12,  # PAM session close
-    5503: 20,  # sudo PAM session open — frequent dev work
-    5504: 20,  # sudo PAM session close
-    5402: 15,  # Successful sudo
-    5715: 6,   # SSH pubkey
-    5710: 4,   # SSH password
-    510:  3,   # rootcheck
-    516:  2,   # syscheck
-    554:  2,   # new file
-    2502: 8,   # cron
-    1002: 5,   # systemd started
-    1003: 3,   # UFW allow
-    2902: 1,   # dpkg install
-    87701: 4,  # docker start
-    87702: 2,  # docker stop
-    1001: 3,   # NTP
-    4112: 4,   # sshd accepted
+    5501: 12,   5502: 12,   5503: 20,   5504: 20,
+    5402: 15,   5715: 6,    5710: 4,    510:  3,
+    516:  2,    554:  2,    2502: 8,    1002: 5,
+    1003: 3,    2902: 1,    87701: 4,   87702: 2,
+    1001: 3,    4112: 4,
+    # Web traffic — heavy weight to build diverse normal web baseline
+    31100: 70,   # GET page requests
+    31108: 90,   # static file requests (highest volume)
+    31110: 45,   # API GET
+    31111: 30,   # POST submissions
+    31112: 15,   # 404 not found
+    31113: 20,   # crawler
 }
 
 
 def make_alert(rule_def: dict, ts: datetime) -> dict:
-    """Build one alert JSON matching the 13-feature extractor's expectations."""
+    """Build one alert JSON matching the 16-feature extractor's expectations."""
     rid   = rule_def["id"]
     level = rule_def["level"]
     desc  = rule_def["description"]
 
-    # Fill in the full_log template
-    port  = random.randint(32768, 60999)
-    port2 = random.randint(1024, 9999)
-    pid   = random.randint(1000, 65000)
-    cmd   = random.choice(rule_def.get("cmds", ["/usr/bin/ls"]))
-    svc   = random.choice(rule_def.get("services", ["openssh"]))
-    pkg   = random.choice(rule_def.get("pkgs", ["curl"]))
-    ctr   = random.choice(rule_def.get("containers", ["wazuh_qdrant"]))
+    port      = random.randint(32768, 60999)
+    port2     = random.randint(1024, 9999)
+    pid       = random.randint(1000, 65000)
+    cmd       = random.choice(rule_def.get("cmds", ["/usr/bin/ls"]))
+    svc       = random.choice(rule_def.get("services", ["openssh"]))
+    pkg       = random.choice(rule_def.get("pkgs", ["curl"]))
+    ctr       = random.choice(rule_def.get("containers", ["wazuh_qdrant"]))
+
+    srcip_web = random.choice(EXTERNAL_IPS)
+    useragent = random.choice(USER_AGENTS)
+    referer   = random.choice(WEB_REFERRERS)
+    status    = random.choice(rule_def.get("statuses", ["200"]))
+    sz_min, sz_max = rule_def.get("size_range", (200, 10000))
+    size      = str(random.randint(sz_min, sz_max))
+    ts_fmt    = ts.strftime("%d/%b/%Y:%H:%M:%S +0000")
+    url_type  = rule_def.get("url_type", "page")
+    if url_type == "static":
+        url_val = random.choice(WEB_STATIC)
+    elif url_type == "api":
+        url_val = random.choice(WEB_API)
+    elif url_type == "post":
+        url_val = random.choice(WEB_POST_URLS)
+    else:
+        url_val = random.choice(WEB_PAGES)
 
     full_log = (
         rule_def["full_log_tpl"]
-        .replace("{user}", USER)
-        .replace("{ip}", HOME_IP)
-        .replace("{port}", str(port))
-        .replace("{port2}", str(port2))
-        .replace("{cmd}", cmd)
-        .replace("{pid}", str(pid))
-        .replace("{service}", svc)
-        .replace("{pkg}", pkg)
-        .replace("{arch}", "amd64")
-        .replace("{ver}", f"1.{random.randint(0,9)}.{random.randint(0,20)}")
+        .replace("{user}",      USER)
+        .replace("{ip}",        HOME_IP)
+        .replace("{port}",      str(port))
+        .replace("{port2}",     str(port2))
+        .replace("{cmd}",       cmd)
+        .replace("{pid}",       str(pid))
+        .replace("{service}",   svc)
+        .replace("{pkg}",       pkg)
+        .replace("{arch}",      "amd64")
+        .replace("{ver}",       f"1.{random.randint(0,9)}.{random.randint(0,20)}")
         .replace("{container}", ctr)
+        .replace("{srcip_web}", srcip_web)
+        .replace("{useragent}", useragent)
+        .replace("{referer}",   referer)
+        .replace("{status}",    status)
+        .replace("{size}",      size)
+        .replace("{ts_fmt}",    ts_fmt)
+        .replace("{url_page}",  url_val)
     )
 
-    data = dict(rule_def.get("data", {}))
+    if rule_def.get("data_web"):
+        data   = {"srcip": srcip_web, "url": url_val, "id": status}
+        groups = ["web", "accesslog"]
+    else:
+        data   = dict(rule_def.get("data", {}))
+        groups = ["syslog"]
 
     alert = {
         "timestamp": ts.strftime("%Y-%m-%dT%H:%M:%S.000+0000"),
-        "rule": {
-            "id": rid,
-            "level": level,
-            "description": desc,
-            "groups": ["syslog"],
-        },
-        "agent": {
-            "id": AGENT_ID,
-            "name": AGENT_NAME,
-            "ip": AGENT_IP,
-        },
+        "rule": {"id": rid, "level": level, "description": desc, "groups": groups},
+        "agent": {"id": AGENT_ID, "name": AGENT_NAME, "ip": AGENT_IP},
         "manager": {"name": HOSTNAME},
         "decoder": {"name": rule_def["decoder"]},
         "full_log": full_log,
@@ -391,32 +520,29 @@ def main():
     print("=" * 52)
     print()
 
-    # Generate 20 working days (Mon–Fri) worth of normal activity
-    # Spread across recent weeks; each day ~200–400 alerts
-    # That gives 4,000–8,000 clean training samples
-    today = datetime(2026, 4, 19, tzinfo=timezone.utc)
+    # Generate 50 working days of web-heavy normal activity.
+    # ~70% web traffic to teach both models what normal web requests look like.
+    today = datetime(2026, 5, 26, tzinfo=timezone.utc)
 
     generated_days = []
-    day_cursor = today - timedelta(days=60)  # start ~2 months back
-    while len(generated_days) < 25:
-        # Skip weekends (5=Sat, 6=Sun)
-        if day_cursor.weekday() < 5:
+    day_cursor = today - timedelta(days=120)  # start ~4 months back
+    while len(generated_days) < 50:
+        if day_cursor.weekday() < 5:  # Mon–Fri only
             generated_days.append(day_cursor)
         day_cursor += timedelta(days=1)
 
     print(f"Generating {len(generated_days)} days of normal activity...\n")
 
-    # Skip days that already exist (don't overwrite real attack data from specific dates)
     existing_dates = {f.stem for f in DAILY_DIR.glob("*.json")}
 
-    # Assign per-day volumes (more alerts on "active" work days)
     volumes = []
     for d in generated_days:
-        # Monday and Wednesday tend to be busier
         if d.weekday() in (0, 2):
-            volumes.append(random.randint(280, 380))
+            volumes.append(random.randint(650, 800))
+        elif d.weekday() == 4:
+            volumes.append(random.randint(400, 550))
         else:
-            volumes.append(random.randint(180, 280))
+            volumes.append(random.randint(500, 700))
 
     skipped = 0
     for date, vol in zip(generated_days, volumes):

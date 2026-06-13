@@ -1109,3 +1109,43 @@
 2026/05/06 12:40:05 wazuh-agentd[5476] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
 2026/05/06 12:40:05 wazuh-agentd[5476] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
 2026/05/06 12:40:05 wazuh-agentd[5476] main.c:189 at main(): DEBUG: Started (pid: 5476).
+2026/05/08 16:22:40 wazuh-agentd[6367] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/05/08 16:22:40 wazuh-agentd[6367] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/05/08 16:22:40 wazuh-agentd[6367] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/05/08 16:22:40 wazuh-agentd[6367] main.c:189 at main(): DEBUG: Started (pid: 6367).
+2026/05/08 16:24:31 wazuh-agentd[13234] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/05/08 16:24:31 wazuh-agentd[13234] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/05/08 16:24:31 wazuh-agentd[13234] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/05/08 16:24:31 wazuh-agentd[13234] main.c:189 at main(): DEBUG: Started (pid: 13234).
+2026/05/18 12:55:46 wazuh-agentd[4856] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/05/18 12:55:46 wazuh-agentd[4856] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/05/18 12:55:46 wazuh-agentd[4856] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/05/18 12:55:46 wazuh-agentd[4856] main.c:189 at main(): DEBUG: Started (pid: 4856).
+2026/05/21 10:01:11 wazuh-agentd[4671] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/05/21 10:01:11 wazuh-agentd[4671] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/05/21 10:01:11 wazuh-agentd[4671] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/05/21 10:01:11 wazuh-agentd[4671] main.c:189 at main(): DEBUG: Started (pid: 4671).
+2026/05/26 20:30:39 wazuh-agentd[62851] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/05/26 20:30:39 wazuh-agentd[62851] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/05/26 20:30:39 wazuh-agentd[62851] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/05/26 20:30:39 wazuh-agentd[62851] main.c:189 at main(): DEBUG: Started (pid: 62851).
+2026/05/26 20:52:49 wazuh-agentd[79049] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/05/26 20:52:49 wazuh-agentd[79049] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/05/26 20:52:49 wazuh-agentd[79049] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/05/26 20:52:49 wazuh-agentd[79049] main.c:189 at main(): DEBUG: Started (pid: 79049).
+2026/05/26 22:06:24 wazuh-agentd[109846] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/05/26 22:06:24 wazuh-agentd[109846] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/05/26 22:06:24 wazuh-agentd[109846] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/05/26 22:06:24 wazuh-agentd[109846] main.c:189 at main(): DEBUG: Started (pid: 109846).
+2026/05/29 23:20:24 wazuh-agentd[9758] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/05/29 23:20:24 wazuh-agentd[9758] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/05/29 23:20:24 wazuh-agentd[9758] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/05/29 23:20:24 wazuh-agentd[9758] main.c:189 at main(): DEBUG: Started (pid: 9758).
+2026/06/13 12:24:18 wazuh-agentd[43177] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/06/13 12:24:18 wazuh-agentd[43177] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/06/13 12:24:18 wazuh-agentd[43177] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/06/13 12:24:18 wazuh-agentd[43177] main.c:189 at main(): DEBUG: Started (pid: 43177).
+2026/06/13 12:33:32 wazuh-agentd[52337] debug_op.c:305 at os_logging_config(): DEBUG: (1228): Element 'log_format' without any option.
+2026/06/13 12:33:32 wazuh-agentd[52337] debug_op.c:116 at _log_function(): DEBUG: Logging module auto-initialized
+2026/06/13 12:33:32 wazuh-agentd[52337] main.c:187 at main(): DEBUG: Wazuh home directory: /home/sek/wazuh/src
+2026/06/13 12:33:32 wazuh-agentd[52337] main.c:189 at main(): DEBUG: Started (pid: 52337).

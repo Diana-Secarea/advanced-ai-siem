@@ -51,6 +51,8 @@ SAFE_DESCRIPTION_KEYWORDS = {
 # to routine administrative changes; we do not want those to mask training data.
 SAFE_RULE_IDS = {
     '100022',  # WordPress plugin uninstalled (level 8, admin action)
+    '31101',   # Web server 400 error code — normal 404s, Wazuh tags group 'attack' but these are benign navigation errors
+    '31151',   # Multiple 400 errors from same IP — triggers on our own web activity generation, not a real scan
 }
 
 

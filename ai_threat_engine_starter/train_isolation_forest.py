@@ -4,7 +4,9 @@ Train Isolation Forest on real Wazuh alerts from alerts.json
 Run after collecting real alerts for a few days/weeks.
 """
 import json
+import shutil
 import sys
+from datetime import datetime
 from pathlib import Path
 
 # Add parent to path
@@ -60,7 +62,10 @@ def is_attack_alert(alert):
 
 
 def train_on_real_data(alerts_file, output_model_path, test_file=None):
-    """Train Isolation Forest on CLEAN (benign-only) alerts, then evaluate on attacks.
+    """Train Isolation Forest on all Wazuh alerts (unsupervised, contamination=auto).
+
+    No label filter is applied during training.  attack_labels is used only in
+    the evaluation section below to measure detection rate and false-positive rate.
 
     If test_file is provided, evaluation is done on that separate file instead of
     the attack-labelled alerts extracted from the training data.
@@ -72,87 +77,96 @@ def train_on_real_data(alerts_file, output_model_path, test_file=None):
         print("Not enough data to train. Exiting.")
         return False
 
-    # --- Fix #6: Separate clean data from attack data ---
-    clean_alerts = []
-    attack_alerts = []
-    for alert in alerts:
-        if is_attack_alert(alert):
-            attack_alerts.append(alert)
-        else:
-            clean_alerts.append(alert)
+    # Label split used ONLY for evaluation reporting — not used in training
+    clean_alerts  = [a for a in alerts if not is_attack_alert(a)]
+    attack_alerts = [a for a in alerts if is_attack_alert(a)]
 
     print(f"Total alerts: {len(alerts)}")
-    print(f"  Clean (benign): {len(clean_alerts)} -> used for TRAINING")
-    print(f"  Attack:         {len(attack_alerts)} -> used for EVALUATION")
-
-    if len(clean_alerts) < 10:
-        print("Not enough clean alerts to train. Need more normal operational data.")
-        print("Run Wazuh normally (without attacks) for a few days first.")
-        return False
+    print(f"  Estimated clean: {len(clean_alerts)} | Estimated attack: {len(attack_alerts)}")
+    print(f"  Training on ALL {len(alerts)} alerts (unsupervised, contamination=auto)")
 
     # Initialize detector (skip auto-load to avoid loading old model)
     detector = AnomalyDetector(model_path=output_model_path)
 
-    # Extract features from CLEAN alerts only for training
-    print("\nExtracting features from clean alerts...")
+    # Extract features from ALL alerts — no label filter
+    print("\nExtracting features from all alerts...")
     import numpy as np
-    clean_features = []
-    for alert in clean_alerts:
+    all_features = []
+    for alert in alerts:
         try:
             feat = detector.extract_features(alert)
-            clean_features.append(feat[0])
+            all_features.append(feat[0])
         except Exception as e:
             print(f"Error extracting features: {e}")
             continue
 
-    if len(clean_features) < 10:
+    if len(all_features) < 10:
         print("Not enough valid features extracted. Exiting.")
         return False
 
-    print(f"Extracted features from {len(clean_features)} clean alerts")
+    print(f"Extracted features from {len(all_features)} alerts")
 
-    # Train on CLEAN data only — attacks should then appear as outliers
-    print("Training Isolation Forest on clean data...")
-    X = np.array(clean_features)
+    # Train on ALL data — contamination='auto' makes no assumption about attack ratio
+    print("Training Isolation Forest on all data (contamination=auto)...")
+    X = np.array(all_features)
     X_scaled = detector.scaler.fit_transform(X)
 
     from sklearn.ensemble import IsolationForest
     detector.model = IsolationForest(
-        contamination=0.05,     # Low contamination: clean data should have very few anomalies
+        contamination='auto',
         random_state=42,
-        n_estimators=200,       # More trees for better accuracy
+        n_estimators=200,
         n_jobs=-1
     )
     detector.model.fit(X_scaled)
 
-    # Calibrate score normalization from training data
+    # Calibrate score normalization from all training data
     raw_scores = detector.model.decision_function(X_scaled)
-    detector.score_min = float(np.percentile(raw_scores, 2))   # Most anomalous boundary
-    detector.score_max = float(np.percentile(raw_scores, 98))  # Most normal boundary
+    detector.score_min = float(np.percentile(raw_scores, 2))
+    detector.score_max = float(np.percentile(raw_scores, 98))
     print(f"Calibration range: [{detector.score_min:.4f}, {detector.score_max:.4f}]")
 
-    # --- Find optimal anomaly threshold ---
-    # Score all clean alerts to find where "normal" ends
-    clean_norm_scores = []
-    for alert in clean_alerts:
-        feats = detector.extract_features(alert)
-        Xs = detector.scaler.transform(feats)
-        raw = detector.model.decision_function(Xs)[0]
-        clean_norm_scores.append(detector._normalize_score(raw))
+    # Threshold: score all alerts, find natural gap in distribution (score gap heuristic),
+    # use everything below the gap as the estimated clean set
+    all_norm_scores = []
+    for alert in alerts:
+        try:
+            feats = detector.extract_features(alert)
+            Xs = detector.scaler.transform(feats)
+            raw = detector.model.decision_function(Xs)[0]
+            all_norm_scores.append(detector._normalize_score(raw))
+        except Exception:
+            pass
+    scores_arr = np.array(all_norm_scores)
 
-    # Threshold = 90th percentile of clean scores
-    # This means: only 10% of clean data scores above this, so anything above is suspicious
-    threshold = int(np.percentile(clean_norm_scores, 90))
-    # Ensure minimum threshold of 40 to avoid too many false positives
+    # Find the largest empty/sparse bucket in the middle of the score range
+    hist, bin_edges = np.histogram(scores_arr, bins=20)
+    gap_idx = int(np.argmin(hist[5:15]) + 5)
+    gap_score = float(bin_edges[gap_idx + 1])
+    estimated_clean_scores = scores_arr[scores_arr <= gap_score]
+    # Fall back to 70th percentile if gap lands in a useless position
+    if len(estimated_clean_scores) < len(scores_arr) * 0.4:
+        gap_score = float(np.percentile(scores_arr, 70))
+        estimated_clean_scores = scores_arr[scores_arr <= gap_score]
+    print(f"Score gap at: {gap_score:.1f} "
+          f"({len(estimated_clean_scores)}/{len(scores_arr)} estimated clean)")
+
+    threshold = int(np.percentile(estimated_clean_scores, 90))
     threshold = max(40, threshold)
     detector.anomaly_threshold = threshold
-    print(f"Anomaly threshold: {threshold}/100 (90th percentile of clean scores)")
+    print(f"Anomaly threshold: {threshold}/100 (90th pct of estimated clean, contamination=auto)")
+
+    # Archive previous model before overwriting
+    if Path(output_model_path).exists():
+        archive_path = output_model_path.replace('.pkl', f'_{datetime.now().strftime("%Y-%m-%d")}.pkl')
+        shutil.copy(output_model_path, archive_path)
+        print(f"Archived previous model to: {archive_path}")
 
     # Save model
     print(f"Saving model to: {output_model_path}")
     detector.save_model()
 
-    print(f"\nModel trained on {len(clean_features)} clean alerts")
+    print(f"\nModel trained on {len(all_features)} alerts (unsupervised)")
 
     # --- Evaluate on test data (separate file) or fall back to training attacks ---
     if test_file:

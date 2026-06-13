@@ -213,81 +213,10 @@ def print_report(clean_results, attack_results):
     print(f"{'='*70}")
 
 
-def plot_confusion_matrix(clean_results, attack_results, output_path):
-    """Generate confusion matrix visualization."""
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    import numpy as np
-
-    tp = sum(1 for r in attack_results if r['is_anomaly'])
-    fn = len(attack_results) - tp
-    fp = sum(1 for r in clean_results if r['is_anomaly'])
-    tn = len(clean_results) - fp
-
-    matrix = np.array([[tp, fn], [fp, tn]])
-    labels = np.array([
-        [f"TP\n{tp}", f"FN\n{fn}"],
-        [f"FP\n{fp}", f"TN\n{tn}"]
-    ])
-
-    precision = tp / (tp + fp) if (tp + fp) > 0 else 0
-    recall = tp / (tp + fn) if (tp + fn) > 0 else 0
-    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
-
-    dark_bg = "#1a1a2e"
-    card_bg = "#16213e"
-    text_col = "#e2e8f0"
-    grid_col = "#334155"
-
-    fig, ax = plt.subplots(figsize=(7, 6))
-    fig.patch.set_facecolor(dark_bg)
-    ax.set_facecolor(card_bg)
-
-    # Color matrix: TP/TN green, FP/FN red
-    colors = np.array([
-        ["#22c55e", "#ef4444"],  # TP green, FN red
-        ["#ef4444", "#22c55e"]   # FP red, TN green
-    ])
-
-    for i in range(2):
-        for j in range(2):
-            ax.add_patch(plt.Rectangle((j, 1 - i), 1, 1,
-                         facecolor=colors[i][j], alpha=0.3, edgecolor=grid_col, linewidth=2))
-            ax.text(j + 0.5, 1.5 - i, labels[i][j],
-                    ha="center", va="center", fontsize=18, fontweight="bold",
-                    color=text_col)
-
-    ax.set_xlim(0, 2)
-    ax.set_ylim(0, 2)
-    ax.set_xticks([0.5, 1.5])
-    ax.set_xticklabels(["Flagged\nAnomaly", "Flagged\nNormal"], fontsize=11, color=text_col)
-    ax.set_yticks([0.5, 1.5])
-    ax.set_yticklabels(["Clean", "Attack"], fontsize=11, color=text_col)
-    ax.set_xlabel("Predicted", fontsize=12, color=text_col, labelpad=10)
-    ax.set_ylabel("Actual", fontsize=12, color=text_col, labelpad=10)
-
-    title = (f"Confusion Matrix  |  Precision: {precision:.1%}  "
-             f"Recall: {recall:.1%}  F1: {f1:.1%}")
-    ax.set_title(title, fontsize=12, fontweight="bold", color=text_col, pad=15)
-
-    for spine in ax.spines.values():
-        spine.set_color(grid_col)
-    ax.tick_params(colors=text_col)
-
-    plt.tight_layout()
-    output_file = Path(output_path) / "confusion_matrix.png"
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_file, dpi=150, facecolor=fig.get_facecolor())
-    plt.close()
-    print(f"\n  Saved {output_file}")
-
-
 def main():
     parser = argparse.ArgumentParser(description='Evaluate Isolation Forest model')
     parser.add_argument('--alerts', type=str, help='Path to alerts JSONL file')
     parser.add_argument('--model', type=str, help='Path to model .pkl file')
-    parser.add_argument('--plot', action='store_true', help='Generate confusion matrix chart')
     args = parser.parse_args()
 
     script_dir = Path(__file__).parent
@@ -305,11 +234,12 @@ def main():
             print("No alerts file found. Provide --alerts path.")
             sys.exit(1)
 
-    # Resolve model path
+    # Resolve model path (mirrors train_isolation_forest.py: prefer prod, fallback to local)
     if args.model:
         model_path = args.model
     else:
-        model_path = str(script_dir / 'data' / 'ai_models' / 'anomaly_detector.pkl')
+        prod_path = Path("/var/ossec/ai_models/anomaly_detector.pkl")
+        model_path = str(prod_path if prod_path.exists() else script_dir / 'data' / 'ai_models' / 'anomaly_detector.pkl')
 
     print(f"Alerts: {alerts_file}")
     print(f"Model:  {model_path}")
@@ -325,10 +255,6 @@ def main():
     # Evaluate
     clean_results, attack_results = evaluate(detector, alerts)
     print_report(clean_results, attack_results)
-
-    if args.plot:
-        output_path = script_dir / 'data' / 'eval_reports'
-        plot_confusion_matrix(clean_results, attack_results, output_path)
 
 
 if __name__ == '__main__':

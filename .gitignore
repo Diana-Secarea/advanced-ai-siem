@@ -2,6 +2,21 @@
 .env
 *.env
 
+# Python virtual environments (large, platform-specific)
+venv/
+**/venv/
+.venv/
+
+# Claude Code local project settings
+.claude/
+
+# Python caches
+__pycache__/
+*.py[cod]
+
+# Agent runtime logs
+**/agent.log
+
 *.so
 *.so.*
 *.o

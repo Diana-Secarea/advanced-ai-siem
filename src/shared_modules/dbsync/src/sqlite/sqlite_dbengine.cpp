@@ -11,6 +11,8 @@
 
 #include <fstream>
 #include <thread>
+#include <algorithm>
+#include <cctype>
 #include "db_exception.h"
 #include "mapWrapperSafe.h"
 #include "sqlite/isqlite_wrapper.h"
@@ -19,6 +21,44 @@
 #include "commonDefs.h"
 
 using namespace std::chrono_literals;
+
+static void validateSQLIdentifier(const std::string& identifier)
+{
+    if (identifier.empty() ||
+        !std::all_of(identifier.begin(), identifier.end(),
+                     [](unsigned char c) { return std::isalnum(c) || c == '_'; }))
+    {
+        throw dbengine_error{ INVALID_TABLE };
+    }
+}
+
+static void validateWhereFilter(const std::string& filter)
+{
+    if (filter.empty() || std::isspace(static_cast<unsigned char>(filter.front())))
+    {
+        throw dbengine_error{ INVALID_DELETE_INFO };
+    }
+
+    // Block multi-statement injection and comment-based truncation
+    const std::vector<std::string> forbidden { ";", "--", "/*", "*/" };
+    for (const auto& token : forbidden)
+    {
+        if (filter.find(token) != std::string::npos)
+        {
+            throw dbengine_error{ INVALID_DELETE_INFO };
+        }
+    }
+
+    // Reject the WHERE keyword itself — the engine already prepends it
+    auto upper = filter;
+    std::transform(upper.begin(), upper.end(), upper.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+    if (upper.rfind("WHERE", 0) == 0)
+    {
+        throw dbengine_error{ INVALID_DELETE_INFO };
+    }
+}
+
 auto constexpr MAX_TRIES = 5;
 
 SQLiteDBEngine::SQLiteDBEngine(const std::shared_ptr<ISQLiteFactory>& sqliteFactory,
@@ -517,7 +557,9 @@ void SQLiteDBEngine::deleteTableRowsData(const std::string&    table,
         else if (itFilter != jsDeletionData.end() && !itFilter->get<std::string>().empty())
         {
             // Deletion via condition on "where_filter_opt" json field.
-            m_sqliteConnection->execute("DELETE FROM " + table + " WHERE " + itFilter->get<std::string>());
+            const auto& filterStr = itFilter->get<std::string>();
+            validateWhereFilter(filterStr);
+            m_sqliteConnection->execute("DELETE FROM " + table + " WHERE " + filterStr);
             updateTableRowCounter(table, m_sqliteConnection->changes() * -1ll);
         }
         else
@@ -935,6 +977,7 @@ void SQLiteDBEngine::deleteTempTable(const std::string& table)
 {
     try
     {
+        validateSQLIdentifier(table);
         m_sqliteConnection->execute("DELETE FROM " + table + TEMP_TABLE_SUBFIX + ";");
     }
     //if the table doesn't exist we don't care.
@@ -2122,10 +2165,14 @@ std::string SQLiteDBEngine::buildDeleteRelationTrigger(const nlohmann::json& dat
 
     for (const auto& jsonValue : data.at("relationed_tables"))
     {
-        sqlDelete.append("DELETE FROM " + jsonValue.at("table").get<std::string>() + " WHERE ");
+        const auto& relatedTable = jsonValue.at("table").get<std::string>();
+        validateSQLIdentifier(relatedTable);
+        sqlDelete.append("DELETE FROM " + relatedTable + " WHERE ");
 
         for (const auto& match : jsonValue.at("field_match").items())
         {
+            validateSQLIdentifier(match.key());
+            validateSQLIdentifier(match.value().get_ref<const std::string&>());
             sqlDelete.append(match.key());
             sqlDelete.append(" = OLD.");
             sqlDelete.append(match.value().get_ref<const std::string&>());
@@ -2165,12 +2212,16 @@ std::string SQLiteDBEngine::buildUpdateRelationTrigger(const nlohmann::json&    
 
     for (const auto& jsonValue : data.at("relationed_tables"))
     {
-        sqlUpdate.append("UPDATE " + jsonValue.at("table").get<std::string>() + " SET ");
+        const auto& relatedTable = jsonValue.at("table").get<std::string>();
+        validateSQLIdentifier(relatedTable);
+        sqlUpdate.append("UPDATE " + relatedTable + " SET ");
 
         auto sqlUpdateWhere { std::string(" WHERE ") };
 
         for (const auto& match : jsonValue.at("field_match").items())
         {
+            validateSQLIdentifier(match.key());
+            validateSQLIdentifier(match.value().get_ref<const std::string&>());
             sqlUpdate.append(match.key());
             sqlUpdate.append(" = NEW.");
             sqlUpdate.append(match.value().get_ref<const std::string&>());

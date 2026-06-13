@@ -399,11 +399,11 @@
     </div>
     <div class="hero-stat">
       <div class="hero-stat-value red" id="statHigh">—</div>
-      <div class="hero-stat-label">HIGH</div>
+      <div class="hero-stat-label">CRITICAL / HIGH</div>
     </div>
     <div class="hero-stat">
       <div class="hero-stat-value yellow" id="statSusp">—</div>
-      <div class="hero-stat-label">Suspicious</div>
+      <div class="hero-stat-label">POSSIBLE</div>
     </div>
     <div class="hero-stat">
       <div class="hero-stat-value green" id="statNormal">—</div>
@@ -458,6 +458,19 @@
       <div class="card-arrow">→ Open Dashboard</div>
     </a>
 
+    <a class="nav-card" href="/cve-agent.html" style="--ac: #ffaa00;">
+      <div class="card-icon">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="11" cy="11" r="9" stroke="#ffaa00" stroke-width="1.4" fill="none" opacity="0.4"/>
+          <path d="M11 5 V11 L15 13" stroke="#ffaa00" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="11" cy="11" r="1.6" fill="#ffaa00"/>
+        </svg>
+      </div>
+      <div class="card-title">CVE Ingestion Agent</div>
+      <div class="card-desc">Run the scheduled CVE agent, watch new CVEs get scored and indexed, and approve the ones waiting in the human review queue.</div>
+      <div class="card-arrow">→ Open Agent</div>
+    </a>
+
   </div>
 
   <div class="section-label">// Tools &amp; Settings</div>
@@ -495,8 +508,8 @@ async function loadStats() {
     const data = await resp.json();
     const alerts = data.alerts || [];
 
-    const high  = alerts.filter(a => a.anomaly_label === "HIGH").length;
-    const susp  = alerts.filter(a => a.anomaly_label === "SUSPICIOUS").length;
+    const high  = alerts.filter(a => a.anomaly_label === "CRITICAL" || a.anomaly_label === "HIGH").length;
+    const susp  = alerts.filter(a => a.anomaly_label === "POSSIBLE").length;
     const norm  = alerts.filter(a => a.anomaly_label === "NORMAL").length;
     const scored = alerts.filter(a => a.anomaly_score != null);
     const avg = scored.length

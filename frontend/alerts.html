@@ -545,12 +545,12 @@
     </div>
     <div class="stat-card high">
       <div class="stat-value" id="statHigh">—</div>
-      <div class="stat-label">HIGH Anomaly</div>
+      <div class="stat-label">CRITICAL / HIGH</div>
       <div class="stat-sub" id="statHighPct">—%</div>
     </div>
     <div class="stat-card suspicious">
       <div class="stat-value" id="statSuspicious">—</div>
-      <div class="stat-label">Suspicious</div>
+      <div class="stat-label">POSSIBLE</div>
       <div class="stat-sub" id="statSuspPct">—%</div>
     </div>
     <div class="stat-card normal">
@@ -639,8 +639,9 @@
     <div class="filter-group">
       <span class="filter-label">Anomaly:</span>
       <button class="filter-btn active all" data-anomaly="all">All</button>
+      <button class="filter-btn" data-anomaly="CRITICAL">CRITICAL</button>
       <button class="filter-btn" data-anomaly="HIGH">HIGH</button>
-      <button class="filter-btn" data-anomaly="SUSPICIOUS">SUSP</button>
+      <button class="filter-btn" data-anomaly="POSSIBLE">POSSIBLE</button>
       <button class="filter-btn" data-anomaly="NORMAL">NORMAL</button>
       <button class="filter-btn" data-anomaly="BENIGN">BENIGN</button>
     </div>
@@ -811,16 +812,18 @@ function getLevelLabel(l) {
 }
 function isComplianceTag(t) { return /^(pci_dss|gdpr|hipaa|nist|gpg|tsc)/.test(t); }
 function getAnomalyClass(lbl) {
-  if (lbl === "HIGH")        return "anomaly-high";
-  if (lbl === "SUSPICIOUS")  return "anomaly-suspicious";
-  if (lbl === "BENIGN")      return "anomaly-benign";
+  if (lbl === "CRITICAL")  return "anomaly-critical";
+  if (lbl === "HIGH")      return "anomaly-high";
+  if (lbl === "POSSIBLE")  return "anomaly-suspicious";
+  if (lbl === "BENIGN")    return "anomaly-benign";
   return "";
 }
 function getBarColor(lbl) {
-  if (lbl === "HIGH")       return "#da3633";
-  if (lbl === "SUSPICIOUS") return "#d29922";
-  if (lbl === "NORMAL")     return "#3fb950";
-  if (lbl === "BENIGN")     return "#238636";
+  if (lbl === "CRITICAL") return "#ff6b6b";
+  if (lbl === "HIGH")     return "#da3633";
+  if (lbl === "POSSIBLE") return "#d29922";
+  if (lbl === "NORMAL")   return "#3fb950";
+  if (lbl === "BENIGN")   return "#238636";
   return "#6e7681";
 }
 
@@ -829,8 +832,8 @@ function getBarColor(lbl) {
 // ================================================================
 function updateStats(displayed) {
   const total = displayed.length;
-  const high  = displayed.filter(a => a.anomaly_label === "HIGH").length;
-  const susp  = displayed.filter(a => a.anomaly_label === "SUSPICIOUS").length;
+  const high  = displayed.filter(a => a.anomaly_label === "CRITICAL" || a.anomaly_label === "HIGH").length;
+  const susp  = displayed.filter(a => a.anomaly_label === "POSSIBLE").length;
   const norm  = displayed.filter(a => a.anomaly_label === "NORMAL").length;
   const ben   = displayed.filter(a => a.anomaly_label === "BENIGN").length;
 
@@ -902,7 +905,7 @@ function buildTimelineBuckets(alerts) {
     const idx = 23 - Math.floor(hoursAgo);
     if (idx >= 0 && idx < 24) {
       allCounts[idx]++;
-      if (a.anomaly_label === "HIGH") highCounts[idx]++;
+      if (a.anomaly_label === "CRITICAL" || a.anomaly_label === "HIGH") highCounts[idx]++;
     }
   });
 

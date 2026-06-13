@@ -65,11 +65,17 @@ class AIThreatEngine:
 
         # Initialize Isolation Forest
         print("\n1. Loading Isolation Forest...")
-        self.anomaly_detector = AnomalyDetector(model_path)
+        if_model_file = os.path.join(model_path, "anomaly_detector.pkl") if os.path.isdir(model_path) else model_path
+        self.anomaly_detector = AnomalyDetector(if_model_file)
         print("   ✅ Isolation Forest ready")
 
+        # Initialize Pattern Analyzer
+        print("\n2. Loading Pattern Analyzer...")
+        self.pattern_analyzer = PatternAnalyzer()
+        print("   ✅ Pattern Analyzer ready")
+
         # Initialize RAG System
-        print("\n2. Loading RAG System...")
+        print("\n3. Loading RAG System...")
         self.use_rag_core = use_rag_core and RAG_CORE_AVAILABLE
         if self.use_rag_core:
             try:
@@ -96,6 +102,9 @@ class AIThreatEngine:
                 self.threat_intel = None
                 self.rag_system = None
                 print(f"   ⚠️ RAG System initialization failed: {e}")
+
+        # LLM copilot flag (optional)
+        self.llm_enabled = False
 
         print("\n" + "="*60)
         print("✅ AI Threat Engine ready!")

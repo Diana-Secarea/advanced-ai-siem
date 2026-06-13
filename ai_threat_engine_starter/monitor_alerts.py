@@ -11,6 +11,14 @@ import sys
 from pathlib import Path
 from ai_engine import AIThreatEngine
 
+# Ensemble detector (IF + Autoencoder)
+sys.path.insert(0, str(Path(__file__).parent))
+try:
+    from autoencoders_approach.ensemble_detector import load_ensemble as _load_ensemble
+    _ENSEMBLE_AVAILABLE = True
+except ImportError:
+    _ENSEMBLE_AVAILABLE = False
+
 # Wazuh paths (override with env for local demo)
 ALERTS_FILE = os.environ.get("ALERTS_FILE", "/var/ossec/logs/alerts/alerts.json")
 ENHANCED_ALERTS_FILE = os.environ.get("ENHANCED_ALERTS_FILE", "/var/ossec/logs/alerts/ai_enhanced_alerts.json")
@@ -37,68 +45,92 @@ def save_last_position(position):
     with open(pos_file, 'w') as f:
         f.write(str(position))
 
-def process_new_alerts(engine):
+def process_new_alerts(engine, ensemble=None):
     """Process new alerts from the alerts file"""
     if not os.path.exists(ALERTS_FILE):
         print(f"Alert file not found: {ALERTS_FILE}")
         return
-    
+
     last_position = read_last_position()
-    
+
     try:
         with open(ALERTS_FILE, 'r') as f:
             f.seek(last_position)
             new_content = f.read()
             current_position = f.tell()
-        
+
         if not new_content.strip():
             return
-        
-        # Process each line (JSONL format)
+
         enhanced_alerts = []
         for line in new_content.strip().split('\n'):
             if not line.strip():
                 continue
-            
+
             try:
                 alert = json.loads(line)
-                
-                # Analyze with AI engine
+
+                # ── Step 1: RAG + Pattern Analyzer (existing pipeline) ──
                 ai_result = engine.analyze_event(json.dumps(alert))
-                
-                # Create enhanced alert
+
+                # ── Step 2: Ensemble scoring (IF + Autoencoder) ──
+                ensemble_result = None
+                if ensemble is not None:
+                    try:
+                        ens = ensemble.score(alert)
+                        ensemble_result = {
+                            'anomaly_label': ens['anomaly_label'],
+                            'combined_score': ens['combined_score'],
+                            'if_score':       ens['if_score'],
+                            'ae_score':       ens['ae_score'],
+                            'is_anomaly':     ens['is_anomaly'],
+                        }
+                    except Exception as e:
+                        print(f"  [ensemble] Scoring error: {e}")
+
+                # ── Step 3: Build enhanced alert ──
                 enhanced_alert = {
                     "original_alert": alert,
-                    "ai_analysis": ai_result,
-                    "timestamp": time.time()
+                    "ai_analysis":    ai_result,
+                    "ensemble":       ensemble_result,
+                    "timestamp":      time.time(),
                 }
-                
                 enhanced_alerts.append(enhanced_alert)
-                
-                # Print if anomaly detected
-                if ai_result.get('is_anomaly'):
-                    print(f"[ANOMALY DETECTED] Score: {ai_result.get('anomaly_score', 0)}")
-                    print(f"  Threat Level: {ai_result.get('threat_level', 'UNKNOWN')}")
-                    print(f"  Confidence: {ai_result.get('confidence', 0)}%")
+
+                # ── Step 4: Console output ──
+                anomaly_label = ensemble_result['anomaly_label'] if ensemble_result else None
+                combined      = ensemble_result['combined_score'] if ensemble_result else None
+                if_score      = ensemble_result['if_score']   if ensemble_result else ai_result.get('anomaly_score', 0)
+                ae_score      = ensemble_result['ae_score']   if ensemble_result else None
+                is_anomaly    = ensemble_result['is_anomaly'] if ensemble_result else ai_result.get('is_anomaly', False)
+
+                if is_anomaly:
+                    rule_desc = alert.get('rule', {}).get('description', 'unknown')[:60]
+                    ae_str    = f"  AE score:   {ae_score}/100" if ae_score is not None else ""
+                    print(f"\n[{anomaly_label or 'ANOMALY'}] {rule_desc}")
+                    print(f"  IF score:   {if_score}/100")
+                    if ae_str:
+                        print(ae_str)
+                    if combined is not None:
+                        print(f"  Combined:   {combined}/100")
+                    print(f"  Threat Lvl: {ai_result.get('threat_level', 'UNKNOWN')}")
                     if ai_result.get('recommendations'):
-                        print(f"  Recommendations: {ai_result['recommendations'][0]}")
-                    print()
-                
+                        print(f"  Action:     {ai_result['recommendations'][0]}")
+
             except json.JSONDecodeError as e:
                 print(f"Error parsing alert: {e}")
                 continue
             except Exception as e:
                 print(f"Error processing alert: {e}")
                 continue
-        
-        # Write enhanced alerts
+
         if enhanced_alerts:
             with open(ENHANCED_ALERTS_FILE, 'a') as f:
                 for alert in enhanced_alerts:
                     f.write(json.dumps(alert) + '\n')
-        
+
         save_last_position(current_position)
-        
+
     except Exception as e:
         print(f"Error reading alerts file: {e}")
 
@@ -108,10 +140,10 @@ def main():
     print(f"Monitoring: {ALERTS_FILE}")
     print(f"Output: {ENHANCED_ALERTS_FILE}")
     print()
-    
+
     ensure_directories()
-    
-    # Initialize AI engine
+
+    # Initialize existing AI engine (RAG + Pattern Analyzer)
     try:
         engine = AIThreatEngine(
             model_path=MODEL_PATH,
@@ -121,14 +153,27 @@ def main():
     except Exception as e:
         print(f"Error initializing AI engine: {e}")
         sys.exit(1)
-    
+
+    # Load ensemble (IF + Autoencoder) — optional, degrades gracefully
+    ensemble = None
+    if _ENSEMBLE_AVAILABLE:
+        try:
+            ensemble = _load_ensemble()
+            ae_status = "IF + Autoencoder" if ensemble.ae_det is not None else "IF only"
+            print(f"Ensemble detector loaded: {ae_status}")
+        except Exception as e:
+            print(f"Ensemble load failed (continuing without it): {e}")
+    else:
+        print("Ensemble not available — install autoencoders_approach package")
+
+    print()
     print("Monitoring alerts... (Press Ctrl+C to stop)")
     print()
-    
+
     try:
         while True:
-            process_new_alerts(engine)
-            time.sleep(5)  # Check every 5 seconds
+            process_new_alerts(engine, ensemble)
+            time.sleep(5)
     except KeyboardInterrupt:
         print("\nStopping AI Threat Engine...")
         sys.exit(0)

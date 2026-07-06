@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vector DB — Diana's Shield</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<canvas id="particles"></canvas>
+<div class="aurora"><span></span><span></span><span></span></div>
+<div class="grid-overlay"></div>
+
+<div class="owner-line">⟡ owned by <b>Diana Secarea</b> ⟡</div>
+<nav class="nav">
+  <a class="brand" href="index.html"><span class="logo">◈</span>DIANA'S<em>&nbsp;SHIELD</em></a>
+  <a class="link" href="index.html">Overview</a>
+  <a class="link" href="alerts.html">Live Alerts</a>
+  <a class="link" href="chat.html">AI Analyst</a>
+  <a class="link" href="cve-agent.html">CVE Agent</a>
+  <a class="link active" href="vectordb.html">Vector DB</a>
+  <span class="spacer"></span>
+  <span class="status-pill"><span class="dot"></span>QDRANT HEALTHY</span>
+</nav>
+
+<main class="page wrap">
+
+  <div class="page-head" style="padding:44px 0 10px;display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+    <div>
+      <span class="eyebrow reveal">🌌 VECTOR DB DASHBOARD</span>
+      <h2 class="section-title reveal" data-delay="1">7,251 vectors. <span class="grad-text">One searchable galaxy.</span></h2>
+      <p class="lede reveal" data-delay="2">Live monitoring for the Qdrant vector database powering hybrid threat intel search —
+      collections, embeddings, and document sources at a glance.</p>
+    </div>
+    <div class="reveal" data-delay="2" style="display:flex;gap:10px;">
+      <a class="btn btn-primary" style="padding:11px 18px;" href="http://localhost:6333/dashboard" target="_blank">⬈ Open Qdrant UI</a>
+      <button class="btn btn-ghost" style="padding:11px 18px;" onclick="refresh()"><span id="refreshIcon" style="display:inline-block;">↻</span> Refresh</button>
+    </div>
+  </div>
+
+  <!-- KPI bar — real production numbers -->
+  <div class="reveal" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:12px 0 22px;">
+    <div class="card" style="padding:18px;text-align:center;"><div class="stat-num" style="font-size:26px;" data-count="7251">0</div><div class="stat-label">Total Documents</div></div>
+    <div class="card" style="padding:18px;text-align:center;"><div class="stat-num" style="font-size:26px;" data-count="7252">0</div><div class="stat-label">Embeddings</div></div>
+    <div class="card" style="padding:18px;text-align:center;"><div class="stat-num" style="font-size:26px;" data-count="2">0</div><div class="stat-label">Collections</div></div>
+    <div class="card" style="padding:18px;text-align:center;"><div class="stat-num" style="font-size:26px;" data-count="5">0</div><div class="stat-label">Data Sources</div></div>
+    <div class="card" style="padding:18px;text-align:center;"><div class="stat-num" style="font-size:22px;">1.17.0</div><div class="stat-label">Qdrant Ver.</div></div>
+  </div>
+
+  <!-- Collection Monitor -->
+  <section style="padding:12px 0;">
+    <h3 style="font-family:var(--font-display);margin-bottom:14px;" class="reveal"><span class="mono" style="color:var(--text-dim);font-family:var(--font-mono);">//</span> Collection Monitor</h3>
+    <div class="grid-2 reveal" data-delay="1">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h3 style="margin:0;">🧠 wazuh_threat_intel</h3><span class="badge low">HEALTHY</span>
+        </div>
+        <p style="margin-bottom:14px;">Primary threat intelligence store</p>
+        <div style="display:flex;gap:28px;margin-bottom:14px;">
+          <div><div class="stat-num" style="font-size:28px;">7,251</div><div class="stat-label">Documents</div></div>
+          <div><div class="stat-num" style="font-size:28px;">7,252</div><div class="stat-label">Indexed Vectors</div></div>
+          <div><div class="stat-num" style="font-size:28px;">384</div><div class="stat-label">dim</div></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <span class="badge info">8 SEGMENTS</span><span class="badge med">HNSW INDEX</span>
+          <span class="badge amber">ON-DISK PAYLOAD</span><span class="badge low">384-DIM VECTORS</span>
+        </div>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h3 style="margin:0;">📡 wazuh_alert_episodes</h3><span class="badge low">HEALTHY</span>
+        </div>
+        <p style="margin-bottom:14px;">Alert episode similarity store</p>
+        <div style="display:flex;gap:28px;margin-bottom:14px;">
+          <div><div class="stat-num" style="font-size:28px;">0</div><div class="stat-label">Documents</div></div>
+          <div><div class="stat-num" style="font-size:28px;">0</div><div class="stat-label">Indexed Vectors</div></div>
+          <div><div class="stat-num" style="font-size:28px;">384</div><div class="stat-label">dim</div></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <span class="badge info">8 SEGMENTS</span><span class="badge med">HNSW INDEX</span>
+          <span class="badge amber">ON-DISK PAYLOAD</span><span class="badge low">384-DIM VECTORS</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Galaxy + Document Sources -->
+  <section style="padding:12px 0;">
+    <h3 style="font-family:var(--font-display);margin-bottom:14px;" class="reveal"><span style="color:var(--text-dim);font-family:var(--font-mono);">//</span> Document Sources</h3>
+    <div class="grid-2" style="align-items:start;">
+      <div class="reveal">
+        <div class="card" style="padding:14px;"><canvas id="galaxy" style="width:100%;aspect-ratio:1;display:block;border-radius:14px;"></canvas></div>
+        <div class="orb-legend">
+          <span><i style="background:#fbbf24;"></i>Sigma Rules</span>
+          <span><i style="background:#fb7185;"></i>CISA KEV</span>
+          <span><i style="background:#22d3ee;"></i>MITRE ATT&CK</span>
+          <span><i style="background:#34d399;"></i>CIS Controls</span>
+          <span><i style="background:#a78bfa;"></i>MITRE D3FEND</span>
+          <span><i style="background:#f472b6;"></i>Your Uploads</span>
+        </div>
+      </div>
+      <div class="reveal" data-delay="1">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:18px;">
+            <h3 style="margin:0;">Threat Intel Index — Document Sources</h3>
+            <span class="mono" style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);">wazuh_threat_intel</span>
+          </div>
+          <div id="srcBars"></div>
+        </div>
+        <div class="card" style="margin-top:16px;">
+          <h3 style="margin-bottom:10px;">Hybrid retrieval</h3>
+          <p style="font-size:13.5px;">Each query runs twice — semantic cosine over dense vectors <em>and</em> BM25 over sparse
+          keyword vectors — then both fuse with <b style="color:var(--cyan)">Reciprocal Rank Fusion</b>, normalized to [0,1].</p>
+          <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;">
+            <span class="badge info">DENSE · COSINE</span><span class="badge med">SPARSE · BM25</span>
+            <span class="badge low">RRF · k=60</span><span class="badge amber">HNSW</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- System Health -->
+  <section style="padding:12px 0;">
+    <h3 style="font-family:var(--font-display);margin-bottom:14px;" class="reveal"><span style="color:var(--text-dim);font-family:var(--font-mono);">//</span> System Health</h3>
+    <div class="grid-3 reveal" data-delay="1">
+      <div class="card"><div class="stat-num" style="font-size:24px;-webkit-text-fill-color:var(--green);">Optimal</div><div class="stat-label">Cluster Health</div><p style="margin-top:10px;font-size:12.5px;">2 collections — all indices indexed and serving</p></div>
+      <div class="card"><div class="stat-num" style="font-size:24px;" data-count="16">0</div><div class="stat-label">Total Segments</div><p style="margin-top:10px;font-size:12.5px;">Distributed across 2 collections. HNSW graph built and searchable.</p></div>
+      <div class="card"><div class="stat-num" style="font-size:24px;">04 Jul 2026</div><div class="stat-label">Qdrant Started</div><p style="margin-top:10px;font-size:12.5px;">Version 1.17.0 · Single-node mode · In-memory sparse index</p></div>
+      <div class="card"><div class="stat-num" style="font-size:24px;" data-count="384">0</div><div class="stat-label">Embedding Dim.</div><p style="margin-top:10px;font-size:12.5px;">Model: all-MiniLM-L6-v2 · Dense cosine + BM25 sparse · RRF fusion search</p></div>
+      <div class="card"><div class="stat-num" style="font-size:24px;" data-count="5">0</div><div class="stat-label">Active Sources</div><p style="margin-top:10px;font-size:12.5px;">Sigma, CISA KEV, MITRE ATT&CK, CIS Controls indexed and available for RAG retrieval.</p></div>
+      <div class="card"><div class="stat-num" style="font-size:24px;" data-count="0">0</div><div class="stat-label">User Uploads</div><p style="margin-top:10px;font-size:12.5px;">No custom documents uploaded yet. <a href="chat.html" style="color:var(--magenta);">Use the Chat page to upload.</a></p></div>
+    </div>
+    <p class="mono" style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin-top:16px;text-align:right;" id="lastUpdated"></p>
+  </section>
+
+  <footer class="footer"><b>DIANA'S SHIELD</b> · galaxy is a stylized visualization — real UI reads /api/vectordb/stats</footer>
+</main>
+
+<script src="assets/app.js"></script>
+<script>
+/* ---- source bars — real production breakdown ---- */
+const SOURCES=[["Sigma Rules",3005,41,"#fbbf24"],["CISA KEV",1566,22,"#fb7185"],["MITRE ATT&CK",823,11,"#22d3ee"],["CIS Controls",361,5,"#34d399"],["MITRE D3FEND",6,0,"#a78bfa"]];
+document.getElementById("srcBars").innerHTML=SOURCES.map(([n,c,pct,col])=>`
+  <div style="margin-bottom:14px;">
+    <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px;">
+      <span style="color:var(--text-soft);">${n}</span>
+      <span class="mono" style="font-family:var(--font-mono);color:${col};">${c.toLocaleString()} · ${pct}%</span>
+    </div>
+    <div class="bar" data-fill="${Math.max(pct,1)}"><i style="background:${col};box-shadow:0 0 10px ${col};"></i></div>
+  </div>`).join("");
+requestAnimationFrame(()=>setTimeout(()=>document.querySelectorAll("#srcBars .bar").forEach(b=>b.querySelector("i").style.width=b.dataset.fill+"%"),400));
+
+document.getElementById("lastUpdated").textContent="Last updated: "+new Date().toLocaleString();
+
+function refresh(){
+  const ic=document.getElementById("refreshIcon");
+  ic.style.transition="transform .8s"; ic.style.transform="rotate(360deg)";
+  setTimeout(()=>{ ic.style.transition="none"; ic.style.transform=""; },850);
+  document.getElementById("lastUpdated").textContent="Last updated: "+new Date().toLocaleString();
+  NX.toast("Qdrant stats refreshed");
+}
+
+/* ---- orbiting galaxy (kept per request) ---- */
+const cv=document.getElementById("galaxy"), ctx=cv.getContext("2d");
+function fit(){ const r=cv.getBoundingClientRect(); cv.width=r.width*2; cv.height=r.width*2; }
+fit(); window.addEventListener("resize",fit);
+const COLORS={sigma:"#fbbf24",kev:"#fb7185",mitre:"#22d3ee",cis:"#34d399",d3f:"#a78bfa",up:"#f472b6"};
+const WEIGHTS=[["sigma",.41],["kev",.22],["mitre",.16],["cis",.11],["d3f",.05],["up",.05]];
+function pickType(){ let r=Math.random(); for(const[t,w]of WEIGHTS){ if((r-=w)<=0)return t; } return "sigma"; }
+const STARS=Array.from({length:340},()=>{ const t=pickType(); return { t,col:COLORS[t],a:Math.random()*Math.PI*2,r:.12+Math.pow(Math.random(),.7)*.82,sp:(.0018+Math.random()*.0035)*(Math.random()<.5?1:-1),sz:Math.random()*2.2+1.1,tw:Math.random()*Math.PI*2 }; });
+let hover={x:-1,y:-1};
+cv.addEventListener("mousemove",e=>{ const r=cv.getBoundingClientRect(); hover.x=(e.clientX-r.left)/r.width*cv.width; hover.y=(e.clientY-r.top)/r.height*cv.height; });
+cv.addEventListener("mouseleave",()=>hover={x:-1,y:-1});
+function draw(t){
+  const W=cv.width,H=cv.height,cx=W/2,cy=H/2,R=W/2*.92; ctx.clearRect(0,0,W,H);
+  const g=ctx.createRadialGradient(cx,cy,0,cx,cy,R*.4); g.addColorStop(0,"rgba(167,139,250,.28)"); g.addColorStop(1,"transparent"); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle="rgba(140,160,255,.09)"; ctx.lineWidth=1;
+  for(const rr of [.3,.55,.8]){ ctx.beginPath(); ctx.arc(cx,cy,R*rr,0,Math.PI*2); ctx.stroke(); }
+  for(const s of STARS){
+    s.a+=s.sp;
+    const x=cx+Math.cos(s.a)*s.r*R, y=cy+Math.sin(s.a)*s.r*R*.96;
+    const tw=.55+.45*Math.sin(t/700+s.tw);
+    const dx=x-hover.x,dy=y-hover.y; const near=hover.x>0&&dx*dx+dy*dy<5200;
+    if(near){ ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(x,y); ctx.strokeStyle=s.col+"44"; ctx.stroke(); }
+    ctx.beginPath(); ctx.arc(x,y,s.sz*(near?2.4:1)*2,0,Math.PI*2);
+    ctx.fillStyle=s.col+(near?"ff":Math.round(tw*200).toString(16).padStart(2,"0"));
+    ctx.shadowColor=s.col; ctx.shadowBlur=near?18:6; ctx.fill(); ctx.shadowBlur=0;
+  }
+  ctx.beginPath(); ctx.arc(cx,cy,7,0,Math.PI*2); ctx.fillStyle="#fff"; ctx.shadowColor="#a78bfa"; ctx.shadowBlur=24; ctx.fill(); ctx.shadowBlur=0;
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>

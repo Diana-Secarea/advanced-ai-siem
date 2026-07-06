@@ -380,6 +380,12 @@ class QdrantStore:
         fused = rrf_fusion([dense_hits, sparse_hits], k=rrf_k)
         top   = fused[:top_k]
 
+        # Raw RRF scores live on a tiny scale: a document ranked #1 in BOTH
+        # lists gets 2/(k+1) ≈ 0.0328 (k=60). Downstream consumers (severity
+        # mapping, thresholds) expect a [0,1] similarity, so normalize by the
+        # theoretical maximum. `score` keeps the raw RRF value for debugging.
+        max_rrf = 2.0 / (rrf_k + 1)
+
         # --- Format output ---
         results = []
         for doc_id, rrf_score, payload in top:
@@ -393,7 +399,7 @@ class QdrantStore:
                 "tags":         payload.get("tags", []),
                 "time_range":   payload.get("time_range", {}),
                 "score":        rrf_score,
-                "similarity":   rrf_score,
+                "similarity":   min(1.0, rrf_score / max_rrf),
                 "metadata":     payload.get("metadata", {}),
                 "raw_refs":     payload.get("raw_refs", []),
             })

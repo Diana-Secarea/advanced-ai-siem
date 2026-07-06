@@ -1,0 +1,743 @@
+[
+  {
+    "query": "How does process injection work on Linux?",
+    "relevant": [
+      "T1055",
+      "T1055.001",
+      "T1055.002",
+      "T1055.003",
+      "T1055.004",
+      "T1055.005",
+      "T1055.008",
+      "T1055.009",
+      "T1055.011",
+      "T1055.012",
+      "T1055.013",
+      "T1055.014",
+      "T1055.015"
+    ],
+    "category": "mitre-attack"
+  },
+  {
+    "query": "DLL side-loading and hijacking execution flow",
+    "relevant": [
+      "T1574",
+      "T1574.001",
+      "T1574.002",
+      "T1574.004",
+      "T1574.005",
+      "T1574.006",
+      "T1574.007",
+      "T1574.008",
+      "T1574.009",
+      "T1574.010",
+      "T1574.011",
+      "T1574.012",
+      "T1574.013",
+      "T1574.014"
+    ],
+    "category": "mitre-attack"
+  },
+  {
+    "query": "Scheduled task and cron job persistence",
+    "relevant": [
+      "T1053",
+      "T1053.001",
+      "T1053.002",
+      "T1053.003",
+      "T1053.005",
+      "T1053.006",
+      "T1053.007"
+    ],
+    "category": "mitre-attack"
+  },
+  {
+    "query": "OS credential dumping techniques",
+    "relevant": [
+      "T1003",
+      "T1003.001",
+      "T1003.002",
+      "T1003.003",
+      "T1003.004",
+      "T1003.005",
+      "T1003.006",
+      "T1003.007",
+      "T1003.008"
+    ],
+    "category": "mitre-attack"
+  },
+  {
+    "query": "Phishing as an initial access vector",
+    "relevant": [
+      "T1566",
+      "T1566.001",
+      "T1566.002",
+      "T1566.003",
+      "T1566.004"
+    ],
+    "category": "mitre-attack"
+  },
+  {
+    "query": "Command and scripting interpreter abuse",
+    "relevant": [
+      "T1059",
+      "T1059.001",
+      "T1059.002",
+      "T1059.003",
+      "T1059.004",
+      "T1059.005",
+      "T1059.006",
+      "T1059.007",
+      "T1059.008",
+      "T1059.009",
+      "T1059.010",
+      "T1059.011",
+      "T1059.012",
+      "T1059.013"
+    ],
+    "category": "mitre-attack"
+  },
+  {
+    "query": "Masquerading to evade detection",
+    "relevant": [
+      "T1036",
+      "T1036.001",
+      "T1036.002",
+      "T1036.003",
+      "T1036.004",
+      "T1036.005",
+      "T1036.006",
+      "T1036.007",
+      "T1036.008",
+      "T1036.009",
+      "T1036.010",
+      "T1036.011",
+      "T1036.012"
+    ],
+    "category": "mitre-attack"
+  },
+  {
+    "query": "Obfuscated files or information",
+    "relevant": [
+      "T1027",
+      "T1027.001",
+      "T1027.002",
+      "T1027.003",
+      "T1027.004",
+      "T1027.005",
+      "T1027.006",
+      "T1027.007",
+      "T1027.008",
+      "T1027.009",
+      "T1027.010",
+      "T1027.011",
+      "T1027.012",
+      "T1027.013",
+      "T1027.014",
+      "T1027.015",
+      "T1027.016",
+      "T1027.017"
+    ],
+    "category": "mitre-attack"
+  },
+  {
+    "query": "Account discovery on a compromised host",
+    "relevant": [
+      "T1087",
+      "T1087.001",
+      "T1087.002",
+      "T1087.003",
+      "T1087.004"
+    ],
+    "category": "mitre-attack"
+  },
+  {
+    "query": "System information discovery",
+    "relevant": [
+      "T1082"
+    ],
+    "category": "mitre-attack"
+  },
+  {
+    "query": "Boot or logon autostart execution persistence",
+    "relevant": [
+      "T1547",
+      "T1547.001",
+      "T1547.002",
+      "T1547.003",
+      "T1547.004",
+      "T1547.005",
+      "T1547.006",
+      "T1547.007",
+      "T1547.008",
+      "T1547.009",
+      "T1547.010",
+      "T1547.011",
+      "T1547.012",
+      "T1547.013",
+      "T1547.014",
+      "T1547.015"
+    ],
+    "category": "mitre-attack"
+  },
+  {
+    "query": "Create or modify system services for persistence",
+    "relevant": [
+      "T1543",
+      "T1543.001",
+      "T1543.002",
+      "T1543.003",
+      "T1543.004",
+      "T1543.005"
+    ],
+    "category": "mitre-attack"
+  },
+  {
+    "query": "Data encrypted for impact by ransomware",
+    "relevant": [
+      "T1486"
+    ],
+    "category": "mitre-attack"
+  },
+  {
+    "query": "Inhibit system recovery to prevent restoration",
+    "relevant": [
+      "T1490"
+    ],
+    "category": "mitre-attack"
+  },
+  {
+    "query": "Abuse of valid accounts for access",
+    "relevant": [
+      "T1078",
+      "T1078.001",
+      "T1078.002",
+      "T1078.003",
+      "T1078.004"
+    ],
+    "category": "mitre-attack"
+  },
+  {
+    "query": "Indicator removal and log deletion on a host",
+    "relevant": [
+      "T1070",
+      "T1070.001",
+      "T1070.002",
+      "T1070.003",
+      "T1070.004",
+      "T1070.005",
+      "T1070.006",
+      "T1070.007",
+      "T1070.008",
+      "T1070.009",
+      "T1070.010"
+    ],
+    "category": "mitre-attack"
+  },
+  {
+    "query": "Brute force authentication attacks",
+    "relevant": [
+      "T1110",
+      "T1110.001",
+      "T1110.002",
+      "T1110.003",
+      "T1110.004"
+    ],
+    "category": "mitre-attack"
+  },
+  {
+    "query": "Exploit public-facing application",
+    "relevant": [
+      "T1190"
+    ],
+    "category": "mitre-attack"
+  },
+  {
+    "query": "Ingress tool transfer onto a victim",
+    "relevant": [
+      "T1105"
+    ],
+    "category": "mitre-attack"
+  },
+  {
+    "query": "File and directory discovery",
+    "relevant": [
+      "T1083"
+    ],
+    "category": "mitre-attack"
+  },
+  {
+    "query": "Abuse elevation control mechanism with sudo",
+    "relevant": [
+      "T1548",
+      "T1548.001",
+      "T1548.002",
+      "T1548.003",
+      "T1548.004",
+      "T1548.005",
+      "T1548.006"
+    ],
+    "category": "mitre-attack"
+  },
+  {
+    "query": "Modify registry to hide configuration",
+    "relevant": [
+      "T1112"
+    ],
+    "category": "mitre-attack"
+  },
+  {
+    "query": "Apache Log4j2 deserialization remote code execution",
+    "relevant": [
+      "kev-CVE-2021-45046"
+    ],
+    "category": "cve-vulnerability"
+  },
+  {
+    "query": "Spring Framework JDK 9+ remote code execution Spring4Shell",
+    "relevant": [
+      "kev-CVE-2022-22965"
+    ],
+    "category": "cve-vulnerability"
+  },
+  {
+    "query": "Microsoft Exchange Server ProxyLogon remote code execution",
+    "relevant": [
+      "kev-CVE-2021-26855"
+    ],
+    "category": "cve-vulnerability"
+  },
+  {
+    "query": "Microsoft Exchange Server privilege escalation ProxyShell",
+    "relevant": [
+      "kev-CVE-2021-34523"
+    ],
+    "category": "cve-vulnerability"
+  },
+  {
+    "query": "Ivanti Connect Secure server-side request forgery vulnerability",
+    "relevant": [
+      "kev-CVE-2024-21893"
+    ],
+    "category": "cve-vulnerability"
+  },
+  {
+    "query": "Ivanti Pulse Connect Secure use-after-free vulnerability",
+    "relevant": [
+      "kev-CVE-2021-22893"
+    ],
+    "category": "cve-vulnerability"
+  },
+  {
+    "query": "Fortinet FortiOS SSL-VPN heap buffer overflow",
+    "relevant": [
+      "kev-CVE-2023-27997"
+    ],
+    "category": "cve-vulnerability"
+  },
+  {
+    "query": "Fortinet FortiOS heap-based buffer overflow exploited in the wild",
+    "relevant": [
+      "kev-CVE-2022-42475"
+    ],
+    "category": "cve-vulnerability"
+  },
+  {
+    "query": "Fortinet FortiOS SSL VPN improper authentication bypass",
+    "relevant": [
+      "kev-CVE-2020-12812"
+    ],
+    "category": "cve-vulnerability"
+  },
+  {
+    "query": "Atlassian Confluence broken access control privilege escalation",
+    "relevant": [
+      "kev-CVE-2023-22515"
+    ],
+    "category": "cve-vulnerability"
+  },
+  {
+    "query": "Atlassian Confluence template injection remote code execution",
+    "relevant": [
+      "kev-CVE-2023-22527"
+    ],
+    "category": "cve-vulnerability"
+  },
+  {
+    "query": "Atlassian Confluence pre-authorization arbitrary file read",
+    "relevant": [
+      "kev-CVE-2021-26085"
+    ],
+    "category": "cve-vulnerability"
+  },
+  {
+    "query": "Citrix NetScaler ADC and Gateway buffer overflow",
+    "relevant": [
+      "kev-CVE-2025-6543"
+    ],
+    "category": "cve-vulnerability"
+  },
+  {
+    "query": "Citrix ADC and Gateway authorization bypass",
+    "relevant": [
+      "kev-CVE-2020-8193"
+    ],
+    "category": "cve-vulnerability"
+  },
+  {
+    "query": "Progress MOVEit Transfer SQL injection vulnerability",
+    "relevant": [
+      "kev-CVE-2023-34362"
+    ],
+    "category": "cve-vulnerability"
+  },
+  {
+    "query": "Oracle WebLogic Server OS command injection",
+    "relevant": [
+      "kev-CVE-2017-3506"
+    ],
+    "category": "cve-vulnerability"
+  },
+  {
+    "query": "Apache Struts remote code execution vulnerability",
+    "relevant": [
+      "kev-CVE-2020-17530"
+    ],
+    "category": "cve-vulnerability"
+  },
+  {
+    "query": "Palo Alto Networks Expedition OS command injection",
+    "relevant": [
+      "kev-CVE-2024-9463"
+    ],
+    "category": "cve-vulnerability"
+  },
+  {
+    "query": "Lateral movement using remote services",
+    "relevant": [
+      "T1021",
+      "T1021.001",
+      "T1021.002",
+      "T1021.003",
+      "T1021.004",
+      "T1021.005",
+      "T1021.006",
+      "T1021.007",
+      "T1021.008"
+    ],
+    "category": "lateral-movement"
+  },
+  {
+    "query": "Remote Desktop Protocol lateral movement",
+    "relevant": [
+      "T1021.001"
+    ],
+    "category": "lateral-movement"
+  },
+  {
+    "query": "SSH used to move laterally between hosts",
+    "relevant": [
+      "T1021.004"
+    ],
+    "category": "lateral-movement"
+  },
+  {
+    "query": "SMB and Windows admin shares lateral movement",
+    "relevant": [
+      "T1021.002"
+    ],
+    "category": "lateral-movement"
+  },
+  {
+    "query": "Pass the hash using stolen password hashes",
+    "relevant": [
+      "T1550.002"
+    ],
+    "category": "lateral-movement"
+  },
+  {
+    "query": "Pass the ticket with stolen Kerberos tickets",
+    "relevant": [
+      "T1550.003"
+    ],
+    "category": "lateral-movement"
+  },
+  {
+    "query": "Use of alternate authentication material",
+    "relevant": [
+      "T1550",
+      "T1550.001",
+      "T1550.002",
+      "T1550.003",
+      "T1550.004"
+    ],
+    "category": "lateral-movement"
+  },
+  {
+    "query": "Lateral tool transfer between compromised systems",
+    "relevant": [
+      "T1570"
+    ],
+    "category": "lateral-movement"
+  },
+  {
+    "query": "Remote service session hijacking",
+    "relevant": [
+      "T1563",
+      "T1563.001",
+      "T1563.002"
+    ],
+    "category": "lateral-movement"
+  },
+  {
+    "query": "Windows Remote Management WinRM lateral movement",
+    "relevant": [
+      "T1021.006"
+    ],
+    "category": "lateral-movement"
+  },
+  {
+    "query": "Internal spearphishing to move within a network",
+    "relevant": [
+      "T1534"
+    ],
+    "category": "lateral-movement"
+  },
+  {
+    "query": "Exploitation of remote services for lateral movement",
+    "relevant": [
+      "T1210"
+    ],
+    "category": "lateral-movement"
+  },
+  {
+    "query": "Application layer protocol command and control",
+    "relevant": [
+      "T1071",
+      "T1071.001",
+      "T1071.002",
+      "T1071.003",
+      "T1071.004",
+      "T1071.005"
+    ],
+    "category": "c2-exfiltration"
+  },
+  {
+    "query": "Command and control over web protocols HTTP HTTPS",
+    "relevant": [
+      "T1071.001"
+    ],
+    "category": "c2-exfiltration"
+  },
+  {
+    "query": "DNS tunneling for command and control",
+    "relevant": [
+      "T1071.004"
+    ],
+    "category": "c2-exfiltration"
+  },
+  {
+    "query": "Exfiltration over the existing C2 channel",
+    "relevant": [
+      "T1041"
+    ],
+    "category": "c2-exfiltration"
+  },
+  {
+    "query": "Exfiltration over alternative protocol",
+    "relevant": [
+      "T1048",
+      "T1048.001",
+      "T1048.002",
+      "T1048.003"
+    ],
+    "category": "c2-exfiltration"
+  },
+  {
+    "query": "Encrypted channel for covert C2 communication",
+    "relevant": [
+      "T1573",
+      "T1573.001",
+      "T1573.002"
+    ],
+    "category": "c2-exfiltration"
+  },
+  {
+    "query": "Command and control over a non-standard port",
+    "relevant": [
+      "T1571"
+    ],
+    "category": "c2-exfiltration"
+  },
+  {
+    "query": "Protocol tunneling to bypass network controls",
+    "relevant": [
+      "T1572"
+    ],
+    "category": "c2-exfiltration"
+  },
+  {
+    "query": "Connection proxy to obscure C2 infrastructure",
+    "relevant": [
+      "T1090",
+      "T1090.001",
+      "T1090.002",
+      "T1090.003",
+      "T1090.004"
+    ],
+    "category": "c2-exfiltration"
+  },
+  {
+    "query": "Data encoding for C2 traffic",
+    "relevant": [
+      "T1132",
+      "T1132.001",
+      "T1132.002"
+    ],
+    "category": "c2-exfiltration"
+  },
+  {
+    "query": "Fallback channels for resilient C2",
+    "relevant": [
+      "T1008"
+    ],
+    "category": "c2-exfiltration"
+  },
+  {
+    "query": "Web service used as a C2 dead drop resolver",
+    "relevant": [
+      "T1102",
+      "T1102.001",
+      "T1102.002",
+      "T1102.003"
+    ],
+    "category": "c2-exfiltration"
+  },
+  {
+    "query": "Scheduled transfer of exfiltrated data",
+    "relevant": [
+      "T1029"
+    ],
+    "category": "c2-exfiltration"
+  },
+  {
+    "query": "Data transfer size limits to evade detection",
+    "relevant": [
+      "T1030"
+    ],
+    "category": "c2-exfiltration"
+  },
+  {
+    "query": "APT29 Cozy Bear nation-state actor TTPs",
+    "relevant": [
+      "group-G0016"
+    ],
+    "category": "apt-group"
+  },
+  {
+    "query": "APT28 Fancy Bear campaign techniques",
+    "relevant": [
+      "group-G0007"
+    ],
+    "category": "apt-group"
+  },
+  {
+    "query": "Lazarus Group HIDDEN COBRA operations",
+    "relevant": [
+      "group-G0032"
+    ],
+    "category": "apt-group"
+  },
+  {
+    "query": "FIN7 Carbon Spider financial threat actor",
+    "relevant": [
+      "group-G0046"
+    ],
+    "category": "apt-group"
+  },
+  {
+    "query": "Sandworm Team BlackEnergy attacks",
+    "relevant": [
+      "group-G0034"
+    ],
+    "category": "apt-group"
+  },
+  {
+    "query": "OilRig APT34 Helix Kitten activity",
+    "relevant": [
+      "group-G0049"
+    ],
+    "category": "apt-group"
+  },
+  {
+    "query": "APT41 Wicked Panda dual espionage and crime",
+    "relevant": [
+      "group-G0096"
+    ],
+    "category": "apt-group"
+  },
+  {
+    "query": "Volt Typhoon living-off-the-land intrusions",
+    "relevant": [
+      "group-G1017"
+    ],
+    "category": "apt-group"
+  },
+  {
+    "query": "Scattered Spider Octo Tempest social engineering",
+    "relevant": [
+      "group-G1015"
+    ],
+    "category": "apt-group"
+  },
+  {
+    "query": "Ensure SSH idle timeout interval is configured",
+    "relevant": [
+      "wazuh-sca-36153"
+    ],
+    "category": "wazuh-rules"
+  },
+  {
+    "query": "Ensure SSH MaxStartups is configured",
+    "relevant": [
+      "wazuh-sca-36159"
+    ],
+    "category": "wazuh-rules"
+  },
+  {
+    "query": "Ensure inactive password lock is 30 days or less",
+    "relevant": [
+      "wazuh-sca-36167"
+    ],
+    "category": "wazuh-rules"
+  },
+  {
+    "query": "Ensure TCP SYN cookies is enabled",
+    "relevant": [
+      "wazuh-sca-36091"
+    ],
+    "category": "wazuh-rules"
+  },
+  {
+    "query": "Ensure TIPC uncommon network protocol is disabled",
+    "relevant": [
+      "wazuh-sca-36100"
+    ],
+    "category": "wazuh-rules"
+  },
+  {
+    "query": "Wazuh SCA SSH hardening configuration checks",
+    "relevant": [
+      "wazuh-sca-36153",
+      "wazuh-sca-36159"
+    ],
+    "category": "wazuh-rules"
+  },
+  {
+    "query": "Wazuh CIS benchmark password policy compliance",
+    "relevant": [
+      "wazuh-sca-36167"
+    ],
+    "category": "wazuh-rules"
+  }
+]

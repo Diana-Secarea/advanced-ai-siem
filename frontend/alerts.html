@@ -173,7 +173,10 @@
     .chart-canvas-wrap.tall { height: 220px; }
 
     /* ==================== Attack Origin Map ==================== */
-    .map-card { margin-bottom: 18px; }
+    /* position+z-index create a stacking context so Leaflet's internal
+       z-indexes (panes 400-700, controls 1000) stay trapped inside the map
+       card and never render above the chat slide-over. */
+    .map-card { margin-bottom: 18px; position: relative; z-index: 0; }
     .map-card #attackMap {
       height: 340px;
       border-radius: 6px;
@@ -435,7 +438,7 @@
     .chat-overlay {
       display: none; position: fixed; top: 0; right: 0; bottom: 0;
       width: 480px; max-width: 100vw; background: var(--bg);
-      border-left: 1px solid var(--border); z-index: 200; flex-direction: column;
+      border-left: 1px solid var(--border); z-index: 1500; flex-direction: column;
       box-shadow: -8px 0 32px rgba(0,0,0,0.6);
     }
     .chat-overlay.open { display: flex; }
@@ -606,8 +609,12 @@
   <div class="chart-card map-card">
     <h3>Attack Origins
       <span class="chart-hint" id="mapHint">waiting for alerts…</span>
+      <span style="flex:1"></span>
+      <button class="hdr-btn" id="populateMapBtn" title="Append synthetic geo-located attacks (backend/populate_map.py)">🌐 Populate Map</button>
+      <button class="hdr-btn" id="testShieldBtn" title="Run the 14-family attack simulation (simulate_attack_for_wazuh.sh)">🛡 Test the Shield</button>
     </h3>
     <div id="attackMap"></div>
+    <pre id="shieldLog" style="display:none;margin-top:10px;max-height:180px;overflow:auto;background:var(--bg-deep);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:11.5px;line-height:1.7;color:var(--text-muted);white-space:pre-wrap;"></pre>
   </div>
 
   <!-- ==================== Filter Bar ==================== -->
@@ -1702,6 +1709,79 @@ let chatSessionId  = null;
 
 document.getElementById("openChatBtn").addEventListener("click", () => { chatPanel.classList.add("open"); chatInput.focus(); });
 document.getElementById("closeChatBtn").addEventListener("click", () => chatPanel.classList.remove("open"));
+
+// ================================================================
+//  Map actions: Populate Map + Test the Shield
+// ================================================================
+const populateMapBtn = document.getElementById("populateMapBtn");
+const testShieldBtn  = document.getElementById("testShieldBtn");
+const shieldLog      = document.getElementById("shieldLog");
+
+populateMapBtn.addEventListener("click", async () => {
+  populateMapBtn.disabled = true;
+  const orig = populateMapBtn.textContent;
+  populateMapBtn.textContent = "🌐 Populating…";
+  const mapHint = document.getElementById("mapHint");
+  try {
+    const count = 8 + Math.floor(Math.random() * 3); // 8–10
+    const resp = await fetch(`${API}/api/populate-map?count=${count}`, { method: "POST" });
+    const d = await resp.json();
+    if (d.status === "ok") {
+      if (mapHint) mapHint.textContent = `injected ${d.count} attacks — refreshing…`;
+      // Refresh quickly a few times: server must tail alerts.json + geolocate the IPs
+      for (const delay of [400, 1500, 3000, 5000]) {
+        setTimeout(() => loadScoredAlerts(), delay);
+      }
+    } else {
+      if (mapHint) mapHint.textContent = "populate failed — see console";
+      console.error("populate-map:", d);
+    }
+  } catch (e) {
+    if (mapHint) mapHint.textContent = "populate error — is the server running?";
+    console.error(e);
+  } finally {
+    populateMapBtn.textContent = orig;
+    populateMapBtn.disabled = false;
+  }
+});
+
+testShieldBtn.addEventListener("click", () => {
+  testShieldBtn.disabled = true;
+  const orig = testShieldBtn.textContent;
+  testShieldBtn.textContent = "🛡 Running…";
+  shieldLog.style.display = "block";
+  shieldLog.textContent = "▸ launching attack_simulation/simulate_attack_for_wazuh.sh …\n";
+
+  const es = new EventSource(`${API}/api/test-shield`);
+  es.onmessage = (ev) => {
+    shieldLog.textContent += ev.data + "\n";
+    shieldLog.scrollTop = shieldLog.scrollHeight;
+  };
+  es.addEventListener("done", (ev) => {
+    es.close();
+    shieldLog.textContent += `\n✔ simulation finished (exit ${ev.data}). Scoring incoming alerts…\n`;
+    shieldLog.scrollTop = shieldLog.scrollHeight;
+    testShieldBtn.textContent = orig;
+    testShieldBtn.disabled = false;
+    // Let the ensemble catch up: refresh scored alerts, then report detections
+    const before = allAlerts.length;
+    for (const delay of [1500, 4000, 7000]) setTimeout(() => loadScoredAlerts(), delay);
+    setTimeout(() => {
+      const high = allAlerts.filter(a => {
+        const lbl = (a.anomaly_label || "").toUpperCase();
+        return lbl === "CRITICAL" || lbl === "HIGH" || (a.rule && a.rule.level >= 10);
+      }).length;
+      shieldLog.textContent += `🛡 Shield report: ${allAlerts.length} alerts in view · ${high} high-severity flagged by the ensemble.\n`;
+      shieldLog.scrollTop = shieldLog.scrollHeight;
+    }, 8000);
+  });
+  es.onerror = () => {
+    es.close();
+    shieldLog.textContent += "\n⚠ stream ended (server may have finished or is unreachable).\n";
+    testShieldBtn.textContent = orig;
+    testShieldBtn.disabled = false;
+  };
+});
 document.getElementById("newChatBtn").addEventListener("click", () => {
   if (chatSessionId) fetch(API + "/api/chat/sessions?session_id=" + chatSessionId, { method: "DELETE" });
   chatSessionId = null;
@@ -1759,19 +1839,93 @@ function addChatMsg(role, content, sources) {
   row.appendChild(av); row.appendChild(col);
   chatMessages.appendChild(row); chatMessages.scrollTop = chatMessages.scrollHeight;
 }
+// Parse an SSE stream from fetch(): plain `data:` lines are tokens,
+// `event: done` carries the final metadata JSON (session_id + sources).
+async function streamChatSSE(resp, onToken, onDone) {
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const events = buf.split("\n\n");
+    buf = events.pop();
+    for (const ev of events) {
+      let evName = "message";
+      const dataLines = [];
+      for (const line of ev.split("\n")) {
+        if (line.startsWith("event:")) evName = line.slice(6).trim();
+        else if (line.startsWith("data: ")) dataLines.push(line.slice(6));
+        else if (line.startsWith("data:")) dataLines.push(line.slice(5));
+      }
+      const data = dataLines.join("\n");
+      if (evName === "done") onDone(data);
+      else if (data) onToken(data.replace(/\\n/g, "\n"));
+    }
+  }
+}
 async function sendChat() {
   const text = chatInput.value.trim(); if (!text) return;
   chatInput.value = ""; chatInput.style.height = "auto"; chatSendBtn.disabled = true;
   addChatMsg("user", text);
   chatTyping.classList.add("visible"); chatMessages.scrollTop = chatMessages.scrollHeight;
+
+  let bubble = null, col = null, fullText = "";
+  function ensureBubble() {
+    if (bubble) return;
+    chatTyping.classList.remove("visible");
+    const row = document.createElement("div"); row.className = "chat-msg assistant";
+    const av = document.createElement("div"); av.className = "chat-avatar"; av.textContent = "AI";
+    col = document.createElement("div");
+    col.style.cssText = "display:flex;flex-direction:column;gap:4px;min-width:0;max-width:85%";
+    bubble = document.createElement("div"); bubble.className = "chat-bubble";
+    col.appendChild(bubble);
+    row.appendChild(av); row.appendChild(col);
+    chatMessages.appendChild(row);
+  }
+
   try {
-    const resp = await fetch(API + "/api/chat", {
+    const resp = await fetch(API + "/api/chat/stream", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: text, session_id: chatSessionId }),
     });
-    const data = await resp.json();
-    if (data.error) addChatMsg("assistant", "Error: " + data.error, []);
-    else { chatSessionId = data.session_id; addChatMsg("assistant", data.reply, data.sources || []); }
+    if (!resp.ok || !resp.body) throw new Error("HTTP " + resp.status);
+
+    await streamChatSSE(resp,
+      token => {
+        ensureBubble();
+        fullText += token;
+        bubble.innerHTML = renderMd(fullText);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      },
+      doneData => {
+        try {
+          const meta = JSON.parse(doneData);
+          chatSessionId = meta.session_id;
+          const sources = meta.sources || [];
+          if (sources.length) {
+            ensureBubble();
+            const sd = document.createElement("div"); sd.className = "chat-sources";
+            const seen = new Set();
+            sources.forEach(s => {
+              const k = s.type + ":" + s.id; if (seen.has(k)) return; seen.add(k);
+              const t = document.createElement("span");
+              let cls = "src-tag";
+              if (s.type === "mitre_attack") cls += " mitre";
+              else if (s.type === "yara_rule") cls += " yara";
+              else if (s.type === "vendor_advisory") cls += " vendor";
+              else if (s.type === "wazuh_alert") cls += " wazuh";
+              t.className = cls; t.textContent = s.id; t.title = s.summary || "";
+              sd.appendChild(t);
+            });
+            col.appendChild(sd);
+          }
+        } catch (_) { /* malformed done event — keep the streamed text */ }
+      });
+
+    if (!fullText) { ensureBubble(); bubble.textContent = "No response from the model."; }
+    chatMessages.scrollTop = chatMessages.scrollHeight;
   } catch (err) {
     addChatMsg("assistant", "Connection error: " + err.message, []);
   } finally {

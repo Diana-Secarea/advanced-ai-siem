@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Analyst — Diana's Shield</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<canvas id="particles"></canvas>
+<div class="aurora"><span></span><span></span><span></span></div>
+<div class="grid-overlay"></div>
+
+<div class="owner-line">⟡ owned by <b>Diana Secarea</b> ⟡</div>
+<nav class="nav">
+  <a class="brand" href="index.html"><span class="logo">◈</span>DIANA'S<em>&nbsp;SHIELD</em></a>
+  <a class="link" href="index.html">Overview</a>
+  <a class="link" href="alerts.html">Live Alerts</a>
+  <a class="link active" href="chat.html">AI Analyst</a>
+  <a class="link" href="cve-agent.html">CVE Agent</a>
+  <a class="link" href="vectordb.html">Vector DB</a>
+  <span class="spacer"></span>
+  <span class="status-pill"><span class="dot"></span>LLAMA 3.2 LOCAL</span>
+</nav>
+
+<main class="page wrap">
+
+  <div class="page-head" style="padding-bottom:8px;display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+    <div>
+      <span class="eyebrow reveal">🧠 SIEM AI THREAT INTEL CHAT</span>
+      <h2 class="section-title reveal" data-delay="1">Ask anything. <span class="grad-text">Get evidence.</span></h2>
+      <p class="lede reveal" data-delay="2" style="font-size:14.5px;">Ask questions about MITRE ATT&CK techniques, YARA rules, and security advisories.</p>
+    </div>
+    <div class="reveal" data-delay="2" style="display:flex;gap:10px;">
+      <button class="btn btn-ghost" style="padding:11px 18px;" onclick="openDocs()">📁 My Documents <span class="badge info" id="docCount" style="margin-left:6px;">0</span></button>
+      <button class="btn btn-primary" style="padding:11px 18px;" onclick="NX.openModal('uploadModal')">⬆ Upload</button>
+      <button class="btn btn-ghost" style="padding:11px 18px;" onclick="newChat()">✦ New</button>
+    </div>
+  </div>
+
+  <div class="sugg reveal" data-delay="2">
+    <button>What attacks were detected on my system?</button>
+    <button>Show me SSH brute force attempts</button>
+    <button>Explain T1055 process injection</button>
+    <button>What rootkit alerts were triggered?</button>
+    <button>What does our runbook say about SSH brute force?</button>
+  </div>
+
+  <div class="chat-shell reveal" data-delay="2">
+    <div class="chat-scroll" id="scroll">
+      <div class="msg bot">
+        👋 I'm your AI security analyst. I search <b>823 MITRE techniques</b>, <b>Sigma rules</b>, <b>CISA KEV</b>,
+        your <b>uploaded documents</b> and the live Wazuh alert stream — and I cite every claim.
+        <b style="color:var(--cyan)">Click any source chip</b> under my answers to read the exact passage I quoted.
+      </div>
+    </div>
+    <div class="chat-input">
+      <input id="inp" type="text" placeholder="Ask about threats, techniques, alerts, or your uploaded runbooks…" autocomplete="off">
+      <button class="btn btn-primary" id="send" style="padding:12px 22px;">Send ➤</button>
+    </div>
+  </div>
+</main>
+
+<!-- ===== MY DOCUMENTS PANEL ===== -->
+<div class="docs-side" id="docsSide">
+  <div class="cs-head"><span style="font-size:18px;">📁</span> My Documents<span style="flex:1"></span>
+    <button class="modal-close" onclick="document.getElementById('docsSide').classList.remove('open')">✕</button></div>
+  <div class="cs-body" id="docsBody" style="padding:18px;"></div>
+</div>
+
+<!-- ===== UPLOAD MODAL ===== -->
+<div class="modal-overlay" id="uploadModal">
+  <div class="modal">
+    <button class="modal-close" onclick="NX.closeModal('uploadModal')">✕</button>
+    <h3>⬆ Add Document to Knowledge Base</h3>
+    <div class="modal-sub">.txt · .md · .json — chunked, embedded and searchable instantly (Qdrant + Postgres)</div>
+    <div class="dropzone" id="drop" onclick="document.getElementById('file').click()">
+      <div style="font-size:32px;margin-bottom:8px;">📄</div>
+      <div id="dropLabel">Drop a file here, or click to browse</div>
+    </div>
+    <input type="file" id="file" accept=".txt,.md,.json" style="display:none;">
+    <div style="display:grid;gap:12px;margin-top:16px;">
+      <input class="nx-input" id="docTitle" placeholder="Title (optional)">
+      <input class="nx-input" id="docTags" placeholder="Tags, comma-separated (optional)">
+    </div>
+    <div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end;">
+      <button class="btn btn-ghost" style="padding:10px 18px;" onclick="NX.closeModal('uploadModal')">Cancel</button>
+      <button class="btn btn-primary" style="padding:10px 20px;" onclick="doUpload()">Index Document</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SOURCE VIEWER MODAL (the "see the document it quoted" feature) ===== -->
+<div class="modal-overlay" id="srcModal">
+  <div class="modal">
+    <button class="modal-close" onclick="NX.closeModal('srcModal')">✕</button>
+    <h3 id="srcTitle">Source</h3>
+    <div class="modal-sub" id="srcMeta"></div>
+    <div id="srcQuote" style="border-left:3px solid var(--violet);background:rgba(167,139,250,.08);border-radius:0 12px 12px 0;padding:14px 18px;font-style:italic;margin-bottom:16px;"></div>
+    <div style="font-family:var(--font-mono);font-size:12.5px;line-height:1.85;color:var(--text-soft);background:rgba(3,4,10,.5);border:1px solid var(--stroke);border-radius:14px;padding:16px;max-height:280px;overflow-y:auto;" id="srcBody"></div>
+    <div id="srcPoint" style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin-top:12px;"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+      <a class="btn btn-primary" id="srcQdrant" href="#" target="_blank" rel="noopener" style="padding:10px 18px;font-size:13px;text-decoration:none;">Open in Qdrant UI ↗</a>
+    </div>
+  </div>
+</div>
+
+<script src="assets/app.js"></script>
+<script>
+const scroll = document.getElementById("scroll");
+const inp = document.getElementById("inp");
+
+/* ---- source library: chip id -> full source record (for the viewer) ---- */
+const SOURCES = {
+  "runbook": { title:"Incident-Response-Playbook.md", type:"📄 user document · chunk 2", quote:"If SSH brute force is detected on bastion-prod-01, rotate the ops_deploy key and block the source IP at the edge firewall within 15 minutes.", body:"## SSH Brute Force Response\n\nDetection: rule 5720 firing 3+ times within 5 minutes from a single source.\n\nContainment:\n1. If SSH brute force is detected on bastion-prod-01, rotate the ops_deploy key and block the source IP at the edge firewall within 15 minutes.\n2. Audit /var/log/auth.log for any SUCCESSFUL login from the same /24.\n3. Force-expire sessions for any account that authenticated from that range.\n\nEscalation: page the on-call if a successful login is found." },
+  "T1110": { title:"T1110 — Brute Force", type:"🎯 MITRE ATT&CK technique", quote:"Adversaries may use brute force techniques to gain access to accounts when passwords are unknown or when password hashes are obtained.", body:"T1110 — Brute Force\n\nAdversaries may use brute force techniques to gain access to accounts when passwords are unknown or when password hashes are obtained. Sub-techniques: .001 Password Guessing, .002 Password Cracking, .003 Password Spraying, .004 Credential Stuffing.\n\nMitigations: account lockout policies, MFA, MaxAuthTries limits." },
+  "5720": { title:"Wazuh rule 5720", type:"⚡ alert history · 3 matches", quote:"Multiple SSHD authentication failures — brute force pattern (level 10).", body:"rule 5720 · level 10 · groups: sshd, authentication_failures\n\nFired 3x in the last hour from 45.148.10.77 (Frankfurt, DE).\nEnsemble tier: CRITICAL (94/100).\nMITRE: T1110.001 Password Guessing." },
+  "sca": { title:"wazuh-sca-36144", type:"✔ CIS control", quote:"Ensure SSH MaxAuthTries is set to 4 or less — currently PASSED.", body:"CIS SCA Check [wazuh-sca-36144]\nEnsure SSH MaxAuthTries is set to 4 or less.\nResult: PASSED.\nRationale: limiting auth attempts slows brute-force attacks." },
+  "T1071": { title:"T1071.004 — DNS", type:"🎯 MITRE ATT&CK technique", quote:"Adversaries may communicate using the DNS application layer protocol to avoid detection by blending in with existing traffic.", body:"T1071.004 — Application Layer Protocol: DNS\n\nAdversaries may communicate using the DNS application layer protocol to avoid detection/network filtering by blending in with existing traffic. Commands to the remote system, and often the results of those commands, are embedded within DNS queries and responses." },
+  "sigma-dns": { title:"net_dns_c2_beaconing.yml", type:"📜 Sigma rule", quote:"Detects periodic DNS queries with low jitter to a single domain — indicative of C2 beaconing.", body:"title: DNS C2 Beaconing\nlogsource: { category: dns }\ndetection:\n  selection: periodic queries, interval 30s ±2s, single domain\n  condition: selection\nlevel: high\ntags: [attack.t1071.004, attack.command_and_control]" },
+  "sess": { title:"Session summary", type:"⚡ live alert stream", quote:"412 events scored this session — 7 CRITICAL anomalies.", body:"Session totals: 412 events. 7 CRITICAL (SSH brute force x3, new user svc_backup, promiscuous mode, DNS exfil, reverse shell). Everything else scored below 20 (NORMAL)." },
+  "revshell": { title:"Wazuh rule 100210", type:"🔥 alert · reverse shell", quote:"Netcat reverse shell signature detected in command line (level 12).", body:"rule 100210 · level 12 · groups: attack, command_execution\nEnsemble: CRITICAL (97/100). MITRE T1059.004 Unix Shell." },
+  "T1059": { title:"T1059.004 — Unix Shell", type:"🎯 MITRE ATT&CK technique", quote:"Adversaries may abuse Unix shell commands and scripts for execution.", body:"T1059.004 — Command and Scripting Interpreter: Unix Shell. Adversaries may abuse Unix shell commands and scripts for execution on a target. Interactive shells can be spawned by reverse-shell payloads (nc, bash -i, python)." },
+  "T1055": { title:"T1055 — Process Injection", type:"🎯 MITRE ATT&CK technique", quote:"Adversaries may inject code into processes in order to evade process-based defenses and possibly elevate privileges.", body:"T1055 — Process Injection. Adversaries may inject code into processes in order to evade process-based defenses as well as possibly elevate privileges. Common sub-techniques: .001 DLL Injection, .002 PE Injection, .012 Process Hollowing, .008 Ptrace System Calls (Linux). Detection: monitor ptrace/process_vm_writev syscalls, and unexpected memory-region changes." },
+  "T1014": { title:"T1014 — Rootkit", type:"🎯 MITRE ATT&CK technique", quote:"Adversaries may use rootkits to hide the presence of programs, files, network connections, services, drivers, and other system components.", body:"T1014 — Rootkit. Adversaries may use rootkits to hide the presence of programs, files, network connections, services, drivers, and other system components. Rootkits are programs that hide the existence of malware by intercepting/hooking and modifying operating system API calls that supply system information." },
+  "rootkit-alert": { title:"Wazuh rule 510 · rootcheck", type:"⚡ alert · rootkit anomaly", quote:"Host-based anomaly detection: hidden file/process found in /dev/shm and /tmp.", body:"rule 510 · level 7 · groups: rootcheck, ossec\nRootcheck found hidden files in /dev/shm and /tmp, and a discrepancy between readdir() and the filesystem. Ensemble: CRITICAL (89/100). MITRE T1014 Rootkit." },
+};
+
+const ANSWERS = [
+  { match:/runbook|document|ssh brute/i,
+    text:`According to your uploaded runbook <b>"Incident-Response-Playbook.md"</b> [1]:
+<blockquote>"If SSH brute force is detected on bastion-prod-01, rotate the ops_deploy key and block the source IP at the edge firewall within 15 minutes."</blockquote>
+The live stream shows <b>rule 5720</b> firing 3× in the last hour from <span style="color:var(--red)">45.148.10.77</span> (ensemble <b>CRITICAL 94/100</b>) [2], mapping to <b>T1110.001</b> [3].<br><br><b>Recommended now:</b> ① block 45.148.10.77 · ② rotate ops_deploy key per runbook · ③ audit auth.log for successful logins from that /24.`,
+    srcs:[["runbook","doc"],["5720",""],["T1110",""]] },
+  { match:/t1110|brute/i,
+    text:`<b>T1110 — Brute Force</b> [1]: adversaries systematically guess credentials when passwords are unknown. On <b>your system</b> the ensemble flags this at 100% recall — 25+ failed logins triggers rule 5720 at score ≥ 88 [2]. Your CIS MaxAuthTries check currently <b style="color:var(--green)">passes</b> [3].`,
+    srcs:[["T1110",""],["5720",""],["sca","doc"]] },
+  { match:/c2|beacon/i,
+    text:`Scanning the last hour for C2 patterns… <b>1 suspicious cluster</b>: periodic DNS queries to <span class="mono" style="color:var(--amber)">dyn-tunnel.xyz</span> every 30s ± 2s — classic beacon jitter. Ensemble <b>CRITICAL 91/100</b>. Matches <b>T1071.004</b> [1] and Sigma rule <i>net_dns_c2_beaconing</i> [2].<br><br><b>Verify:</b> <span class="mono">tcpdump -i eth0 port 53 and host dyn-tunnel.xyz</span>`,
+    srcs:[["T1071",""],["sigma-dns",""]] },
+  { match:/t1055|process injection|inject/i,
+    text:`<b>T1055 — Process Injection</b> [1]: adversaries inject code into running processes to evade process-based defenses and possibly elevate privileges. On Linux the relevant sub-techniques are <b>Ptrace System Calls (.008)</b> and <b>Proc Memory (.009)</b>.<br><br>On <b>your system</b> no process-injection alert has fired this session — but Wazuh's audit rules watch <span class="mono">ptrace</span> and <span class="mono">process_vm_writev</span> syscalls for exactly this. If it fires, the ensemble would score it CRITICAL given the rare syscall combination.`,
+    srcs:[["T1055",""]] },
+  { match:/rootkit/i,
+    text:`Checking rootcheck alerts… <b>1 rootkit anomaly</b> triggered: <b>rule 510</b> found hidden files in <span class="mono">/dev/shm</span> and <span class="mono">/tmp</span>, plus a readdir()/filesystem discrepancy [1]. Ensemble <b>CRITICAL 89/100</b>. Maps to <b>T1014 Rootkit</b> [2].<br><br><b>Recommended:</b> ① image the host before touching it · ② compare <span class="mono">ls</span> vs <span class="mono">echo /tmp/*</span> for hidden entries · ③ check loaded kernel modules against a known-good baseline.`,
+    srcs:[["rootkit-alert",""],["T1014",""]] },
+  { match:/.*/,
+    text:`Session overview: I've scored <b>412 events</b> — <b>7 CRITICAL</b> anomalies (SSH brute force ×3, new user 'svc_backup', promiscuous mode, DNS exfil, reverse shell) [1]. Most urgent: the <b>reverse shell signature</b> (rule 100210, score 97) [2], mapping to <b>T1059.004</b> [3]. Want a containment plan?`,
+    srcs:[["sess",""],["revshell",""],["T1059",""]] },
+];
+
+function addUser(text){ const m=document.createElement("div"); m.className="msg user"; m.textContent=text; scroll.appendChild(m); scroll.scrollTop=scroll.scrollHeight; }
+
+async function addBot(a){
+  const wrap=document.createElement("div"); wrap.className="msg bot";
+  wrap.innerHTML=`<span style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);">retrieving context — dense + BM25 → RRF…</span><div class="typing"><i></i><i></i><i></i></div>`;
+  scroll.appendChild(wrap); scroll.scrollTop=scroll.scrollHeight;
+  await new Promise(r=>setTimeout(r,1200));
+  wrap.innerHTML=""; const body=document.createElement("div"); wrap.appendChild(body);
+  const words=a.text.split(/(?=<)|(?<=>)|\s+/g).filter(Boolean); let acc="";
+  for(let i=0;i<words.length;i++){ acc+=(i&&!words[i].startsWith("<")&&!acc.endsWith(">")?" ":"")+words[i]; body.innerHTML=acc; scroll.scrollTop=scroll.scrollHeight; if(!words[i].startsWith("<")) await new Promise(r=>setTimeout(r,22)); }
+  const srcs=document.createElement("div"); srcs.className="srcs";
+  a.srcs.forEach(([key,cls],i)=>{ const src=SOURCES[key]; const chip=document.createElement("span"); chip.className="src-chip "+cls; chip.style.animationDelay=(i*.12)+"s"; chip.textContent=`[${i+1}] ${src.title}`; chip.title="Click to read the quoted passage"; chip.onclick=()=>openSource(key); srcs.appendChild(chip); });
+  wrap.appendChild(srcs); scroll.scrollTop=scroll.scrollHeight;
+}
+
+/* ---- source viewer ---- */
+// map a source key to the episode_id it was indexed under (mirrors the real
+// backend id scheme: CVEs -> 'nvd-CVE-...', MITRE -> technique id, etc.)
+const EPISODE_ID = {
+  runbook:"user_upload/incident-response-playbook", T1110:"T1110", "5720":"wazuh-alert-5720",
+  sca:"wazuh-sca-36144", T1071:"T1071.004", "sigma-dns":"sigma-net_dns_c2_beaconing",
+  sess:"session-summary", revshell:"wazuh-alert-100210", T1059:"T1059.004",
+  T1055:"T1055", T1014:"T1014", "rootkit-alert":"wazuh-alert-510",
+};
+const QDRANT_UI = "http://localhost:6333/dashboard";
+function openSource(key){
+  const s=SOURCES[key]; if(!s) return;
+  document.getElementById("srcTitle").textContent=s.title;
+  document.getElementById("srcMeta").textContent=s.type;
+  document.getElementById("srcQuote").textContent="“"+s.quote+"”";
+  document.getElementById("srcBody").textContent=s.body;
+  const eid = EPISODE_ID[key] || key;
+  const isAlert = eid.startsWith("wazuh-alert") || eid.startsWith("session");
+  const coll = isAlert ? "wazuh_alert_episodes" : "wazuh_threat_intel";
+  document.getElementById("srcPoint").textContent = `episode_id: ${eid}  ·  collection: ${coll}`;
+  document.getElementById("srcQdrant").href = `${QDRANT_UI}#/collections/${coll}`;
+  NX.openModal("srcModal");
+}
+
+let busy=false;
+async function send(text){ if(busy||!text.trim())return; busy=true; addUser(text); inp.value=""; const a=ANSWERS.find(x=>x.match.test(text)); await addBot(a); busy=false; }
+document.getElementById("send").addEventListener("click",()=>send(inp.value));
+inp.addEventListener("keydown",e=>{ if(e.key==="Enter") send(inp.value); });
+document.querySelectorAll(".sugg button").forEach(b=>b.addEventListener("click",()=>send(b.textContent)));
+function newChat(){ scroll.querySelectorAll(".msg:not(:first-child)").forEach(m=>m.remove()); NX.toast("New conversation started"); }
+
+/* ---- documents ---- */
+const DOCS=[{id:"a1b2",title:"Incident-Response-Playbook.md",filename:"Incident-Response-Playbook.md",chunks:4,uploaded:"2026-07-01",tags:["runbook","ssh"]},{id:"c3d4",title:"Q3 Threat Brief",filename:"threat-brief-q3.txt",chunks:7,uploaded:"2026-06-28",tags:["apt","report"]}];
+function renderDocs(){
+  document.getElementById("docCount").textContent=DOCS.length;
+  document.getElementById("docsBody").innerHTML=DOCS.map(d=>`
+    <div class="doc-card">
+      <div style="display:flex;gap:11px;align-items:center;">
+        <div style="width:40px;height:40px;border-radius:11px;display:grid;place-items:center;background:rgba(244,114,182,.14);border:1px solid rgba(244,114,182,.3);font-size:17px;">📄</div>
+        <div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:14px;">${d.title}</div><div class="mono" style="font-size:11px;color:var(--text-dim);">${d.filename}</div></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:12px;color:var(--text-dim);">
+        <span>🕐 ${d.uploaded}</span><span class="badge med">${d.chunks} chunks</span>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">${d.tags.map(t=>`<span class="src-chip doc" style="cursor:default;">${t}</span>`).join("")}</div>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button class="btn-mini view" onclick="openSource('runbook')">👁 View</button>
+        <button class="btn-mini no" onclick="delDoc('${d.id}')">🗑 Delete</button>
+      </div>
+    </div>`).join("") || `<p style="color:var(--text-dim)">No documents uploaded yet.</p>`;
+}
+function openDocs(){ document.getElementById("docsSide").classList.add("open"); }
+function delDoc(id){ const i=DOCS.findIndex(d=>d.id===id); if(i>=0){DOCS.splice(i,1);renderDocs();NX.toast("Document deleted");} }
+function doUpload(){
+  const name=document.getElementById("dropLabel").dataset.file;
+  if(!name){ NX.toast("Choose a file first"); return; }
+  const title=document.getElementById("docTitle").value||name;
+  DOCS.unshift({id:Math.random().toString(16).slice(2,6),title,filename:name,chunks:Math.ceil(Math.random()*5)+1,uploaded:"2026-07-04",tags:(document.getElementById("docTags").value||"").split(",").map(t=>t.trim()).filter(Boolean)});
+  renderDocs(); NX.closeModal("uploadModal"); NX.toast(`Indexed '${title}'`);
+  document.getElementById("dropLabel").textContent="Drop a file here, or click to browse"; delete document.getElementById("dropLabel").dataset.file;
+  document.getElementById("docTitle").value=""; document.getElementById("docTags").value="";
+}
+const drop=document.getElementById("drop"), fileIn=document.getElementById("file");
+fileIn.addEventListener("change",()=>{ if(fileIn.files[0]){ const n=fileIn.files[0].name; document.getElementById("dropLabel").textContent="✔ "+n; document.getElementById("dropLabel").dataset.file=n; } });
+["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("drag");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("drag");}));
+drop.addEventListener("drop",e=>{ if(e.dataTransfer.files[0]){ const n=e.dataTransfer.files[0].name; document.getElementById("dropLabel").textContent="✔ "+n; document.getElementById("dropLabel").dataset.file=n; } });
+
+renderDocs();
+/* deep link from alerts page: ?q=... */
+(function(){ const q=new URLSearchParams(location.search).get("q"); if(q) setTimeout(()=>send(q),400); })();
+</script>
+</body>
+</html>

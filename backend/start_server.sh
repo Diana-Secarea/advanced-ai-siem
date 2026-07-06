@@ -29,13 +29,21 @@ fi
 
 # ── 3. Ollama ──────────────────────────────────────────────────────────────
 echo "[2/3] Checking Ollama..."
+export OLLAMA_KEEP_ALIVE=24h
 if ! pgrep -x ollama > /dev/null; then
-    echo "      Starting Ollama in background..."
+    echo "      Starting Ollama in background (keep_alive=24h)..."
     ollama serve &>/tmp/ollama.log &
     sleep 2
 else
     echo "      Ollama already running."
 fi
+# Warm-up: load the model into VRAM now and pin it for 24h, so the first
+# chat request doesn't pay the cold-load cost. Works even if Ollama was
+# already running without OLLAMA_KEEP_ALIVE set.
+echo "      Warming up llama3.2 (pin in VRAM for 24h)..."
+curl -s http://localhost:11434/api/generate \
+    -d '{"model":"llama3.2","prompt":"","keep_alive":"24h"}' > /dev/null || \
+    echo "      [WARN] Warm-up failed — model will load on first request."
 
 # ── 4. Flask server ────────────────────────────────────────────────────────
 echo "[3/3] Starting Flask server (sudo for alert log access)..."

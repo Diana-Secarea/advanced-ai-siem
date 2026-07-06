@@ -81,6 +81,7 @@ When answering questions:
 - If the user asks about what happened on the system, attacks detected, or specific alerts, use the Wazuh alert context.
 - If the user asks about techniques, detection methods, or threat intelligence, use the knowledge base context.
 - Cite specific technique IDs (e.g., T1055), rule IDs, alert timestamps, and severity levels.
+- When context comes from a user-uploaded document, quote the relevant passage verbatim in quotation marks and cite it as [n] with the document title.
 - Summarize patterns you see in the alerts (e.g., repeated brute force, privilege escalation chains).
 - Provide actionable security guidance based on what's observed.
 - Keep answers concise but thorough.
@@ -401,6 +402,29 @@ def _search_knowledge_base(query: str, top_k: int = 5) -> list:
         return []
 
 
+def _pin_ollama_model():
+    """Load the model into VRAM and pin it for 24h via the native API.
+
+    The OpenAI-compatible /v1 endpoint ignores keep_alive and resets the
+    unload timer to the server default (5 min) on every request, so we
+    re-pin fire-and-forget after each chat call and once at startup.
+    """
+    import requests
+
+    try:
+        requests.post(
+            f"{OLLAMA_URL}/api/generate",
+            json={"model": OLLAMA_MODEL, "prompt": "", "keep_alive": "24h"},
+            timeout=60,
+        )
+    except Exception as e:
+        print(f"[ollama] warm-up/pin failed: {e}")
+
+
+def _pin_ollama_async():
+    threading.Thread(target=_pin_ollama_model, daemon=True).start()
+
+
 def _call_ollama(messages: list) -> str:
     """Call Ollama's OpenAI-compatible chat completions API (blocking)."""
     import requests
@@ -417,6 +441,7 @@ def _call_ollama(messages: list) -> str:
         resp = requests.post(url, json=payload, timeout=120)
         resp.raise_for_status()
         data = resp.json()
+        _pin_ollama_async()  # /v1 reset the unload timer to 5 min — re-pin
         return data["choices"][0]["message"]["content"]
     except requests.exceptions.ConnectionError:
         return "Error: Cannot connect to Ollama. Make sure `ollama serve` is running."
@@ -464,6 +489,8 @@ def _stream_ollama(messages: list):
         yield "\n\nError: Ollama request timed out."
     except Exception as e:
         yield f"\n\nError calling Ollama: {e}"
+    finally:
+        _pin_ollama_async()  # /v1 reset the unload timer to 5 min — re-pin
 
 
 # ==================== Alert Streaming (SSE for dashboard) ====================
@@ -633,6 +660,9 @@ def api_alerts_scored():
     Returns alerts sorted by anomaly score descending (most anomalous first).
     """
     limit = min(int(request.args.get("limit", 100)), 500)
+    # raw=1 attaches the original alert dict (untruncated) to each row —
+    # used by the ML Scoring Lab to re-score the exact same object.
+    include_raw = request.args.get("raw") == "1"
 
     if not _wazuh_loaded:
         _load_all_wazuh_alerts()
@@ -656,15 +686,20 @@ def api_alerts_scored():
         anomaly_score  = None
         is_anomaly     = None
         anomaly_label  = "UNKNOWN"
+        if_score       = None
         ae_score       = None
         combined_score = None
 
         if ensemble:
             try:
                 ens_r          = ensemble.score(alert)
-                anomaly_score  = ens_r["if_score"]
-                ae_score       = ens_r["ae_score"]
+                # Display the ENSEMBLE's combined score so the number shown
+                # matches the ensemble label (both are threshold-consistent).
+                # The individual model scores are kept for transparency.
                 combined_score = ens_r["combined_score"]
+                anomaly_score  = combined_score
+                if_score       = ens_r["if_score"]
+                ae_score       = ens_r["ae_score"]
                 is_anomaly     = ens_r["is_anomaly"]
                 anomaly_label  = ens_r["anomaly_label"]
             except Exception:
@@ -676,12 +711,13 @@ def api_alerts_scored():
             is_user_benign = rule_id_str in _user_benign_rules
         if is_user_benign:
             anomaly_score  = 0
+            if_score       = 0
             ae_score       = 0
             combined_score = 0
             is_anomaly     = False
             anomaly_label  = "BENIGN"
 
-        result.append({
+        row = {
             "timestamp":       alert.get("timestamp", ""),
             "level":           rule.get("level", 0),
             "rule_id":         rule.get("id", ""),
@@ -693,11 +729,15 @@ def api_alerts_scored():
             "mitre_ids":       mitre.get("id", []),
             "data":            {k: str(v) for k, v in data.items()} if isinstance(data, dict) else {},
             "anomaly_score":   anomaly_score,
+            "isolation_forest_score": if_score,
             "autoencoder_score": ae_score,
             "combined_score":  combined_score,
             "is_anomaly":      is_anomaly,
             "anomaly_label":   anomaly_label,
-        })
+        }
+        if include_raw:
+            row["raw_alert"] = alert
+        result.append(row)
 
     # Sort: highest anomaly score first
     result.sort(key=lambda x: x.get("anomaly_score") or 0, reverse=True)
@@ -931,6 +971,85 @@ def clear_sessions():
     else:
         _chat_sessions.clear()
     return jsonify({"status": "ok"})
+
+
+# Thesis feature order — must match anomaly_detector.extract_features()
+FEATURE_NAMES_16 = [
+    "word_count", "event_size", "failed_count", "hour", "off_hours",
+    "ip_count", "port_count", "process_count", "rule_level", "rule_id",
+    "suspicious_group_count", "data_field_count", "is_external_srcip",
+    "url_suspicious", "unknown_user_flag", "privileged_account_change",
+]
+
+
+@app.route("/api/score-alert", methods=["POST"])
+@limiter.limit("60 per minute")
+def score_alert():
+    """Run the real IF+AE ensemble on a raw log line or a full Wazuh alert.
+
+    Body: {"log": "<raw line>", "rule_level": 10, "rule_id": "5503"}
+       or {"alert": {<wazuh alert dict>}}
+    Returns the 16 extracted feature values + IF / AE / combined scores + tier.
+    """
+    ensemble = _get_ensemble()
+    if ensemble is None:
+        return jsonify({"error": "Anomaly ensemble not loaded"}), 503
+
+    data = request.get_json(force=True)
+    alert = data.get("alert")
+    if not isinstance(alert, dict):
+        log_line = (data.get("log") or "").strip()
+        if not log_line:
+            return jsonify({"error": "Provide 'log' (raw log line) or 'alert' (Wazuh alert JSON)"}), 400
+        try:
+            rule_level = int(data.get("rule_level", 3))
+        except (TypeError, ValueError):
+            rule_level = 3
+        alert = {
+            "full_log": log_line,
+            "rule": {
+                "level": rule_level,
+                "id": str(data.get("rule_id", "0")),
+                "description": "ad-hoc scoring request",
+                "groups": [],
+            },
+            "timestamp": datetime.datetime.now().isoformat(),
+            "data": {},
+        }
+
+    try:
+        features = ensemble.if_det.extract_features(alert)[0]
+        result = ensemble.score(alert)
+    except Exception as e:
+        return jsonify({"error": f"Scoring failed: {e}"}), 500
+
+    # User-defined benign exceptions override the ensemble verdict —
+    # same rule as /api/alerts/scored, so the Scoring Lab matches the dashboard.
+    rule_id_str = str(alert.get("rule", {}).get("id", ""))
+    with _benign_rules_lock:
+        is_user_benign = rule_id_str in _user_benign_rules
+
+    if is_user_benign:
+        if_s, ae_s, combined, label, is_anom = 0, 0, 0, "BENIGN", False
+    else:
+        if_s = int(result["if_score"])
+        ae_s = None if result["ae_score"] is None else int(result["ae_score"])
+        combined = int(result["combined_score"])
+        label = result["anomaly_label"]
+        is_anom = bool(result["is_anomaly"])
+
+    return jsonify({
+        "features": [
+            {"name": name, "value": float(val)}
+            for name, val in zip(FEATURE_NAMES_16, features)
+        ],
+        "if_score": if_s,
+        "ae_score": ae_s,
+        "combined_score": combined,
+        "anomaly_label": label,
+        "is_anomaly": is_anom,
+        "benign_override": is_user_benign,
+    })
 
 
 SUGGESTED_BENIGN_FILE = (
@@ -1229,6 +1348,84 @@ def delete_document(doc_id):
     return jsonify({"status": "ok", "doc_id": doc_id})
 
 
+@app.route("/api/source", methods=["GET"])
+def get_source():
+    """Fetch the full indexed content of a single RAG source by its episode_id.
+
+    Used by the chat UI so a source/citation chip can be clicked to (a) read the
+    exact quoted content and (b) jump straight to that point in the Qdrant UI.
+
+    Query: ?id=<episode_id>   (e.g. 'nvd-CVE-2026-31544', 'T1055', 'user_upload/ab12')
+    Returns the payload plus the deterministic Qdrant point UUID + a dashboard URL.
+    """
+    episode_id = request.args.get("id", "").strip()
+    if not episode_id:
+        return jsonify({"error": "id is required"}), 400
+
+    store = _get_retrieval()
+    if store is None:
+        return jsonify({"error": "Qdrant is not available — is Docker running?"}), 503
+
+    # Qdrant point id is deterministic: uuid5(NAMESPACE_DNS, episode_id) — same
+    # scheme the indexer uses, so we can retrieve the exact point without a search.
+    point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, episode_id))
+
+    qdrant_host = os.environ.get("QDRANT_HOST", "localhost")
+    qdrant_port = os.environ.get("QDRANT_PORT", "6333")
+
+    for collection in ("wazuh_threat_intel", "wazuh_alert_episodes"):
+        try:
+            pts = store.client.retrieve(
+                collection_name=collection, ids=[point_id], with_payload=True,
+            )
+        except Exception as e:
+            print(f"[source] retrieve failed on {collection}: {e}")
+            continue
+        if pts:
+            p = pts[0].payload or {}
+            return jsonify({
+                "episode_id":  episode_id,
+                "point_id":    point_id,
+                "collection":  collection,
+                "source_type": p.get("source_type", ""),
+                "episode_type": p.get("episode_type", ""),
+                "summary":     p.get("summary", ""),
+                "tags":        p.get("tags", []),
+                "entities":    p.get("entities", {}),
+                "metadata":    p.get("metadata", {}),
+                # Deep link into the Qdrant dashboard for this collection; the
+                # point_id is shown in the UI so it can be looked up directly.
+                "qdrant_url":  f"http://{qdrant_host}:{qdrant_port}/dashboard#/collections/{collection}",
+            })
+
+    # Not found by point id (older episodes indexed under a different id scheme):
+    # fall back to a payload search so the chip still resolves.
+    try:
+        from qdrant_client.models import Filter, FieldCondition, MatchValue
+        for collection in ("wazuh_threat_intel", "wazuh_alert_episodes"):
+            res, _ = store.client.scroll(
+                collection_name=collection,
+                scroll_filter=Filter(must=[FieldCondition(
+                    key="episode_id", match=MatchValue(value=episode_id))]),
+                limit=1, with_payload=True,
+            )
+            if res:
+                p = res[0].payload or {}
+                return jsonify({
+                    "episode_id": episode_id, "point_id": str(res[0].id),
+                    "collection": collection,
+                    "source_type": p.get("source_type", ""),
+                    "episode_type": p.get("episode_type", ""),
+                    "summary": p.get("summary", ""), "tags": p.get("tags", []),
+                    "entities": p.get("entities", {}), "metadata": p.get("metadata", {}),
+                    "qdrant_url": f"http://{qdrant_host}:{qdrant_port}/dashboard#/collections/{collection}",
+                })
+    except Exception as e:
+        print(f"[source] fallback scroll failed: {e}")
+
+    return jsonify({"error": f"Source '{episode_id}' not found in Qdrant"}), 404
+
+
 @app.route("/api/alerts/stats", methods=["GET"])
 def alert_stats():
     """Return stats about loaded Wazuh alerts."""
@@ -1250,6 +1447,65 @@ def alert_stats():
         "total_alerts": total,
         "by_level": dict(sorted(levels.items(), key=lambda x: -x[1])),
         "top_groups": dict(sorted(groups.items(), key=lambda x: -x[1])[:15]),
+    })
+
+
+@app.route("/api/populate-map", methods=["POST"])
+def populate_map_route():
+    """Run backend/populate_map.py to append synthetic geo-located attack alerts
+    to alerts.json so the attack-origin map lights up. Fast (no inter-write delay)."""
+    import subprocess
+    try:
+        count = max(1, min(40, int(request.args.get("count", "8"))))
+    except ValueError:
+        count = 8
+    script = os.path.join(os.path.dirname(__file__), "populate_map.py")
+    try:
+        proc = subprocess.run(
+            [sys.executable, script, "--count", str(count)],
+            capture_output=True, text=True, timeout=30,
+        )
+        ok = proc.returncode == 0
+        return jsonify({
+            "status": "ok" if ok else "error",
+            "count":  count,
+            "output": (proc.stdout or proc.stderr or "")[-600:],
+        }), (200 if ok else 500)
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+
+@app.route("/api/test-shield", methods=["GET"])
+def test_shield_route():
+    """Stream (SSE) the output of the attack-simulation script as it runs the
+    14 attack families through the real Wazuh pipeline. Live pass/fail log."""
+    import subprocess
+    script = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        "ai_threat_engine_starter", "attack_simulation", "simulate_attack_for_wazuh.sh",
+    )
+
+    def gen():
+        if not os.path.isfile(script):
+            yield f"data: ERROR: script not found at {script}\n\n"
+            yield "event: done\ndata: 1\n\n"
+            return
+        try:
+            proc = subprocess.Popen(
+                ["bash", script], stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT, text=True, bufsize=1,
+            )
+        except Exception as e:
+            yield f"data: ERROR: {e}\n\n"
+            yield "event: done\ndata: 1\n\n"
+            return
+        for line in proc.stdout:
+            yield f"data: {line.rstrip()}\n\n"
+        proc.wait()
+        yield f"event: done\ndata: {proc.returncode}\n\n"
+
+    return Response(gen(), mimetype="text/event-stream", headers={
+        "Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no",
     })
 
 
@@ -1609,6 +1865,10 @@ if __name__ == "__main__":
 
     # Pre-load alerts at startup
     _load_all_wazuh_alerts()
+
+    # Warm up the LLM: load into VRAM and pin for 24h (no cold start on first chat)
+    print(f"Warming up Ollama model '{OLLAMA_MODEL}' (pin in VRAM for 24h)...")
+    _pin_ollama_async()
 
     print("Open http://127.0.0.1:5000 in the browser.")
     print("Chat UI at http://127.0.0.1:5000/chat.html")

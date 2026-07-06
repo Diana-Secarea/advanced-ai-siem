@@ -160,7 +160,9 @@ class RAGCoreSystem:
                     'entities': result.get('entities', {}),
                     'tags': result.get('tags', []),
                     'score': result.get('score', 0.0),
-                    'similarity': min(1.0, max(0.0, result.get('score', 0.0))),  # Normalize to 0-1
+                    # QdrantStore already normalizes RRF to [0,1] in 'similarity'
+                    # (raw RRF caps at 2/(k+1) ≈ 0.033 — do NOT clamp the raw score here)
+                    'similarity': min(1.0, max(0.0, result.get('similarity', result.get('score', 0.0)))),
                     'time_range': result.get('time_range', {}),
                     'metadata': result.get('metadata', {}),
                     'raw_refs': result.get('raw_refs', [])

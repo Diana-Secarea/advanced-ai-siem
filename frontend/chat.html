@@ -229,6 +229,13 @@
       font-size: 11px;
       font-family: var(--mono);
       border: 1px solid var(--border-dim);
+      transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+    }
+    .sources .source-tag { cursor: pointer; }
+    .sources .source-tag:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.25);
+      box-shadow: 0 3px 10px rgba(0,0,0,0.4);
     }
 
     .source-tag.mitre  { color: var(--red);    background: var(--red-dim);    border-color: rgba(255,51,85,0.2); }
@@ -642,6 +649,21 @@
     </div>
   </div>
 
+  <!-- Source viewer: opened by clicking a citation chip -->
+  <div class="modal-overlay" id="sourceModal">
+    <div class="modal" style="width:620px;">
+      <h2 id="srcModalTitle">Source</h2>
+      <div id="srcModalMeta" style="font-family:var(--mono);font-size:11px;color:var(--text-muted);margin-bottom:12px;"></div>
+      <div id="srcModalBody" style="background:var(--bg-deep);border:1px solid var(--border);border-radius:8px;padding:14px 16px;font-size:13px;line-height:1.7;color:var(--text);max-height:340px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;">Loading…</div>
+      <div id="srcModalTags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;"></div>
+      <div id="srcModalPoint" style="font-family:var(--mono);font-size:11px;color:var(--text-muted);margin-top:12px;"></div>
+      <div class="modal-actions" style="margin-top:16px;">
+        <button class="btn" id="srcModalClose">Close</button>
+        <a class="btn-primary" id="srcModalQdrant" href="#" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;">Open in Qdrant UI ↗</a>
+      </div>
+    </div>
+  </div>
+
   <div class="chat-container">
     <div class="messages" id="messages">
       <div class="welcome" id="welcome">
@@ -746,6 +768,32 @@
       return div.innerHTML;
     }
 
+    function buildSourcesDiv(sources) {
+      if (!sources || sources.length === 0) return null;
+      const sourcesDiv = document.createElement("div");
+      sourcesDiv.className = "sources";
+      // Deduplicate sources by id+type
+      const seen = new Set();
+      sources.forEach(s => {
+        const key = s.type + ":" + s.id;
+        if (seen.has(key)) return;
+        seen.add(key);
+        const tag = document.createElement("span");
+        let tagClass = "source-tag";
+        if (s.type === "mitre_attack") tagClass += " mitre";
+        else if (s.type === "yara_rule") tagClass += " yara";
+        else if (s.type === "vendor_advisory") tagClass += " vendor";
+        else if (s.type === "wazuh_alert") tagClass += " wazuh";
+        tag.className = tagClass;
+        tag.textContent = s.id;
+        tag.title = (s.summary || "") + "\n\nClick to view the quoted source and open it in Qdrant";
+        tag.style.cursor = "pointer";
+        tag.addEventListener("click", () => openSourceViewer(s));
+        sourcesDiv.appendChild(tag);
+      });
+      return sourcesDiv;
+    }
+
     function addMessage(role, content, sources) {
       welcomeEl.style.display = "none";
 
@@ -775,27 +823,9 @@
       contentCol.style.minWidth = "0";
       contentCol.appendChild(bubble);
 
-      if (role === "assistant" && sources && sources.length > 0) {
-        const sourcesDiv = document.createElement("div");
-        sourcesDiv.className = "sources";
-        // Deduplicate sources by id+type
-        const seen = new Set();
-        sources.forEach(s => {
-          const key = s.type + ":" + s.id;
-          if (seen.has(key)) return;
-          seen.add(key);
-          const tag = document.createElement("span");
-          let tagClass = "source-tag";
-          if (s.type === "mitre_attack") tagClass += " mitre";
-          else if (s.type === "yara_rule") tagClass += " yara";
-          else if (s.type === "vendor_advisory") tagClass += " vendor";
-          else if (s.type === "wazuh_alert") tagClass += " wazuh";
-          tag.className = tagClass;
-          tag.textContent = s.id;
-          tag.title = s.summary;
-          sourcesDiv.appendChild(tag);
-        });
-        contentCol.appendChild(sourcesDiv);
+      if (role === "assistant") {
+        const sourcesDiv = buildSourcesDiv(sources);
+        if (sourcesDiv) contentCol.appendChild(sourcesDiv);
       }
 
       msgDiv.appendChild(contentCol);
@@ -832,6 +862,56 @@
     function closeDocsPanel() {
       docsPanelOverlay.classList.remove("visible");
       docsPanel.classList.remove("visible");
+    }
+
+    // ---- Source viewer: click a citation chip -> read the quoted content
+    //      and jump to the exact point in the Qdrant UI ----
+    const sourceModal   = document.getElementById("sourceModal");
+    const srcModalTitle = document.getElementById("srcModalTitle");
+    const srcModalMeta  = document.getElementById("srcModalMeta");
+    const srcModalBody  = document.getElementById("srcModalBody");
+    const srcModalTags  = document.getElementById("srcModalTags");
+    const srcModalPoint = document.getElementById("srcModalPoint");
+    const srcModalQdrant = document.getElementById("srcModalQdrant");
+    const QDRANT_UI = `${location.protocol === "file:" ? "http://localhost" : location.protocol + "//" + location.hostname}:6333/dashboard`;
+
+    function closeSourceModal() { sourceModal.classList.remove("visible"); }
+    document.getElementById("srcModalClose").addEventListener("click", closeSourceModal);
+    sourceModal.addEventListener("click", (e) => { if (e.target === sourceModal) closeSourceModal(); });
+
+    async function openSourceViewer(s) {
+      srcModalTitle.textContent = s.id || "Source";
+      srcModalMeta.textContent  = (s.type || "") + (s.score != null ? ` · score ${s.score}` : "");
+      srcModalBody.textContent  = s.summary || "Loading full content…";
+      srcModalTags.innerHTML    = "";
+      srcModalPoint.textContent = "";
+      // default Qdrant link (collection-level) until we resolve the exact point
+      srcModalQdrant.href = `${QDRANT_UI}#/collections/wazuh_threat_intel`;
+      sourceModal.classList.add("visible");
+
+      try {
+        const resp = await fetch(`${API_BASE}/api/source?id=${encodeURIComponent(s.id)}`);
+        if (!resp.ok) {
+          srcModalBody.textContent = (s.summary || "") +
+            "\n\n(Full indexed content unavailable — showing the retrieved snippet. Is the server running?)";
+          return;
+        }
+        const d = await resp.json();
+        srcModalBody.textContent = d.summary || s.summary || "(empty)";
+        srcModalMeta.textContent = [d.source_type, d.episode_type, d.collection]
+          .filter(Boolean).join(" · ");
+        if (Array.isArray(d.tags)) {
+          srcModalTags.innerHTML = d.tags.map(t =>
+            `<span class="source-tag">${t}</span>`).join("");
+        }
+        if (d.point_id) {
+          srcModalPoint.textContent = `Qdrant point: ${d.point_id}  ·  collection: ${d.collection}`;
+        }
+        if (d.qdrant_url) srcModalQdrant.href = d.qdrant_url;
+      } catch (err) {
+        srcModalBody.textContent = (s.summary || "") +
+          `\n\n(Could not reach the server: ${err.message})`;
+      }
     }
 
     myDocsBtn.addEventListener("click", openDocsPanel);
@@ -1096,6 +1176,33 @@
     });
     // ---- End upload modal ----
 
+    // Parse an SSE stream from fetch(): plain `data:` lines are tokens,
+    // `event: done` carries the final metadata JSON (session_id + sources).
+    async function streamSSE(resp, onToken, onDone) {
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const events = buf.split("\n\n");
+        buf = events.pop();
+        for (const ev of events) {
+          let evName = "message";
+          const dataLines = [];
+          for (const line of ev.split("\n")) {
+            if (line.startsWith("event:")) evName = line.slice(6).trim();
+            else if (line.startsWith("data: ")) dataLines.push(line.slice(6));
+            else if (line.startsWith("data:")) dataLines.push(line.slice(5));
+          }
+          const data = dataLines.join("\n");
+          if (evName === "done") onDone(data);
+          else if (data) onToken(data.replace(/\\n/g, "\n"));
+        }
+      }
+    }
+
     async function sendMessage() {
       const text = inputEl.value.trim();
       if (!text) return;
@@ -1106,25 +1213,62 @@
 
       addMessage("user", text);
 
-      // Show typing indicator
+      // Show typing indicator until the first token arrives
       typingEl.classList.add("visible");
       messagesEl.scrollTop = messagesEl.scrollHeight;
 
+      let bubble = null, contentCol = null, fullText = "";
+      function ensureBubble() {
+        if (bubble) return;
+        typingEl.classList.remove("visible");
+        const msgDiv = document.createElement("div");
+        msgDiv.className = "message assistant";
+        const avatar = document.createElement("div");
+        avatar.className = "avatar";
+        avatar.textContent = "AI";
+        bubble = document.createElement("div");
+        bubble.className = "bubble";
+        contentCol = document.createElement("div");
+        contentCol.style.display = "flex";
+        contentCol.style.flexDirection = "column";
+        contentCol.style.gap = "6px";
+        contentCol.style.minWidth = "0";
+        contentCol.appendChild(bubble);
+        msgDiv.appendChild(avatar);
+        msgDiv.appendChild(contentCol);
+        messagesEl.appendChild(msgDiv);
+      }
+
       try {
-        const resp = await fetch(`${API_BASE}/api/chat`, {
+        const resp = await fetch(`${API_BASE}/api/chat/stream`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ message: text, session_id: sessionId }),
         });
+        if (!resp.ok || !resp.body) throw new Error("HTTP " + resp.status);
 
-        const data = await resp.json();
+        await streamSSE(resp,
+          token => {
+            ensureBubble();
+            fullText += token;
+            bubble.innerHTML = renderMarkdown(fullText);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+          },
+          doneData => {
+            try {
+              const meta = JSON.parse(doneData);
+              sessionId = meta.session_id;
+              ensureBubble();
+              const sourcesDiv = buildSourcesDiv(meta.sources || []);
+              if (sourcesDiv) contentCol.appendChild(sourcesDiv);
+            } catch (_) { /* malformed done event — keep the streamed text */ }
+          });
 
-        if (data.error) {
-          addMessage("assistant", `Error: ${data.error}`, []);
-        } else {
-          sessionId = data.session_id;
-          addMessage("assistant", data.reply, data.sources || []);
+        if (!fullText) {
+          ensureBubble();
+          bubble.textContent = "No response from the model.";
         }
+        messagesEl.scrollTop = messagesEl.scrollHeight;
       } catch (err) {
         addMessage("assistant", `Connection error: ${err.message}. Is the server running?`, []);
       } finally {

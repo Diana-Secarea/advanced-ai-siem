@@ -1,0 +1,14 @@
+[
+  { "query": "What is the capital of France?", "type": "out-of-domain" },
+  { "query": "Give me a recipe for sourdough bread.", "type": "out-of-domain" },
+  { "query": "Who won the football World Cup in 2018?", "type": "out-of-domain" },
+  { "query": "Translate 'good morning' into Japanese.", "type": "out-of-domain" },
+  { "query": "What is the weather forecast for tomorrow in Bucharest?", "type": "out-of-domain" },
+  { "query": "Explain the plot of the movie Inception.", "type": "out-of-domain" },
+  { "query": "What are the detection details for CVE-2027-99999?", "type": "in-domain-absent" },
+  { "query": "Describe the TTPs of the APT group 'Crimson Mirage' tracked as G9999.", "type": "in-domain-absent" },
+  { "query": "What does Wazuh rule ID 9999999 detect and what is its level?", "type": "in-domain-absent" },
+  { "query": "Summarize MITRE ATT&CK technique T9999 and its sub-techniques.", "type": "in-domain-absent" },
+  { "query": "What YARA signature detects the 'ZephyrLoader' malware family?", "type": "in-domain-absent" },
+  { "query": "What were the exact alert timestamps for the breach on this host last Tuesday?", "type": "in-domain-absent" }
+]

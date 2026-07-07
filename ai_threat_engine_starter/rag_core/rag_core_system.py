@@ -20,7 +20,6 @@ from rag_core.episodes.episode_builder import (
     SecurityEpisode
 )
 from rag_core.database.qdrant_store import QdrantStore
-from rag_core.agent.agent_workflow import SOCAgent, AgentOutput
 
 
 class RAGCoreSystem:
@@ -67,9 +66,6 @@ class RAGCoreSystem:
         
         # Qdrant-backed hybrid retrieval (dense + BM25 sparse, RRF fusion)
         self.retrieval = QdrantStore()
-
-        # SOC Agent (for advanced workflows, but not required for basic RAG)
-        self.agent = None  # Can be initialized later if needed
 
         print("✅ RAG Core System initialized (RAG operations only)")
     
@@ -275,69 +271,6 @@ class RAGCoreSystem:
             })
         
         return formatted
-    
-    # ==================== Agent Workflow (Optional) ====================
-    
-    def initialize_agent(self):
-        """Initialize SOC Agent for advanced workflows (optional)."""
-        if self.agent is None:
-            self.agent = SOCAgent(
-                retrieval=self.retrieval,
-                anomaly_detector=None,
-                threat_intel_path=str(self.base_path.parent / "threat_intel"),
-            )
-            print("✅ SOC Agent initialized")
-    
-    def analyze(self, input_data: Dict) -> AgentOutput:
-        """
-        Advanced analysis using SOC Agent workflow (optional)
-        For basic RAG operations, use search_threats() instead
-        
-        Args:
-            input_data: Can be alert, episode, or query
-        
-        Returns:
-            AgentOutput with structured analysis
-        """
-        if self.agent is None:
-            self.initialize_agent()
-        
-        # Run through agent workflow
-        output = self.agent.process(input_data)
-        
-        return output
-    
-    def analyze_wazuh_alert(self, alert_json: str) -> Dict:
-        """
-        Analyze Wazuh alert - main entry point for Wazuh integration
-        
-        Args:
-            alert_json: Wazuh alert in JSON format
-        
-        Returns:
-            Analysis result with recommendations
-        """
-        try:
-            alert = json.loads(alert_json) if isinstance(alert_json, str) else alert_json
-        except:
-            return {"error": "Invalid JSON", "decision": "unlikely"}
-        
-        # Run agent workflow
-        output = self.agent.process(alert)
-        
-        # Format for Wazuh
-        result = {
-            "decision": output.decision,
-            "confidence": output.confidence,
-            "technique": output.hypothesis.technique,
-            "recommendations": output.recommendations,
-            "next_queries": output.next_queries,
-            "indicators": output.hypothesis.indicators,
-            "citations": output.citations,
-            "validation": output.validation_checks
-        }
-        
-        return result
     
     def _classify_event(self, event: Dict) -> str:
         """Classify event type"""

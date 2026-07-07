@@ -51,7 +51,7 @@ class AIThreatEngine:
     Responsibilities:
     - Orchestrates all AI components
     - Uses RAG Core for RAG operations (ingestion, embedding, retrieval)
-    - Performs Isolation Forest scoring and prioritization
+    - Performs  scoring and prioritization
     - Combines all results for final threat assessment
     """
 

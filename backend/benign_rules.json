@@ -13,5 +13,10 @@
     "rule_id": "5501",
     "rule_description": "PAM: Login session opened.",
     "added_at": "2026-05-18T09:57:03Z"
+  },
+  "5300": {
+    "rule_id": "5300",
+    "rule_description": "Telnet authentication failure.",
+    "added_at": "2026-07-07T08:26:50Z"
   }
 }

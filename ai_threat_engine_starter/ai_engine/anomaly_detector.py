@@ -198,7 +198,7 @@ class AnomalyDetector:
             return 0
 
     def extract_features(self, event):
-        """Extract 13 numerical features from a Wazuh alert"""
+        """Extract 16 numerical features from a Wazuh alert"""
         features = []
         rule = event.get('rule', {})
 

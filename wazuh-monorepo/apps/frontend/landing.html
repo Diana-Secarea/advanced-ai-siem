@@ -481,8 +481,11 @@ footer a:hover { color: var(--text); }
       CVE agent and explained in plain language by a local LLM.
     </p>
     <div class="hero-ctas r3d" data-delay="3">
-      <a class="btn btn-primary" href="#pricing">Start protecting now</a>
+      <a class="btn btn-primary" href="/api/download/linux" download>⬇ Download for Linux</a>
       <a class="btn btn-ghost" href="#showcase">See it in action</a>
+    </div>
+    <div class="hero-dl-note r3d" data-delay="3" style="margin-top:8px;font-size:12px;color:var(--muted,#8b93a7);">
+      Free &amp; self-hosted · <code style="font-size:11px;">tar -xzf selene-linux.tar.gz &amp;&amp; cd selene-linux &amp;&amp; ./install.sh &amp;&amp; ./run.sh</code>
     </div>
     <div class="hero-meta r3d" data-delay="4">
       <span><b data-count="95.9" data-suffix="%">0</b>DETECTION RECALL</span>
@@ -788,24 +791,12 @@ footer a:hover { color: var(--text); }
   resize(); initStars();
   window.addEventListener("resize", function () { resize(); initStars(); });
 
-  /* ---------- inertial smooth scroll (Lenis-style): wheel is intercepted
-       and eased toward its target, so the whole page glides. Keyboard,
-       touch and scrollbar drags stay native and simply resync the target. */
-  var targetY = window.scrollY, smoothY = targetY, gliding = false;
-  var finePointer = window.matchMedia("(pointer: fine)").matches;
-  function maxScroll() { return document.documentElement.scrollHeight - window.innerHeight; }
-  if (finePointer && !reduced) {
-    window.addEventListener("wheel", function (e) {
-      if (e.ctrlKey) return;                    /* keep pinch-zoom native */
-      e.preventDefault();
-      gliding = true;
-      var d = e.deltaMode === 1 ? e.deltaY * 34 : e.deltaY;
-      targetY = Math.max(0, Math.min(maxScroll(), targetY + d));
-    }, { passive: false });
-  }
-  window.addEventListener("scroll", function () {
-    if (!gliding) targetY = window.scrollY;   /* native scroll resyncs us */
-  }, { passive: true });
+  /* Native scrolling — the browser scrolls on the compositor thread (smooth and
+     GPU-accelerated). We only READ scrollY each frame to drive the parallax; we
+     never intercept the wheel or call scrollTo (that JS-driven "smooth scroll"
+     fights native scrolling and is what caused the stutter). CSS
+     `scroll-behavior:smooth` still eases anchor-link jumps. */
+  var smoothY = window.scrollY;
 
   /* ---------- mouse state: drives lighting, cursor and parallax ---------- */
   var mouseX = window.innerWidth / 2, mouseY = window.innerHeight / 2;
@@ -834,19 +825,18 @@ footer a:hover { color: var(--text); }
       var r = el.getBoundingClientRect();
       el._cy = r.top + window.scrollY + r.height / 2;
     });
+    /* cache the terminal's document-space top ONCE (with its transform cleared)
+       so the frame loop never has to read layout — no per-frame reflow. */
+    if (terminal) {
+      terminal.style.transform = "";
+      terminalTop = terminal.getBoundingClientRect().top + window.scrollY;
+    }
   }
+  var terminalTop = 0;
   measure(); window.addEventListener("resize", measure);
 
   function frame(t) {
-    if (gliding) {
-      /* 0.16 lerp: quick response, short glide — runs until settled so the
-         page never stalls mid-motion like the old 140ms wheel-idle cutoff */
-      smoothY += (targetY - smoothY) * 0.16;
-      if (Math.abs(targetY - smoothY) < 0.5) { smoothY = targetY; gliding = false; }
-      window.scrollTo(0, smoothY);
-    } else {
-      smoothY = window.scrollY;              /* keyboard/touch/scrollbar stay native */
-    }
+    smoothY = window.scrollY;                 /* read-only; native scroll owns motion */
     scrollDrift = smoothY;
 
     /* cinematic key light trails the pointer — transform only, no repaint */
@@ -878,11 +868,12 @@ footer a:hover { color: var(--text); }
         var rot = el._spin ? (smoothY * 0.06 + t / 90) % 360 : wave * 0.4;
         el.style.transform = "translate3d(" + tx.toFixed(1) + "px," + ty.toFixed(1) + "px,0) scale(" + scale.toFixed(3) + ") rotate(" + rot.toFixed(1) + "deg)";
       }
-      /* terminal: scroll-scrubbed 3D pose — tilts up out of the page */
+      /* terminal: scroll-scrubbed 3D pose — tilts up out of the page.
+         Position derived from the cached top + scrollY (no layout read). */
       if (terminal) {
-        var r = terminal.getBoundingClientRect();
         var vh = window.innerHeight;
-        var p = Math.min(1, Math.max(0, 1 - (r.top - vh * 0.1) / (vh * 0.85)));
+        var top = terminalTop - smoothY;
+        var p = Math.min(1, Math.max(0, 1 - (top - vh * 0.1) / (vh * 0.85)));
         var rx = (1 - p) * 26, tz = (1 - p) * -140, sc = 0.9 + p * 0.1;
         terminal.style.transform = "perspective(1200px) rotateX(" + rx.toFixed(2) + "deg) translateZ(" + tz.toFixed(1) + "px) scale(" + sc.toFixed(3) + ")";
       }

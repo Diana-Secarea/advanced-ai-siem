@@ -23,7 +23,7 @@ from dotenv import load_dotenv
 # Load .env from the same directory as this file before anything else reads os.environ
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
-from flask import Flask, Response, send_from_directory, jsonify, request
+from flask import Flask, Response, send_from_directory, send_file, jsonify, request
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -75,6 +75,7 @@ _AUTH_EXEMPT_PREFIXES = ("/assets/", "/legacy/assets/")
 _AUTH_EXEMPT_PATHS = {
     "/login.html", "/favicon.ico",
     "/landing.html",  # public marketing/pricing page
+    "/api/download/linux", "/download/selene-linux.tar.gz",  # public app download
     "/api/billing/config", "/api/billing/checkout",  # Stripe checkout (public)
     "/api/auth/login", "/api/auth/register", "/api/auth/me",
     "/metrics",   # Prometheus scrape — read-only counters, no alert content
@@ -483,11 +484,58 @@ except OSError:
 SERVER_START_TIME = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
 
 # --- RAG Chat State (lazy-loaded Qdrant store) ---
+# Conversations are PRIVATE PER ACCOUNT: history is keyed by the logged-in user
+# and persisted to data/chats/<user>.json, so each user only ever sees their own
+# RAG chats and they survive restarts. Never shipped in the release bundle.
 _rag_retrieval = None
-_chat_sessions = {}  # session_id -> list of {role, content}
+_chat_store = {}            # username -> {session_id: {"title","updated_ts","history"}}
+_chat_loaded = set()        # usernames whose file has been loaded into _chat_store
 _chat_sessions_lock = threading.Lock()
-MAX_HISTORY = 20
-MAX_SESSIONS = 500   # bound the in-memory session map (session_id is client-supplied)
+MAX_HISTORY = 20            # messages kept per conversation
+MAX_SESSIONS_PER_USER = 50  # conversations kept per account (oldest evicted)
+_CHAT_DIR = os.path.join(os.path.dirname(__file__), "data", "chats")
+
+
+def _chat_user():
+    """Username to scope chat storage to. Falls back to 'anonymous' when auth is
+    disabled (single-user dev) — the auth gate normally blocks true anonymous."""
+    u = getattr(request, "auth_user", None)
+    if u and u.get("username"):
+        return u["username"]
+    return "anonymous"
+
+
+def _chat_user_file(username):
+    safe = re.sub(r"[^a-z0-9_-]", "_", (username or "anonymous").lower())[:40] or "anonymous"
+    return os.path.join(_CHAT_DIR, f"{safe}.json")
+
+
+def _load_user_chats(username):
+    """Return this user's {session_id: session} map, loading from disk once."""
+    if username not in _chat_loaded:
+        data = {}
+        try:
+            with open(_chat_user_file(username), encoding="utf-8") as f:
+                loaded = json.load(f)
+                if isinstance(loaded, dict):
+                    data = loaded
+        except (OSError, ValueError):
+            data = {}
+        _chat_store[username] = data
+        _chat_loaded.add(username)
+    return _chat_store.setdefault(username, {})
+
+
+def _persist_user_chats(username):
+    try:
+        os.makedirs(_CHAT_DIR, exist_ok=True)
+        path = _chat_user_file(username)
+        tmp = f"{path}.tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(_chat_store.get(username, {}), f, ensure_ascii=False)
+        os.replace(tmp, path)   # atomic
+    except OSError as e:
+        print(f"[chat] persist failed for {username}: {e}")
 
 
 # Lightweight counters exposed at /metrics (Prometheus scrapes them)
@@ -534,19 +582,31 @@ def _prepare_chat(data):
     return user_message, session_id, None
 
 
-def _get_session_history(session_id):
+def _get_session_history(username, session_id):
     with _chat_sessions_lock:
-        return list(_chat_sessions.get(session_id, []))
+        sess = _load_user_chats(username).get(session_id)
+        return list(sess["history"]) if sess and "history" in sess else []
 
 
-def _store_session_history(session_id, history):
-    """Save history, evicting the oldest session when over MAX_SESSIONS."""
+def _store_session_history(username, session_id, history):
+    """Save this user's conversation, titling it from the first user message and
+    evicting their oldest conversation when over MAX_SESSIONS_PER_USER."""
     if len(history) > MAX_HISTORY:
         history = history[-MAX_HISTORY:]
     with _chat_sessions_lock:
-        _chat_sessions[session_id] = history
-        while len(_chat_sessions) > MAX_SESSIONS:
-            _chat_sessions.pop(next(iter(_chat_sessions)))
+        store = _load_user_chats(username)
+        title = (store.get(session_id) or {}).get("title")
+        if not title:
+            title = next((m.get("content", "")[:60] for m in history
+                          if m.get("role") == "user"), "") or "New conversation"
+        store[session_id] = {"title": title, "updated_ts": time.time(),
+                             "history": history}
+        if len(store) > MAX_SESSIONS_PER_USER:
+            for sid, _ in sorted(store.items(),
+                                 key=lambda kv: kv[1].get("updated_ts", 0)
+                                 )[:len(store) - MAX_SESSIONS_PER_USER]:
+                store.pop(sid, None)
+        _persist_user_chats(username)
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2")
 
@@ -1510,6 +1570,7 @@ def chat():
     user_message, session_id, err = _prepare_chat(data)
     if err:
         return err
+    chat_user = _chat_user()
 
     t_start = time.time()
     inj_risk, inj_patterns = _guardrails.screen_input(user_message)
@@ -1581,7 +1642,7 @@ def chat():
     # --- Build LLM messages (guardrails: untrusted content is delimited,
     # role hierarchy pinned in the system prompt) ---
     t_retrieval = time.time()
-    history = _get_session_history(session_id)
+    history = _get_session_history(chat_user, session_id)
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT + _guardrails.GUARDRAIL_PROMPT}]
     messages.extend(history)
@@ -1605,7 +1666,7 @@ def chat():
     # Update session history
     history.append({"role": "user", "content": user_message})
     history.append({"role": "assistant", "content": reply})
-    _store_session_history(session_id, history)
+    _store_session_history(chat_user, session_id, history)
 
     return jsonify({
         "reply": reply,
@@ -1626,6 +1687,7 @@ def chat_stream():
     user_message, session_id, err = _prepare_chat(data)
     if err:
         return err
+    chat_user = _chat_user()
 
     t_start = time.time()
     inj_risk, inj_patterns = _guardrails.screen_input(user_message)
@@ -1690,7 +1752,7 @@ def chat_stream():
         alert_block = "No matching Wazuh alerts found."
 
     t_retrieval = time.time()
-    history = _get_session_history(session_id)
+    history = _get_session_history(chat_user, session_id)
     messages = [{"role": "system", "content": SYSTEM_PROMPT + _guardrails.GUARDRAIL_PROMPT}]
     messages.extend(history)
     augmented_message = (
@@ -1719,10 +1781,10 @@ def chat_stream():
 
         # Save to session history after streaming completes
         reply_text = "".join(full_reply)
-        hist = _get_session_history(session_id)
+        hist = _get_session_history(chat_user, session_id)
         hist.append({"role": "user", "content": user_message})
         hist.append({"role": "assistant", "content": reply_text})
-        _store_session_history(session_id, hist)
+        _store_session_history(chat_user, session_id, hist)
 
         # Final event carries metadata
         done_payload = json.dumps({"session_id": session_id, "sources": sources})
@@ -1738,15 +1800,64 @@ def chat_stream():
     )
 
 
+@app.route("/api/chat/sessions", methods=["GET"])
+def list_sessions():
+    """The CURRENT user's conversations. With ?session_id=… returns that one
+    conversation's full history; otherwise lists all of them (newest first).
+    Only ever exposes the caller's own chats (per-account isolation)."""
+    user = _chat_user()
+    session_id = (request.args.get("session_id") or "").strip()[:64]
+    with _chat_sessions_lock:
+        store = _load_user_chats(user)
+        if session_id:
+            sess = store.get(session_id)
+            if not sess:
+                return jsonify({"error": "conversation not found"}), 404
+            return jsonify({"session_id": session_id, "title": sess.get("title"),
+                            "history": sess.get("history", [])})
+        out = [{
+            "session_id": sid,
+            "title": s.get("title") or "Conversation",
+            "updated": datetime.datetime.utcfromtimestamp(
+                s.get("updated_ts", 0)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "messages": len(s.get("history", [])),
+        } for sid, s in store.items()]
+    out.sort(key=lambda x: x["updated"], reverse=True)
+    return jsonify({"sessions": out})
+
+
+@app.route("/api/chat/sessions", methods=["PATCH"])
+def rename_session():
+    """Rename one of the current user's conversations (per-account isolation)."""
+    user = _chat_user()
+    data = request.get_json(silent=True) or {}
+    session_id = str(data.get("session_id") or "").strip()[:64]
+    title = str(data.get("title") or "").strip()[:80]
+    if not session_id or not title:
+        return jsonify({"error": "session_id and title are required"}), 400
+    with _chat_sessions_lock:
+        store = _load_user_chats(user)
+        sess = store.get(session_id)
+        if not sess:
+            return jsonify({"error": "conversation not found"}), 404
+        sess["title"] = title
+        _persist_user_chats(user)
+    return jsonify({"status": "ok", "session_id": session_id, "title": title})
+
+
 @app.route("/api/chat/sessions", methods=["DELETE"])
 def clear_sessions():
-    """Clear all chat sessions."""
+    """Delete the current user's conversations — one by ?session_id=…, or all.
+    Only ever touches the caller's own conversations (per-account isolation)."""
+    user = _chat_user()
     session_id = request.args.get("session_id")
     with _chat_sessions_lock:
-        if session_id and session_id in _chat_sessions:
-            del _chat_sessions[session_id]
+        store = _load_user_chats(user)
+        if session_id:
+            store.pop(session_id, None)
         else:
-            _chat_sessions.clear()
+            store.clear()
+        _persist_user_chats(user)
     return jsonify({"status": "ok"})
 
 
@@ -3963,6 +4074,38 @@ def reactor_test():
 # frontend/ stays reachable under /legacy/ as a fallback during the switch.
 UI_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
 LEGACY_UI_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend-legacy")
+
+
+# --- Downloadable Linux release --------------------------------------------- #
+# Serves the self-contained app bundle (source + trained models + installer)
+# built by infra/deploy/package_release.sh. Built on demand and cached; the
+# package script's secret-guard guarantees no .env/users.db/session data ships.
+_RELEASE_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "infra", "deploy")
+_RELEASE_TARBALL = os.path.join(_RELEASE_DIR, "dist", "selene-linux.tar.gz")
+_RELEASE_SCRIPT = os.path.join(_RELEASE_DIR, "package_release.sh")
+_release_lock = threading.Lock()
+
+
+@app.route("/api/download/linux")
+@app.route("/download/selene-linux.tar.gz")
+def download_linux():
+    """Download the Selene Linux bundle (extract → ./install.sh → ./run.sh)."""
+    path = os.path.abspath(_RELEASE_TARBALL)
+    if not os.path.isfile(path):
+        with _release_lock:                       # build once if it's missing
+            if not os.path.isfile(path):
+                import subprocess
+                try:
+                    subprocess.run(["bash", os.path.abspath(_RELEASE_SCRIPT)],
+                                   check=True, timeout=600,
+                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                except Exception as e:  # noqa: BLE001
+                    return jsonify({"error": f"release build failed: {e}"}), 500
+    if not os.path.isfile(path):
+        return jsonify({"error": "release artifact unavailable"}), 500
+    return send_file(path, as_attachment=True,
+                     download_name="selene-linux.tar.gz",
+                     mimetype="application/gzip")
 
 
 @app.route("/")

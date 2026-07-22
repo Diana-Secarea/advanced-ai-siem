@@ -1,2 +1,8 @@
 wazuh-monorepo/apps/backend/reactor_blocks.jsonl
 wazuh-monorepo/apps/backend/logs/
+
+# built release artifacts (regenerate with infra/deploy/package_release.sh)
+infra/deploy/dist/
+
+# private per-user RAG conversations (never commit / never ship)
+apps/backend/data/chats/

@@ -37,6 +37,7 @@
       <p class="lede reveal" data-delay="2" style="font-size:14.5px;">Ask questions about MITRE ATT&CK techniques, YARA rules, and security advisories.</p>
     </div>
     <div class="reveal" data-delay="2" style="display:flex;gap:10px;">
+      <button class="btn btn-ghost" style="padding:11px 18px;" onclick="openChats()">💬 Conversations</button>
       <button class="btn btn-ghost" style="padding:11px 18px;" onclick="openDocs()">📁 My Documents <span class="badge info" id="docCount" style="margin-left:6px;">0</span></button>
       <button class="btn btn-primary" style="padding:11px 18px;" onclick="NX.openModal('uploadModal')">⬆ Upload</button>
       <button class="btn btn-ghost" style="padding:11px 18px;" onclick="newChat()">✦ New</button>
@@ -94,6 +95,18 @@
     </div>
   </div>
 </main>
+
+<!-- ===== CONVERSATIONS DRAWER (per-account chat history) ===== -->
+<div class="drawer-scrim" id="chatsScrim" onclick="closeChats()"></div>
+<aside class="chats-side" id="chatsSide" aria-label="Your conversations">
+  <div class="cs-head"><span style="font-size:18px;">💬</span> Conversations<span style="flex:1"></span>
+    <button class="modal-close" onclick="closeChats()">✕</button></div>
+  <div class="conv-tools">
+    <button class="conv-new" onclick="newChat(); closeChats();">✦ New chat</button>
+    <input class="conv-search" id="convSearch" type="text" placeholder="Search conversations…" oninput="renderConversations()">
+  </div>
+  <div class="conv-list" id="convList"></div>
+</aside>
 
 <!-- ===== MY DOCUMENTS PANEL ===== -->
 <div class="docs-side" id="docsSide">
@@ -324,6 +337,8 @@ async function send(text){
         try{
           const meta = JSON.parse(doneData);
           sessionId = meta.session_id || sessionId;
+          if(sessionId) localStorage.setItem("selene-chat-session", sessionId);
+          loadConversations();   // refresh titles/order in the sidebar
           const sources = meta.sources || [];
           if(sources.length){
             const srcs = document.createElement("div"); srcs.className = "srcs";
@@ -355,9 +370,12 @@ document.getElementById("send").addEventListener("click",()=>send(inp.value));
 inp.addEventListener("keydown",e=>{ if(e.key==="Enter") send(inp.value); });
 document.querySelectorAll(".sugg button").forEach(b=>b.addEventListener("click",()=>send(b.textContent)));
 function newChat(){
-  if(sessionId) fetch(API + "/api/chat/sessions?session_id=" + sessionId, { method:"DELETE" });
+  // The current conversation is already saved server-side per account, so "New"
+  // just starts a fresh thread — it must NOT delete anything.
   sessionId = null;
+  localStorage.removeItem("selene-chat-session");
   scroll.querySelectorAll(".msg:not(:first-child)").forEach(m=>m.remove());
+  if(typeof renderConversations==="function") renderConversations();
   NX.toast("New conversation started");
 }
 
@@ -457,14 +475,139 @@ fileIn.addEventListener("change",()=>{ if(fileIn.files[0]){ pendingFile=fileIn.f
 ["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("drag");}));
 drop.addEventListener("drop",e=>{ if(e.dataTransfer.files[0]){ pendingFile=e.dataTransfer.files[0]; document.getElementById("dropLabel").textContent="✔ "+pendingFile.name; } });
 
+/* ============================================================
+   CONVERSATIONS SIDEBAR — private per-account chat history
+   GET/PATCH/DELETE /api/chat/sessions
+   ============================================================ */
+let conversations = [];
+
+function openChats(){ document.getElementById("chatsSide").classList.add("open"); document.getElementById("chatsScrim").classList.add("open"); loadConversations(); }
+function closeChats(){ document.getElementById("chatsSide").classList.remove("open"); document.getElementById("chatsScrim").classList.remove("open"); }
+document.addEventListener("keydown", e => { if(e.key==="Escape") closeChats(); });
+
+async function loadConversations(){
+  try{
+    const r = await fetch(API + "/api/chat/sessions");
+    if(!r.ok) return;                       // e.g. 401 when auth is on and not signed in
+    conversations = (await r.json()).sessions || [];
+    renderConversations();
+  }catch(_){}
+}
+
+function relTime(iso){
+  const t = new Date(iso).getTime(); if(!t) return "";
+  const s = (Date.now()-t)/1000;
+  if(s<60) return "just now";
+  if(s<3600) return Math.floor(s/60)+"m ago";
+  if(s<86400) return Math.floor(s/3600)+"h ago";
+  const d = Math.floor(s/86400);
+  return d<7 ? d+"d ago" : new Date(iso).toLocaleDateString();
+}
+function dayGroup(iso){
+  const tt = new Date(iso).getTime(), now = new Date();
+  const start = new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
+  if(tt>=start) return "Today";
+  if(tt>=start-86400000) return "Yesterday";
+  if(tt>=start-6*86400000) return "This week";
+  return "Earlier";
+}
+
+function renderConversations(){
+  const list = document.getElementById("convList");
+  const q = (document.getElementById("convSearch").value||"").toLowerCase().trim();
+  const items = conversations.filter(c => !q || (c.title||"").toLowerCase().includes(q));
+  if(!items.length){
+    list.innerHTML = `<div class="conv-empty">${q ? "No matches." : "No conversations yet.<br>Your chats will appear here — private to your account."}</div>`;
+    return;
+  }
+  let html = "", group = null;
+  for(const c of items){
+    const g = dayGroup(c.updated);
+    if(g!==group){ group=g; html += `<div class="conv-group">${g}</div>`; }
+    const active = c.session_id===sessionId ? " active" : "";
+    html += `<div class="conv-item${active}" data-id="${escT(c.session_id)}">
+        <div class="conv-title">${escT(c.title)}</div>
+        <div class="conv-meta">${relTime(c.updated)} · ${c.messages} msg${c.messages===1?"":"s"}</div>
+        <div class="conv-actions">
+          <button class="conv-act" data-act="rename" title="Rename">✎</button>
+          <button class="conv-act del" data-act="delete" title="Delete">🗑</button>
+        </div></div>`;
+  }
+  list.innerHTML = html;
+}
+
+/* one delegated handler — avoids inlining ids into onclick strings */
+document.getElementById("convList").addEventListener("click", e => {
+  const item = e.target.closest(".conv-item"); if(!item) return;
+  const id = item.dataset.id;
+  const act = e.target.closest(".conv-act");
+  if(act){ e.stopPropagation(); act.dataset.act==="delete" ? deleteConversation(id) : startRename(item, id); }
+  else openConversation(id);
+});
+
+async function openConversation(id){
+  try{
+    const r = await fetch(API + "/api/chat/sessions?session_id="+encodeURIComponent(id));
+    if(!r.ok){ NX.toast("Could not open that conversation"); return; }
+    const d = await r.json();
+    sessionId = id;
+    localStorage.setItem("selene-chat-session", id);
+    scroll.querySelectorAll(".msg:not(:first-child)").forEach(m=>m.remove());
+    (d.history||[]).forEach(m=>{
+      const el = document.createElement("div");
+      el.className = "msg " + (m.role==="user" ? "user" : "bot");
+      if(m.role==="user") el.textContent = m.content; else el.innerHTML = renderMd(m.content);
+      scroll.appendChild(el);
+    });
+    scroll.scrollTop = scroll.scrollHeight;
+    renderConversations();      // refresh active highlight
+    closeChats();
+  }catch(_){ NX.toast("Could not open that conversation"); }
+}
+
+function startRename(item, id){
+  const titleEl = item.querySelector(".conv-title"); if(!titleEl) return;
+  const cur = titleEl.textContent;
+  const box = document.createElement("input");
+  box.className = "conv-rename"; box.value = cur; box.maxLength = 80;
+  titleEl.replaceWith(box); box.focus(); box.select();
+  let done = false;
+  const commit = async save => {
+    if(done) return; done = true;
+    const title = box.value.trim();
+    if(save && title && title!==cur){
+      try{
+        await fetch(API+"/api/chat/sessions",{method:"PATCH",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({session_id:id, title})});
+        const c = conversations.find(x=>x.session_id===id); if(c) c.title = title;
+      }catch(_){}
+    }
+    renderConversations();
+  };
+  box.addEventListener("keydown", e => { if(e.key==="Enter"){e.preventDefault();commit(true);} else if(e.key==="Escape") commit(false); });
+  box.addEventListener("blur", () => commit(true));
+}
+
+async function deleteConversation(id){
+  try{ await fetch(API+"/api/chat/sessions?session_id="+encodeURIComponent(id),{method:"DELETE"}); }catch(_){}
+  conversations = conversations.filter(c=>c.session_id!==id);
+  if(id===sessionId) newChat();
+  renderConversations();
+  NX.toast("Conversation deleted");
+}
+
 /* header doc count on load + deep link from alerts page: ?q=... */
 (async function init(){
   try{
     const resp = await fetch(API + "/api/knowledge/documents");
     if(resp.ok){ const d = await resp.json(); document.getElementById("docCount").textContent = (d.documents||[]).length; }
   }catch(_){}
+  await loadConversations();
   const q = new URLSearchParams(location.search).get("q");
-  if(q){ history.replaceState(null,"",location.pathname); setTimeout(()=>send(q),400); }
+  if(q){ history.replaceState(null,"",location.pathname); setTimeout(()=>send(q),400); return; }
+  // resume the last conversation for this account, if it still exists
+  const last = localStorage.getItem("selene-chat-session");
+  if(last && conversations.some(c=>c.session_id===last)) openConversation(last);
 })();
 </script>
 </body>

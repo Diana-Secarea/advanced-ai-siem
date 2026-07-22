@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Analyst — Selene</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<canvas id="particles"></canvas>
+<div class="aurora"><span></span><span></span><span></span></div>
+<div class="grid-overlay"></div>
+
+<div class="owner-line">⟡ owned by <b>Diana Secarea</b> ⟡</div>
+<nav class="nav">
+  <a class="brand" href="index.html"><span class="logo">◈</span><em>SELENE</em></a>
+  <a class="link" href="index.html">Overview</a>
+  <a class="link" href="alerts.html">Live Alerts</a>
+  <a class="link" href="ml.html">ML Engine</a>
+  <a class="link" href="reactor.html">Reactor</a>
+  <a class="link active" href="chat.html">AI Analyst</a>
+  <a class="link" href="cve-agent.html">CVE Agent</a>
+  <a class="link" href="vectordb.html">Vector DB</a>
+  <span class="spacer"></span>
+  <span class="status-pill"><span class="dot"></span>LLAMA 3.2 LOCAL</span>
+</nav>
+
+<main class="page wrap">
+
+  <div class="page-head" style="padding-bottom:8px;display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+    <div>
+      <span class="eyebrow reveal">🧠 SIEM AI THREAT INTEL CHAT</span>
+      <h2 class="section-title reveal" data-delay="1">Ask anything. <span class="grad-text">Get evidence.</span></h2>
+      <p class="lede reveal" data-delay="2" style="font-size:14.5px;">Ask questions about MITRE ATT&CK techniques, YARA rules, and security advisories.</p>
+    </div>
+    <div class="reveal" data-delay="2" style="display:flex;gap:10px;">
+      <button class="btn btn-ghost" style="padding:11px 18px;" onclick="openDocs()">📁 My Documents <span class="badge info" id="docCount" style="margin-left:6px;">0</span></button>
+      <button class="btn btn-primary" style="padding:11px 18px;" onclick="NX.openModal('uploadModal')">⬆ Upload</button>
+      <button class="btn btn-ghost" style="padding:11px 18px;" onclick="newChat()">✦ New</button>
+    </div>
+  </div>
+
+  <div class="sugg reveal" data-delay="2">
+    <button>What attacks were detected on my system?</button>
+    <button>Show me SSH brute force attempts</button>
+    <button>Explain T1055 process injection</button>
+    <button>What rootkit alerts were triggered?</button>
+    <button>What does our runbook say about SSH brute force?</button>
+  </div>
+
+  <div class="chat-shell reveal" data-delay="2">
+    <div class="chat-scroll" id="scroll">
+      <div class="msg bot">
+        👋 I'm your AI security analyst. I search <b>823 MITRE techniques</b>, <b>Sigma rules</b>, <b>CISA KEV</b>,
+        your <b>uploaded documents</b> and the live Wazuh alert stream — and I cite every claim.
+        <b style="color:var(--cyan)">Click any source chip</b> under my answers to read the exact passage I quoted.
+      </div>
+    </div>
+    <style>
+      .attach-row { display:flex; gap:8px; flex-wrap:wrap; padding:0 4px 8px; }
+      .attach-chip {
+        display:inline-flex; align-items:center; gap:7px; font-size:12px;
+        padding:6px 11px; border-radius:999px; color:var(--text-soft);
+        background:rgba(34,211,238,.08); border:1px solid rgba(34,211,238,.3);
+      }
+      .attach-chip.image { background:rgba(167,139,250,.08); border-color:rgba(167,139,250,.35); }
+      .attach-chip.pending { opacity:.55; }
+      .attach-chip button { background:none; border:0; color:var(--text-dim); cursor:pointer; font-size:13px; padding:0; }
+      .attach-chip button:hover { color:var(--red); }
+      .icon-btn {
+        display:grid; place-items:center; width:44px; height:44px; flex:none;
+        border-radius:12px; border:1px solid var(--stroke-hi); cursor:pointer;
+        background:var(--glass); color:var(--text-soft); transition:all .2s;
+      }
+      .icon-btn:hover { background:var(--glass-hi); color:var(--text); transform:translateY(-1px); }
+      .icon-btn svg { width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:1.8; }
+      .icon-btn.rec { border-color:rgba(251,113,133,.7); color:var(--red); animation:recpulse 1.2s ease-in-out infinite; }
+      @keyframes recpulse { 50% { box-shadow:0 0 0 6px rgba(251,113,133,.15); } }
+    </style>
+    <div class="attach-row" id="attachRow"></div>
+    <div class="chat-input">
+      <button class="icon-btn" id="attachBtn" title="Attach an image or document (PDF, DOCX, TXT, MD, HTML, JSON, PNG, JPG)">
+        <svg viewBox="0 0 24 24"><path d="m21.4 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.2-9.19a4 4 0 0 1 5.65 5.66l-9.2 9.19a2 2 0 0 1-2.82-2.83l8.49-8.48"/></svg>
+      </button>
+      <button class="icon-btn" id="micBtn" title="Record a voice message (click to start / stop)">
+        <svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v4m-4 0h8"/></svg>
+      </button>
+      <input type="file" id="attachFile" accept=".pdf,.docx,.html,.htm,.txt,.md,.json,.png,.jpg,.jpeg,.webp,.gif" style="display:none;">
+      <input id="inp" type="text" placeholder="Ask about threats, techniques, alerts — or attach an image, document or voice note…" autocomplete="off">
+      <button class="btn btn-primary" id="send" style="padding:12px 22px;">Send ➤</button>
+    </div>
+  </div>
+</main>
+
+<!-- ===== MY DOCUMENTS PANEL ===== -->
+<div class="docs-side" id="docsSide">
+  <div class="cs-head"><span style="font-size:18px;">📁</span> My Documents<span style="flex:1"></span>
+    <button class="modal-close" onclick="document.getElementById('docsSide').classList.remove('open')">✕</button></div>
+  <div class="cs-body" id="docsBody" style="padding:18px;"></div>
+</div>
+
+<!-- ===== UPLOAD MODAL ===== -->
+<div class="modal-overlay" id="uploadModal">
+  <div class="modal">
+    <button class="modal-close" onclick="NX.closeModal('uploadModal')">✕</button>
+    <h3>⬆ Add Document to Knowledge Base</h3>
+    <div class="modal-sub">.pdf · .docx · .html · .txt · .md · .json — tables preserved, chunked, embedded and searchable instantly (Qdrant + Postgres)</div>
+    <div class="dropzone" id="drop" onclick="document.getElementById('file').click()">
+      <div style="font-size:32px;margin-bottom:8px;">📄</div>
+      <div id="dropLabel">Drop a file here, or click to browse</div>
+    </div>
+    <input type="file" id="file" accept=".pdf,.docx,.html,.htm,.txt,.md,.json" style="display:none;">
+    <div style="display:grid;gap:12px;margin-top:16px;">
+      <input class="nx-input" id="docTitle" placeholder="Title (optional)">
+      <input class="nx-input" id="docTags" placeholder="Tags, comma-separated (optional)">
+    </div>
+    <div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end;">
+      <button class="btn btn-ghost" style="padding:10px 18px;" onclick="NX.closeModal('uploadModal')">Cancel</button>
+      <button class="btn btn-primary" style="padding:10px 20px;" onclick="doUpload()">Index Document</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SOURCE VIEWER MODAL (the "see the document it quoted" feature) ===== -->
+<div class="modal-overlay" id="srcModal">
+  <div class="modal">
+    <button class="modal-close" onclick="NX.closeModal('srcModal')">✕</button>
+    <h3 id="srcTitle">Source</h3>
+    <div class="modal-sub" id="srcMeta"></div>
+    <div id="srcQuote" style="border-left:3px solid var(--violet);background:rgba(167,139,250,.08);border-radius:0 12px 12px 0;padding:14px 18px;font-style:italic;margin-bottom:16px;"></div>
+    <div style="font-family:var(--font-mono);font-size:12.5px;line-height:1.85;color:var(--text-soft);background:rgba(3,4,10,.5);border:1px solid var(--stroke);border-radius:14px;padding:16px;max-height:280px;overflow-y:auto;" id="srcBody"></div>
+    <div id="srcPoint" style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin-top:12px;"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+      <a class="btn btn-primary" id="srcQdrant" href="#" target="_blank" rel="noopener" style="padding:10px 18px;font-size:13px;text-decoration:none;">Open in Qdrant UI ↗</a>
+    </div>
+  </div>
+</div>
+
+<script src="assets/app.js"></script>
+<script>
+/* ============================================================
+   AI ANALYST — wired to the real RAG backend
+   /api/chat/stream (SSE) · /api/chat/sessions (DELETE)
+   /api/source (viewer) · /api/knowledge/upload + /documents
+   ============================================================ */
+const API = location.origin;
+const scroll = document.getElementById("scroll");
+const inp = document.getElementById("inp");
+let sessionId = null;
+let busy = false;
+
+function escT(s){ const d=document.createElement("div"); d.textContent=s==null?"":String(s); return d.innerHTML; }
+function renderMd(t){
+  t = t.replace(/```(\w*)\n([\s\S]*?)```/g,(_,l,c)=>"<pre><code>"+escT(c.trim())+"</code></pre>");
+  t = t.replace(/`([^`]+)`/g,"<code>$1</code>");
+  t = t.replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>");
+  t = t.replace(/\*(.+?)\*/g,"<em>$1</em>");
+  t = t.replace(/^- (.+)$/gm,"<li>$1</li>");
+  t = t.replace(/(<li>.*<\/li>\n?)+/g,m=>"<ul>"+m+"</ul>");
+  t = t.replace(/^\d+\.\s(.+)$/gm,"<li>$1</li>");
+  t = t.replace(/\n/g,"<br>");
+  t = t.replace(/<br><\/ul>/g,"</ul>").replace(/<ul><br>/g,"<ul>");
+  t = t.replace(/<br><li>/g,"<li>").replace(/<\/li><br>/g,"</li>");
+  return t;
+}
+
+function addUser(text){ const m=document.createElement("div"); m.className="msg user"; m.textContent=text; scroll.appendChild(m); scroll.scrollTop=scroll.scrollHeight; }
+
+/* SSE parser: plain data lines are tokens, `event: done` carries meta JSON */
+async function streamChatSSE(resp, onToken, onDone){
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  while(true){
+    const {done, value} = await reader.read();
+    if(done) break;
+    buf += decoder.decode(value, {stream:true});
+    const events = buf.split("\n\n");
+    buf = events.pop();
+    for(const ev of events){
+      let evName = "message";
+      const dataLines = [];
+      for(const line of ev.split("\n")){
+        if(line.startsWith("event:")) evName = line.slice(6).trim();
+        else if(line.startsWith("data: ")) dataLines.push(line.slice(6));
+        else if(line.startsWith("data:")) dataLines.push(line.slice(5));
+      }
+      const data = dataLines.join("\n");
+      if(evName==="done") onDone(data);
+      else if(data) onToken(data.replace(/\\n/g,"\n"));
+    }
+  }
+}
+
+function chipClass(type){
+  if(type==="uploaded_doc"||type==="user_document") return "src-chip doc";
+  return "src-chip";
+}
+
+/* ---------- attachments: images + documents + voice ---------- */
+let attachments = [];   // {kind:"image"|"document", name, text}
+
+function renderAttachRow(){
+  const row = document.getElementById("attachRow");
+  row.innerHTML = "";
+  attachments.forEach((a, i) => {
+    const chip = document.createElement("span");
+    chip.className = "attach-chip " + a.kind + (a.pending ? " pending" : "");
+    chip.innerHTML = (a.kind === "image" ? "🖼 " : "📄 ") + escT(a.name)
+      + (a.pending ? " — analyzing…" : "");
+    if(!a.pending){
+      const x = document.createElement("button");
+      x.textContent = "✕"; x.title = "Remove attachment";
+      x.onclick = () => { attachments.splice(i,1); renderAttachRow(); };
+      chip.appendChild(x);
+    }
+    row.appendChild(chip);
+  });
+}
+
+document.getElementById("attachBtn").onclick = () => document.getElementById("attachFile").click();
+document.getElementById("attachFile").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if(!file) return;
+  if(file.size > 5 * 1024 * 1024){ NX.toast("File too large (max 5 MB)"); return; }
+  const ext = file.name.toLowerCase().split(".").pop();
+  const kind = ["png","jpg","jpeg","webp","gif"].includes(ext) ? "image" : "document";
+  const entry = { kind, name: file.name, text: "", pending: true };
+  attachments.push(entry); renderAttachRow();
+  try{
+    const fd = new FormData(); fd.append("file", file);
+    const r = await fetch(API + "/api/chat/attach", { method: "POST", body: fd });
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.error || "HTTP " + r.status);
+    entry.text = d.text; entry.kind = d.kind; entry.pending = false;
+    if(d.truncated) NX.toast("Long document — using the first part as context");
+  }catch(err){
+    attachments = attachments.filter(a => a !== entry);
+    NX.toast("Attachment failed: " + err.message, 4200);
+  }
+  renderAttachRow();
+});
+
+/* voice notes: MediaRecorder → /api/chat/transcribe → input box */
+let recorder = null, recChunks = [];
+document.getElementById("micBtn").addEventListener("click", async () => {
+  const btn = document.getElementById("micBtn");
+  if(recorder && recorder.state === "recording"){ recorder.stop(); return; }
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    recChunks = [];
+    recorder = new MediaRecorder(stream);
+    recorder.ondataavailable = ev => { if(ev.data.size) recChunks.push(ev.data); };
+    recorder.onstop = async () => {
+      btn.classList.remove("rec");
+      stream.getTracks().forEach(t => t.stop());
+      const blob = new Blob(recChunks, { type: recorder.mimeType || "audio/webm" });
+      if(blob.size < 1000){ NX.toast("Recording too short"); return; }
+      NX.toast("Transcribing…");
+      try{
+        const fd = new FormData();
+        fd.append("audio", blob, "voice-note.webm");
+        const r = await fetch(API + "/api/chat/transcribe", { method: "POST", body: fd });
+        const d = await r.json();
+        if(!r.ok) throw new Error(d.error || "HTTP " + r.status);
+        if(!d.text){ NX.toast("Couldn't hear anything — try again closer to the mic"); return; }
+        inp.value = (inp.value ? inp.value + " " : "") + d.text;
+        inp.focus();
+      }catch(err){ NX.toast("Transcription failed: " + err.message, 4200); }
+    };
+    recorder.start();
+    btn.classList.add("rec");
+    NX.toast("Recording — click the mic again to stop");
+  }catch(err){
+    NX.toast("Microphone unavailable: " + err.message, 4200);
+  }
+});
+
+function buildMessageWithAttachments(text){
+  if(!attachments.length) return text;
+  const parts = attachments.filter(a => !a.pending).map(a =>
+    a.kind === "image"
+      ? `[Attached image "${a.name}" — description from vision model]:\n${a.text}`
+      : `[Attached document "${a.name}" (excerpt)]:\n${a.text}`);
+  const q = text || "Analyze the attached content in the context of my environment and alerts.";
+  /* question first: the backend caps the message at 8000 chars and truncates
+     the tail, so the question must never be the part that gets cut */
+  return "Analyst question: " + q + "\n\n" + parts.join("\n\n");
+}
+
+async function send(text){
+  text = (text||"").trim();
+  const ready = attachments.filter(a => !a.pending);
+  if(busy || (!text && !ready.length)) return;
+  if(attachments.some(a => a.pending)){ NX.toast("Still analyzing an attachment — one moment"); return; }
+  busy = true;
+  const outbound = buildMessageWithAttachments(text);
+  addUser((ready.length ? ready.map(a => (a.kind==="image"?"🖼 ":"📄 ") + a.name).join("  ") + "\n" : "")
+          + (text || "Analyze the attached content."));
+  attachments = []; renderAttachRow();
+  text = outbound;
+  inp.value = "";
+  const wrap = document.createElement("div"); wrap.className = "msg bot";
+  wrap.innerHTML = `<span style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);">retrieving context — dense + BM25 → RRF…</span><div class="typing"><i></i><i></i><i></i></div>`;
+  scroll.appendChild(wrap); scroll.scrollTop = scroll.scrollHeight;
+  let fullText = "";
+  try{
+    const resp = await fetch(API + "/api/chat/stream", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ message: text, session_id: sessionId }),
+    });
+    if(!resp.ok || !resp.body) throw new Error("HTTP "+resp.status);
+    await streamChatSSE(resp,
+      token => {
+        fullText += token;
+        wrap.innerHTML = renderMd(fullText);
+        scroll.scrollTop = scroll.scrollHeight;
+      },
+      doneData => {
+        try{
+          const meta = JSON.parse(doneData);
+          sessionId = meta.session_id || sessionId;
+          const sources = meta.sources || [];
+          if(sources.length){
+            const srcs = document.createElement("div"); srcs.className = "srcs";
+            const seen = new Set();
+            sources.forEach((s,i)=>{
+              const k = s.type+":"+s.id; if(seen.has(k)) return; seen.add(k);
+              const chip = document.createElement("span");
+              chip.className = chipClass(s.type);
+              chip.style.animationDelay = (i*.12)+"s";
+              chip.textContent = s.id;
+              chip.title = (s.summary||"") + "\n\nClick to read the quoted passage + open in Qdrant";
+              chip.onclick = ()=>openSource(s);
+              srcs.appendChild(chip);
+            });
+            wrap.innerHTML = renderMd(fullText);
+            wrap.appendChild(srcs);
+          }
+        }catch(_){}
+      });
+    if(!fullText) wrap.innerHTML = "No response from the model — is Ollama running?";
+  }catch(err){
+    wrap.innerHTML = `<span style="color:var(--red)">Connection error: ${escT(err.message)} — is the backend on :5000 up?</span>`;
+  }
+  scroll.scrollTop = scroll.scrollHeight;
+  busy = false;
+}
+
+document.getElementById("send").addEventListener("click",()=>send(inp.value));
+inp.addEventListener("keydown",e=>{ if(e.key==="Enter") send(inp.value); });
+document.querySelectorAll(".sugg button").forEach(b=>b.addEventListener("click",()=>send(b.textContent)));
+function newChat(){
+  if(sessionId) fetch(API + "/api/chat/sessions?session_id=" + sessionId, { method:"DELETE" });
+  sessionId = null;
+  scroll.querySelectorAll(".msg:not(:first-child)").forEach(m=>m.remove());
+  NX.toast("New conversation started");
+}
+
+/* ---- source viewer: chip -> /api/source -> exact passage + Qdrant deep link ---- */
+const QDRANT_UI = `${location.protocol==="file:" ? "http://localhost" : location.protocol+"//"+location.hostname}:6333/dashboard`;
+async function openSource(s){
+  document.getElementById("srcTitle").textContent = s.id || "Source";
+  document.getElementById("srcMeta").textContent = (s.type||"") + (s.score!=null ? ` · score ${s.score}` : "");
+  document.getElementById("srcQuote").textContent = s.summary ? "“"+s.summary.slice(0,300)+"”" : "";
+  document.getElementById("srcBody").textContent = "Loading full indexed content…";
+  document.getElementById("srcPoint").textContent = "";
+  document.getElementById("srcQdrant").href = `${QDRANT_UI}#/collections/wazuh_threat_intel`;
+  NX.openModal("srcModal");
+  try{
+    const resp = await fetch(`${API}/api/source?id=${encodeURIComponent(s.id)}`);
+    if(!resp.ok){
+      document.getElementById("srcBody").textContent = (s.summary||"") + "\n\n(Full indexed content unavailable — showing the retrieved snippet.)";
+      return;
+    }
+    const d = await resp.json();
+    document.getElementById("srcBody").textContent = d.summary || s.summary || "(empty)";
+    document.getElementById("srcMeta").textContent = [d.source_type, d.episode_type, d.collection].filter(Boolean).join(" · ");
+    if(d.point_id) document.getElementById("srcPoint").textContent = `Qdrant point: ${d.point_id}  ·  collection: ${d.collection}`;
+    if(d.qdrant_url) document.getElementById("srcQdrant").href = d.qdrant_url;
+  }catch(err){
+    document.getElementById("srcBody").textContent = (s.summary||"") + `\n\n(Could not reach the server: ${err.message})`;
+  }
+}
+
+/* ---- documents: real /api/knowledge/documents + upload + delete ---- */
+function fmtDate(iso){
+  if(!iso) return "";
+  try{ const d=new Date(iso); return d.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}); }catch{ return iso; }
+}
+async function renderDocs(){
+  const body = document.getElementById("docsBody");
+  try{
+    const resp = await fetch(API + "/api/knowledge/documents");
+    if(!resp.ok) throw new Error((await resp.json()).error || "HTTP "+resp.status);
+    const data = await resp.json();
+    const docs = data.documents || [];
+    document.getElementById("docCount").textContent = docs.length;
+    body.innerHTML = docs.map(d=>`
+      <div class="doc-card">
+        <div style="display:flex;gap:11px;align-items:center;">
+          <div style="width:40px;height:40px;border-radius:11px;display:grid;place-items:center;background:rgba(244,114,182,.14);border:1px solid rgba(244,114,182,.3);font-size:17px;">📄</div>
+          <div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:14px;">${escT(d.title||d.filename)}</div><div class="mono" style="font-size:11px;color:var(--text-dim);">${escT(d.filename||"")}</div></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:12px;color:var(--text-dim);">
+          <span>🕐 ${escT(fmtDate(d.uploaded_at))}</span><span class="badge med">${d.chunks||1} chunks</span>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">${(d.tags||[]).filter(t=>t!=="user_upload").map(t=>`<span class="src-chip doc" style="cursor:default;">${escT(t)}</span>`).join("")}</div>
+        <div style="display:flex;gap:8px;margin-top:12px;">
+          <button class="btn-mini view" onclick='openSource({id:"user_upload/${escT(d.doc_id)}",type:"user_document",summary:""})'>👁 View</button>
+          <button class="btn-mini no" onclick="delDoc('${escT(d.doc_id)}')">🗑 Delete</button>
+        </div>
+      </div>`).join("") || `<p style="color:var(--text-dim)">No documents uploaded yet.</p>`;
+  }catch(err){
+    body.innerHTML = `<p style="color:var(--red)">Could not load documents: ${escT(err.message)}<br><span style="color:var(--text-dim);font-size:12px;">Is Qdrant (Docker) running?</span></p>`;
+    document.getElementById("docCount").textContent = "?";
+  }
+}
+function openDocs(){ document.getElementById("docsSide").classList.add("open"); renderDocs(); }
+async function delDoc(id){
+  try{
+    const resp = await fetch(`${API}/api/knowledge/documents/${encodeURIComponent(id)}`, { method:"DELETE" });
+    if(!resp.ok) throw new Error((await resp.json()).error || "HTTP "+resp.status);
+    NX.toast("Document deleted");
+    renderDocs();
+  }catch(err){ NX.toast("Delete failed: "+err.message); }
+}
+let pendingFile = null;
+async function doUpload(){
+  if(!pendingFile){ NX.toast("Choose a file first"); return; }
+  const title = document.getElementById("docTitle").value.trim();
+  const tags = document.getElementById("docTags").value.trim();
+  const fd = new FormData();
+  fd.append("file", pendingFile);
+  if(title) fd.append("title", title);
+  if(tags) fd.append("tags", tags);
+  NX.toast("Indexing document…");
+  try{
+    const resp = await fetch(API + "/api/knowledge/upload", { method:"POST", body: fd });
+    const d = await resp.json();
+    if(!resp.ok) throw new Error(d.error || "HTTP "+resp.status);
+    NX.closeModal("uploadModal");
+    NX.toast(`✔ Indexed '${d.title}' — ${d.chunks} chunks, ${d.points_added} vectors`);
+    document.getElementById("dropLabel").textContent = "Drop a file here, or click to browse";
+    document.getElementById("docTitle").value = ""; document.getElementById("docTags").value = "";
+    pendingFile = null;
+    renderDocs();
+  }catch(err){ NX.toast("Upload failed: "+err.message, 4000); }
+}
+const drop=document.getElementById("drop"), fileIn=document.getElementById("file");
+fileIn.addEventListener("change",()=>{ if(fileIn.files[0]){ pendingFile=fileIn.files[0]; document.getElementById("dropLabel").textContent="✔ "+pendingFile.name; } });
+["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("drag");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("drag");}));
+drop.addEventListener("drop",e=>{ if(e.dataTransfer.files[0]){ pendingFile=e.dataTransfer.files[0]; document.getElementById("dropLabel").textContent="✔ "+pendingFile.name; } });
+
+/* header doc count on load + deep link from alerts page: ?q=... */
+(async function init(){
+  try{
+    const resp = await fetch(API + "/api/knowledge/documents");
+    if(resp.ok){ const d = await resp.json(); document.getElementById("docCount").textContent = (d.documents||[]).length; }
+  }catch(_){}
+  const q = new URLSearchParams(location.search).get("q");
+  if(q){ history.replaceState(null,"",location.pathname); setTimeout(()=>send(q),400); }
+})();
+</script>
+</body>
+</html>

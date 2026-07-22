@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign in — Selene</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .auth-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .auth-card { width: 100%; max-width: 400px; padding: 36px; }
+  .auth-card h1 { font-size: 26px; margin: 6px 0 4px; }
+  .auth-field { margin-top: 16px; }
+  .auth-field label { display: block; font-family: var(--font-mono); font-size: 11px; letter-spacing: 1.5px; color: var(--text-dim); margin-bottom: 6px; }
+  .auth-field input {
+    width: 100%; padding: 11px 14px; border-radius: 10px;
+    border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04);
+    color: var(--text, #e8ecf8); font-size: 14px; outline: none;
+  }
+  .auth-field input:focus { border-color: rgba(34,211,238,.55); }
+  .auth-err { color: #fb7185; font-size: 13px; margin-top: 14px; min-height: 18px; }
+  .auth-ok  { color: #34d399; }
+  .auth-btn { width: 100%; margin-top: 18px; justify-content: center; }
+  .auth-toggle { margin-top: 18px; text-align: center; font-size: 13px; color: var(--text-dim); }
+  .auth-toggle a { color: var(--cyan, #22d3ee); cursor: pointer; }
+</style>
+</head>
+<body>
+
+<video class="auth-bg-video" autoplay muted loop playsinline preload="metadata" aria-hidden="true"
+       onerror="this.style.display='none'">
+  <source src="assets/hero-bg.mp4" type="video/mp4">
+</video>
+<canvas id="particles"></canvas>
+<div class="aurora"><span></span><span></span><span></span></div>
+<div class="grid-overlay"></div>
+
+<div class="auth-wrap">
+  <div class="card auth-card keyart">
+    <a class="brand" href="landing.html" title="Back to landing page"><span class="logo">◈</span><em>SELENE</em></a>
+    <h1 id="authTitle">Sign in</h1>
+    <p style="font-size:13px;color:var(--text-dim);" id="authSub">Analyst access to the AI Threat Engine.</p>
+
+    <form id="authForm">
+      <div class="auth-field">
+        <label>USERNAME</label>
+        <input id="username" autocomplete="username" required>
+      </div>
+      <div class="auth-field">
+        <label>PASSWORD</label>
+        <input id="password" type="password" autocomplete="current-password" required minlength="8">
+      </div>
+      <div class="auth-err" id="authMsg"></div>
+      <button class="btn btn-primary auth-btn" id="authBtn" type="submit">▶ Sign in</button>
+    </form>
+
+    <div class="auth-toggle" id="toggleLine">
+      No account yet? <a id="toggleLink">Create one</a>
+    </div>
+    <div class="auth-toggle"><a href="landing.html">← Back to the landing page</a></div>
+  </div>
+</div>
+
+<script src="assets/app.js"></script>
+<script>
+let registering = false;
+const $ = id => document.getElementById(id);
+
+// Already signed in? Straight to the dashboard.
+fetch("/api/auth/me").then(r => { if (r.ok) location.href = "/"; }).catch(()=>{});
+
+$("toggleLink").addEventListener("click", () => {
+  registering = !registering;
+  $("authTitle").textContent = registering ? "Create account" : "Sign in";
+  $("authSub").textContent = registering
+    ? "Pick a username and a password of at least 8 characters."
+    : "Analyst access to the AI Threat Engine.";
+  $("authBtn").textContent = registering ? "▶ Create account" : "▶ Sign in";
+  $("toggleLine").firstChild.textContent = registering ? "Already registered? " : "No account yet? ";
+  $("toggleLink").textContent = registering ? "Sign in" : "Create one";
+  $("authMsg").textContent = "";
+});
+
+$("authForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = $("authMsg");
+  msg.className = "auth-err";
+  msg.textContent = "…";
+  const body = JSON.stringify({ username: $("username").value, password: $("password").value });
+  const opts = { method: "POST", headers: { "Content-Type": "application/json" }, body };
+  try {
+    if (registering) {
+      const r = await fetch("/api/auth/register", opts);
+      const d = await r.json();
+      if (!r.ok) { msg.textContent = d.error || "Registration failed"; return; }
+      msg.className = "auth-err auth-ok";
+      msg.textContent = "Account created — signing you in…";
+    }
+    const r = await fetch("/api/auth/login", opts);
+    const d = await r.json();
+    if (!r.ok) { msg.textContent = d.error || "Login failed"; return; }
+    location.href = "/";
+  } catch (err) {
+    msg.textContent = "Backend unreachable — is the server running?";
+  }
+});
+</script>
+</body>
+</html>

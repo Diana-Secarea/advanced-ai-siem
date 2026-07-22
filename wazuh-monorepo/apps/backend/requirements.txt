@@ -1,0 +1,6 @@
+flask>=2.0
+flask-cors>=3.0
+flask-limiter>=3.0
+python-dotenv>=1.0
+stripe>=8.0            # Checkout sessions for the landing-page pricing plans
+faster-whisper>=1.0   # voice-note transcription for chat attachments

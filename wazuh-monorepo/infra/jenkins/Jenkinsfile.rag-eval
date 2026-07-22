@@ -1,0 +1,73 @@
+// AI Engine (RAG) — retrieval quality evaluation pipeline
+//
+// Runs the 82-query retrieval benchmark (hybrid dense+BM25, k=5) against the
+// live Qdrant index and pushes Hit Rate / MRR / Recall / nDCG to Prometheus.
+// Runs nightly so Grafana shows retrieval quality drift over time — e.g.
+// after the CVE agent has been indexing new documents all week.
+
+pipeline {
+    agent { label 'wazuh-host' }
+
+    triggers {
+        cron('H 2 * * *')                 // nightly ~02:00
+    }
+
+    environment {
+        PUSHGATEWAY = 'http://localhost:9091'
+    }
+
+    options {
+        timeout(time: 45, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+        disableConcurrentBuilds()
+    }
+
+    stages {
+        stage('Sanity') {
+            steps {
+                sh '''
+                    test -x wazuh-monorepo/services/ai-engine/venv/bin/python3 \
+                        || { echo "project venv missing on agent"; exit 1; }
+                    # Qdrant must be up — the eval hits the live index
+                    curl -sf http://localhost:6333/collections >/dev/null \
+                        || { echo "Qdrant is not reachable on :6333"; exit 1; }
+                '''
+            }
+        }
+
+        stage('RAG benchmark + push') {
+            steps {
+                sh """
+                    export PUSHGATEWAY=${PUSHGATEWAY}
+                    bash wazuh-monorepo/infra/scripts/run_rag_eval.sh
+                """
+            }
+        }
+
+        stage('Quality gate') {
+            steps {
+                sh '''
+                    wazuh-monorepo/services/ai-engine/venv/bin/python3 - <<'EOF'
+import json, sys
+m = json.load(open("wazuh-monorepo/services/ai-engine/data/eval/rag_metrics.json"))
+o = m["overall"]
+print(f"RAG: hit_rate={o['hit_rate']:.3f} mrr={o['mrr']:.3f} recall@5={o['recall_at_k']:.3f}")
+# Baseline floor: 82.9% hit rate was the accepted thesis benchmark — alert
+# on a serious regression (bad re-index, broken embedder, empty collection).
+if o["hit_rate"] < 0.70:
+    print("QUALITY GATE FAILED — retrieval quality regressed")
+    sys.exit(1)
+print("Quality gate passed")
+EOF
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'wazuh-monorepo/services/ai-engine/data/eval/rag_metrics.json',
+                             allowEmptyArchive: true
+        }
+    }
+}

@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reactor — Selene</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .rx-stat { text-align:center; padding:18px; }
+  .rx-stat .n { font-family:var(--font-display); font-weight:700; font-size:30px; }
+  .rx-stat .l { font-family:var(--font-mono); font-size:10px; letter-spacing:1.5px; color:var(--text-dim); margin-top:4px; }
+  .rx-field { display:flex; flex-direction:column; gap:6px; }
+  .rx-field label { font-family:var(--font-mono); font-size:10px; letter-spacing:1.5px; color:var(--text-dim); }
+  .rx-field input, .rx-field select {
+    padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,.12);
+    background:rgba(255,255,255,.04); color:var(--text,#e8ecf8); font-size:13px; outline:none; width:100%;
+  }
+  .rx-field input:focus, .rx-field select:focus { border-color:rgba(34,211,238,.55); }
+  .inc-row { padding:12px 16px; display:flex; justify-content:space-between; align-items:center; gap:14px; border-left:3px solid var(--amber); }
+  .inc-row.crit { border-left-color:var(--red); }
+  .inc-row.acked { opacity:.55; }
+  .pulse-on { animation: rxpulse 2.2s ease-in-out infinite; }
+  @keyframes rxpulse { 0%,100%{box-shadow:0 0 0 0 rgba(52,211,153,.25);} 50%{box-shadow:0 0 22px 2px rgba(52,211,153,.35);} }
+</style>
+</head>
+<body>
+
+<canvas id="particles"></canvas>
+<div class="aurora"><span></span><span></span><span></span></div>
+<div class="grid-overlay"></div>
+
+<div class="owner-line">⟡ owned by <b>Diana Secarea</b> ⟡</div>
+<nav class="nav">
+  <a class="brand" href="index.html"><span class="logo">◈</span><em>SELENE</em></a>
+  <a class="link" href="index.html">Overview</a>
+  <a class="link" href="alerts.html">Live Alerts</a>
+  <a class="link" href="ml.html">ML Engine</a>
+  <a class="link active" href="reactor.html">Reactor</a>
+  <a class="link" href="chat.html">AI Analyst</a>
+  <a class="link" href="cve-agent.html">CVE Agent</a>
+  <a class="link" href="vectordb.html">Vector DB</a>
+  <span class="spacer"></span>
+  <span class="status-pill"><span class="dot"></span><span id="pillTxt">REACTOR</span></span>
+</nav>
+
+<main class="page wrap">
+
+  <div class="page-head" style="padding:44px 0 12px;">
+    <span class="eyebrow reveal">⚡ AUTONOMOUS RESPONSE</span>
+    <h2 class="section-title reveal" data-delay="1">The engine that <span class="grad-text">acts on its own.</span></h2>
+    <p class="lede reveal" data-delay="2">The reactor tails the alert stream headless — no browser needed — scores every
+    new alert with the full ensemble, and reacts to high-severity verdicts: incident ledger, webhook notification,
+    and (opt-in) real Wazuh active-response firewall blocks.</p>
+  </div>
+
+  <!-- ============ STATUS ============ -->
+  <section style="padding:12px 0 6px;">
+    <div class="card reveal" id="statusCard" style="padding:22px 24px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;">
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+          <h3 style="margin:0;">⚡ Reactor</h3>
+          <span class="badge" id="rxState" style="background:rgba(120,130,150,.2);font-size:13px;">OFF</span>
+          <span class="mono" id="rxSince" style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);"></span>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-primary" id="rxToggle" style="padding:10px 20px;" onclick="rxToggle()">Enable</button>
+          <button class="btn btn-ghost" style="padding:10px 16px;" onclick="rxTest()">Test reaction</button>
+        </div>
+      </div>
+      <div class="grid-3 reveal" style="grid-template-columns:repeat(5,1fr);gap:12px;margin-top:18px;">
+        <div class="card rx-stat"><div class="n" id="cScanned">0</div><div class="l">SCANNED</div></div>
+        <div class="card rx-stat"><div class="n" id="cFired" style="-webkit-text-fill-color:var(--red);">0</div><div class="l">FIRED</div></div>
+        <div class="card rx-stat"><div class="n" id="cNotified" style="-webkit-text-fill-color:var(--cyan);">0</div><div class="l">NOTIFIED</div></div>
+        <div class="card rx-stat"><div class="n" id="cSuppressed" style="-webkit-text-fill-color:var(--amber);">0</div><div class="l">SUPPRESSED</div></div>
+        <div class="card rx-stat"><div class="n" id="cErrors">0</div><div class="l">ERRORS</div></div>
+      </div>
+      <div class="mono" id="rxLastScan" style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin-top:10px;"></div>
+    </div>
+  </section>
+
+  <!-- ============ CONFIG + AR ============ -->
+  <section style="padding:6px 0;">
+    <div style="display:grid;grid-template-columns:1.15fr .85fr;gap:16px;align-items:start;">
+
+      <!-- trigger config -->
+      <div class="card reveal" style="padding:22px 24px;">
+        <h3 style="margin:0 0 4px;">Trigger rules</h3>
+        <p style="font-size:12px;color:var(--text-dim);margin-bottom:16px;">When does a verdict become an incident — applied live, no restart.</p>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;">
+          <div class="rx-field">
+            <label>MIN VERDICT LABEL</label>
+            <select id="cfgLabel">
+              <option value="POSSIBLE">POSSIBLE (most sensitive)</option>
+              <option value="HIGH" selected>HIGH</option>
+              <option value="CRITICAL">CRITICAL (strictest)</option>
+            </select>
+          </div>
+          <div class="rx-field">
+            <label>MIN COMBINED SCORE (0–100)</label>
+            <input id="cfgThreshold" type="number" min="0" max="100" value="0">
+          </div>
+          <div class="rx-field">
+            <label>POLL INTERVAL (SECONDS)</label>
+            <input id="cfgPoll" type="number" min="2" max="120" value="5">
+          </div>
+          <div class="rx-field">
+            <label>DEDUP COOLDOWN (SECONDS)</label>
+            <input id="cfgDedup" type="number" min="0" max="86400" value="300">
+          </div>
+          <div class="rx-field" style="grid-column:1/-1;">
+            <label>WEBHOOK URL (SLACK-COMPATIBLE · OPTIONAL)</label>
+            <input id="cfgWebhook" type="url" placeholder="https://hooks.slack.com/services/…">
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:16px;align-items:center;">
+          <button class="btn btn-primary" style="padding:10px 20px;" onclick="rxSaveConfig()">Save trigger rules</button>
+          <span class="mono" id="cfgSaved" style="font-family:var(--font-mono);font-size:11px;color:var(--green);"></span>
+        </div>
+      </div>
+
+      <!-- active response -->
+      <div class="card reveal" data-delay="1" style="padding:22px 24px;border-color:rgba(251,113,133,.28);">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <h3 style="margin:0;">🛡 Wazuh Active Response</h3>
+          <span class="badge" id="rxArMode" style="background:rgba(120,130,150,.2);">OFF</span>
+        </div>
+        <p style="font-size:12px;color:var(--text-dim);margin:8px 0 14px;">
+          Fires Wazuh's real <span class="mono">execd</span> pipeline → firewall-drop on the source IP of
+          high-severity verdicts. <b>Dry-run</b> logs intent; <b>Arm</b> issues live iptables blocks
+          (public IPs only · never LAN/loopback · auto-unblock on timeout).
+        </p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+          <div class="rx-field">
+            <label>AR COMMAND</label>
+            <select id="cfgArCmd">
+              <option value="firewall-drop">firewall-drop</option>
+              <option value="host-deny">host-deny</option>
+              <option value="route-null">route-null</option>
+              <option value="ip-customblock">ip-customblock</option>
+            </select>
+          </div>
+          <div class="rx-field">
+            <label>AUTO-UNBLOCK (SECONDS)</label>
+            <input id="cfgArTimeout" type="number" min="0" max="86400" value="600">
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;">
+          <button class="btn btn-ghost" id="rxArToggle" style="padding:10px 16px;" onclick="rxArToggle()">Enable AR</button>
+          <button class="btn btn-ghost" id="rxArArm" style="padding:10px 16px;" onclick="rxArArm()">Arm (real block)</button>
+        </div>
+        <div class="mono" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);margin-top:12px;">
+          SAFETY: allow-listed commands only · private/reserved IPs always skipped · dry-run by default when enabled
+        </div>
+      </div>
+    </div>
+
+    <!-- SOAR/EDR reactive actions -->
+    <div class="card reveal" style="padding:22px 24px;margin-top:16px;">
+      <h3 style="margin:0 0 4px;">⚙ Reactive actions <span class="mono" style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);">SOAR/EDR — per action, all opt-in</span></h3>
+      <p style="font-size:12px;color:var(--text-dim);margin-bottom:14px;">On every incident the reactor can investigate and contain, like an analyst + EDR would. Blocking actions target public IPs only and default to dry-run.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
+        <div class="card" style="padding:14px 16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <b style="font-size:13px;">🔎 Host triage</b>
+            <span class="badge" id="axTriage" style="background:rgba(120,130,150,.2);">OFF</span>
+          </div>
+          <p style="font-size:11px;color:var(--text-dim);margin:8px 0;">Read-only: connections for the src IP, recent auth failures, listening ports. Always safe.</p>
+          <button class="btn-mini" id="axTriageBtn" onclick="axToggle('triage')">Enable</button>
+        </div>
+        <div class="card" style="padding:14px 16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <b style="font-size:13px;">⛔ Block IP</b>
+            <span class="badge" id="axBlock" style="background:rgba(120,130,150,.2);">OFF</span>
+          </div>
+          <p style="font-size:11px;color:var(--text-dim);margin:8px 0;">Firewall-drop the source IP (nftables/iptables) with auto-expiry. Dry-run logs intent.</p>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn-mini" id="axBlockBtn" onclick="axToggle('block_ip')">Enable</button>
+            <button class="btn-mini" id="axBlockArm" onclick="axArmBlock()">Arm</button>
+          </div>
+        </div>
+        <div class="card" style="padding:14px 16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <b style="font-size:13px;">🦠 Host scan</b>
+            <span class="badge" id="axScan" style="background:rgba(120,130,150,.2);">OFF</span>
+          </div>
+          <p style="font-size:11px;color:var(--text-dim);margin:8px 0;">Trigger Wazuh rootcheck/syscheck on the affected host — the AV-style "scan now".</p>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn-mini" id="axScanBtn" onclick="axToggle('scan')">Enable</button>
+            <button class="btn-mini" id="axScanArm" onclick="axArmScan()">Arm</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ INCIDENTS ============ -->
+  <section style="padding:10px 0 24px;">
+    <div class="card reveal" style="padding:22px 24px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px;">
+        <h3 style="margin:0;">🚨 Incident ledger <span class="mono" id="incCount" style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);"></span></h3>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <a class="btn btn-ghost" style="padding:9px 14px;font-size:12px;" href="/api/reactor/incidents/export" download>⬇ Export ledger</a>
+          <button class="btn btn-ghost" style="padding:9px 14px;font-size:12px;" onclick="rxClear()">Clear list</button>
+        </div>
+      </div>
+      <div id="incList" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+  </section>
+
+  <footer class="footer"><b>SELENE</b> · the reactor scores with the same IF + AE + UEBA ensemble as the dashboard — one engine, one verdict</footer>
+</main>
+
+<script src="assets/app.js"></script>
+<script>
+const API = "";
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let rxEnabled = false, rxArState = "off", cfgDirty = false;
+
+["cfgLabel","cfgThreshold","cfgPoll","cfgDedup","cfgWebhook","cfgArCmd","cfgArTimeout"]
+  .forEach(id => document.getElementById(id).addEventListener("input", ()=>{ cfgDirty = true; }));
+
+function badgeCls(l){ return (l==="CRITICAL"||l==="HIGH") ? "crit" : l==="POSSIBLE" ? "high" : "low"; }
+
+async function loadStatus(){
+  try{
+    const s = await (await fetch(API+"/api/reactor/status")).json();
+    rxEnabled = !!s.enabled;
+    const active = s.enabled && s.running;
+    const st = document.getElementById("rxState");
+    st.textContent = active ? "ACTIVE" : (s.enabled ? "STARTING" : "OFF");
+    st.style.background = active ? "rgba(52,211,153,.25)" : "rgba(120,130,150,.2)";
+    st.style.color = active ? "var(--green)" : "var(--text-soft)";
+    document.getElementById("statusCard").classList.toggle("pulse-on", active);
+    document.getElementById("pillTxt").textContent = active ? "REACTOR LIVE" : "REACTOR OFF";
+    document.getElementById("rxToggle").textContent = s.enabled ? "Disable" : "Enable";
+    document.getElementById("rxSince").textContent =
+      (s.started_at && s.enabled) ? `since ${s.started_at}` : "";
+    document.getElementById("rxLastScan").textContent =
+      s.last_scan ? `last scan ${s.last_scan} · dedup ${s.dedup_seconds}s · webhook ${s.webhook_configured ? "configured" : "not set"}` : "";
+    const c = s.counts || {};
+    for (const [id, k] of [["cScanned","scanned"],["cFired","fired"],["cNotified","notified"],["cSuppressed","suppressed"],["cErrors","errors"]])
+      document.getElementById(id).textContent = c[k] || 0;
+
+    // fill config fields unless the analyst is mid-edit
+    if (!cfgDirty){
+      document.getElementById("cfgLabel").value = s.min_label || "HIGH";
+      document.getElementById("cfgThreshold").value = s.threshold ?? 0;
+      document.getElementById("cfgPoll").value = s.poll_seconds ?? 5;
+      document.getElementById("cfgDedup").value = s.dedup_seconds ?? 300;
+      document.getElementById("cfgArCmd").value = s.wazuh_ar_command || "firewall-drop";
+      document.getElementById("cfgArTimeout").value = s.wazuh_ar_timeout ?? 600;
+    }
+
+    rxArState = s.wazuh_ar_mode || "off";
+    const am = document.getElementById("rxArMode");
+    am.textContent = rxArState.toUpperCase();
+    am.style.background = rxArState==="armed" ? "rgba(251,113,133,.25)" : rxArState==="dry-run" ? "rgba(251,191,36,.2)" : "rgba(120,130,150,.2)";
+    am.style.color = rxArState==="armed" ? "var(--red)" : rxArState==="dry-run" ? "var(--amber)" : "var(--text-soft)";
+    document.getElementById("rxArToggle").textContent = rxArState==="off" ? "Enable AR" : "Disable AR";
+    const armBtn = document.getElementById("rxArArm");
+    armBtn.textContent = rxArState==="armed" ? "Disarm (dry-run)" : "Arm (real block)";
+    armBtn.disabled = rxArState==="off";
+    armBtn.style.opacity = rxArState==="off" ? .4 : 1;
+
+    // SOAR/EDR reactive-action badges
+    axBadge("axTriage", "axTriageBtn", s.triage, false);
+    const blkMode = !s.block_ip ? "off" : (s.block_ip_dryrun ? "dry-run" : "armed");
+    axBadge("axBlock", "axBlockBtn", s.block_ip, blkMode==="armed");
+    document.getElementById("axBlockArm").textContent = blkMode==="armed" ? "Disarm" : "Arm";
+    const scanMode = !s.scan ? "off" : (s.scan_dryrun ? "dry-run" : "armed");
+    axBadge("axScan", "axScanBtn", s.scan, scanMode==="armed");
+    document.getElementById("axScanArm").textContent = scanMode==="armed" ? "Disarm" : "Arm";
+  }catch(e){ /* backend offline */ }
+}
+
+function axBadge(badgeId, btnId, on, armed){
+  const b = document.getElementById(badgeId);
+  b.textContent = !on ? "OFF" : (armed ? "ARMED" : "DRY-RUN");
+  b.style.background = !on ? "rgba(120,130,150,.2)" : armed ? "rgba(251,113,133,.25)" : "rgba(251,191,36,.2)";
+  b.style.color = !on ? "var(--text-soft)" : armed ? "var(--red)" : "var(--amber)";
+  document.getElementById(btnId).textContent = on ? "Disable" : "Enable";
+}
+async function axSend(body){
+  await fetch(API+"/api/reactor/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  refresh();
+}
+async function axToggle(action){
+  const cur = await (await fetch(API+"/api/reactor/status")).json();
+  await axSend({[action]: !cur[action]});
+  NX.toast((!cur[action]?"Enabled":"Disabled")+" · "+action.replace("_"," "));
+}
+async function axArmBlock(){
+  const cur = await (await fetch(API+"/api/reactor/status")).json();
+  const arm = !(cur.block_ip && !cur.block_ip_dryrun);
+  if(arm && !confirm("Arm live IP blocking?\n\nHigh-severity verdicts will issue REAL firewall drops on public source IPs (auto-expire on TTL). Continue?")) return;
+  await axSend({block_ip:true, block_ip_dryrun:!arm});
+  NX.toast(arm?"⚠ IP blocking ARMED":"IP blocking → dry-run");
+}
+async function axArmScan(){
+  const cur = await (await fetch(API+"/api/reactor/status")).json();
+  const arm = !(cur.scan && !cur.scan_dryrun);
+  if(arm && !confirm("Arm live host scans?\n\nHigh-severity verdicts will trigger Wazuh rootcheck/syscheck on the affected host. Continue?")) return;
+  await axSend({scan:true, scan_dryrun:!arm});
+  NX.toast(arm?"⚠ Host scan ARMED":"Host scan → dry-run");
+}
+
+async function loadIncidents(){
+  try{
+    const d = await (await fetch(API+"/api/reactor/incidents?limit=50")).json();
+    const inc = d.incidents || [];
+    document.getElementById("incCount").textContent = inc.length ? `· ${inc.length} shown` : "";
+    document.getElementById("incList").innerHTML = inc.length ? inc.map(i=>`
+      <div class="card inc-row ${(i.label==='CRITICAL')?'crit':''} ${i.ack?'acked':''}">
+        <div style="min-width:0;">
+          <div style="font-size:13px;">
+            <span class="badge ${badgeCls(i.label)}">${esc(i.label)}</span>
+            <b>${i.score}/100</b> · rule ${esc(i.rule_id)} — ${esc(i.rule_desc)}
+          </div>
+          <div class="mono" style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin-top:4px;">
+            ${esc(i.detected_at)}
+            ${i.srcip?('· src '+esc(i.srcip)):''} ${i.agent?('· '+esc(i.agent)):''}
+            · IF ${i.if_score ?? "—"} / AE ${i.ae_score ?? "—"} / UEBA ${i.ueba_score ?? "—"}
+            ${(i.mitre||[]).length?('· '+i.mitre.map(esc).join(' ')):''}
+          </div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;">
+            ${(i.reactions||[]).map(r=>`<span class="badge ${r.endsWith(':ok')||r.includes('ran')||r.includes('blocked')?'low':r.includes('error')?'crit':'med'}" style="font-size:10px;">${esc(r)}</span>`).join("")}
+          </div>
+        </div>
+        <div style="flex-shrink:0;">
+          ${i.ack ? '<span class="mono" style="font-family:var(--font-mono);font-size:10px;color:var(--green);">✓ ACK</span>'
+                  : `<button class="btn-mini ok" onclick="rxAck('${esc(i.id)}')">Acknowledge</button>`}
+        </div>
+      </div>`).join("")
+      : `<div style="font-size:12px;color:var(--text-dim);">No incidents ${rxEnabled?"— reactor is watching the stream…":"— reactor is off."}</div>`;
+  }catch(e){ /* offline */ }
+}
+
+async function rxToggle(){
+  try{
+    const s = await (await fetch(API+"/api/reactor/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({enabled:!rxEnabled})})).json();
+    NX.toast(s.enabled ? "Reactor enabled — watching the stream ⚡" : "Reactor disabled");
+    refresh();
+  }catch(e){ NX.toast("Reactor toggle failed"); }
+}
+
+async function rxSaveConfig(){
+  const body = {
+    min_label:  document.getElementById("cfgLabel").value,
+    threshold:  +document.getElementById("cfgThreshold").value,
+    poll_seconds: +document.getElementById("cfgPoll").value,
+    dedup_seconds: +document.getElementById("cfgDedup").value,
+    wazuh_ar_command: document.getElementById("cfgArCmd").value,
+    wazuh_ar_timeout: +document.getElementById("cfgArTimeout").value,
+  };
+  const wh = document.getElementById("cfgWebhook").value.trim();
+  if (wh) body.webhook_url = wh;
+  try{
+    await fetch(API+"/api/reactor/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    cfgDirty = false;
+    document.getElementById("cfgSaved").textContent = "saved ✓";
+    setTimeout(()=>document.getElementById("cfgSaved").textContent="", 2500);
+    NX.toast("Trigger rules updated — applied live");
+    refresh();
+  }catch(e){ NX.toast("Save failed"); }
+}
+
+async function rxTest(){
+  try{
+    await fetch(API+"/api/reactor/test",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
+    NX.toast("Fired a test incident through all reaction channels");
+    refresh();
+  }catch(e){ NX.toast("Reactor test failed"); }
+}
+
+async function rxAck(id){
+  try{
+    await fetch(API+`/api/reactor/incidents/${id}/ack`,{method:"POST"});
+    loadIncidents();
+  }catch(e){ NX.toast("Ack failed"); }
+}
+
+async function rxClear(){
+  if(!confirm("Clear the incident list?\n\nThe on-disk ledger (audit trail) is kept — this only empties the live view.")) return;
+  try{
+    await fetch(API+"/api/reactor/incidents/clear",{method:"POST"});
+    NX.toast("Incident list cleared (ledger file kept)");
+    loadIncidents();
+  }catch(e){ NX.toast("Clear failed"); }
+}
+
+async function rxArToggle(){
+  const enable = rxArState==="off";
+  try{
+    await fetch(API+"/api/reactor/config",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({wazuh_ar:enable, wazuh_ar_dryrun:true})});
+    NX.toast(enable ? "Wazuh AR enabled (dry-run — logs intent, no block yet)" : "Wazuh AR disabled");
+    refresh();
+  }catch(e){ NX.toast("Wazuh AR toggle failed"); }
+}
+
+async function rxArArm(){
+  const arm = rxArState!=="armed";
+  if(arm && !confirm("Arm live Wazuh active-response?\n\nHigh-severity verdicts will issue REAL iptables firewall-drop blocks (via execd) on public source IPs. Blocks auto-expire on the timeout. Continue?")) return;
+  try{
+    await fetch(API+"/api/reactor/config",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({wazuh_ar:true, wazuh_ar_dryrun:!arm})});
+    NX.toast(arm ? "⚠ Wazuh AR ARMED — live firewall blocks active" : "Wazuh AR back to dry-run");
+    refresh();
+  }catch(e){ NX.toast("Arm failed"); }
+}
+
+function refresh(){ loadStatus(); loadIncidents(); }
+window.addEventListener("load", ()=>{ refresh(); setInterval(refresh, 4000); });
+</script>
+</body>
+</html>

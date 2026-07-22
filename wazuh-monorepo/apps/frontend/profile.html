@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profile — Selene</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .pf-avatar { width:120px; height:120px; border-radius:50%; object-fit:cover;
+    border:2px solid rgba(34,211,238,.5); background:rgba(255,255,255,.05);
+    display:grid; place-items:center; font-size:44px; }
+  .pf-field { display:flex; flex-direction:column; gap:6px; margin-top:14px; }
+  .pf-field label { font-family:var(--font-mono); font-size:10px; letter-spacing:1.5px; color:var(--text-dim); }
+  .pf-field input, .pf-field select, .pf-field textarea {
+    padding:11px 13px; border-radius:10px; border:1px solid rgba(255,255,255,.12);
+    background:rgba(255,255,255,.04); color:var(--text,#e8ecf8); font-size:13px; outline:none; width:100%;
+    font-family:inherit; }
+  .pf-field input:focus, .pf-field select:focus, .pf-field textarea:focus { border-color:rgba(34,211,238,.55); }
+  .tk-row { padding:12px 16px; border-left:3px solid var(--cyan); }
+  .tk-row.high, .tk-row.critical { border-left-color:var(--red); }
+  .tk-row.closed { opacity:.55; }
+</style>
+</head>
+<body>
+
+<canvas id="particles"></canvas>
+<div class="aurora"><span></span><span></span><span></span></div>
+<div class="grid-overlay"></div>
+
+<div class="owner-line">⟡ owned by <b>Diana Secarea</b> ⟡</div>
+<nav class="nav">
+  <a class="brand" href="index.html"><span class="logo">◈</span><em>SELENE</em></a>
+  <a class="link" href="index.html">Overview</a>
+  <a class="link" href="alerts.html">Live Alerts</a>
+  <a class="link" href="ml.html">ML Engine</a>
+  <a class="link" href="reactor.html">Reactor</a>
+  <a class="link" href="chat.html">AI Analyst</a>
+  <a class="link" href="cve-agent.html">CVE Agent</a>
+  <a class="link" href="vectordb.html">Vector DB</a>
+  <span class="spacer"></span>
+  <span class="status-pill"><span class="dot"></span>PROFILE</span>
+</nav>
+
+<main class="page wrap">
+  <div class="page-head" style="padding:44px 0 12px;">
+    <span class="eyebrow reveal">👤 ACCOUNT</span>
+    <h2 class="section-title reveal" data-delay="1">Your <span class="grad-text">profile.</span></h2>
+  </div>
+
+  <section style="padding:8px 0;">
+    <div style="display:grid;grid-template-columns:.9fr 1.1fr;gap:16px;align-items:start;">
+
+      <!-- profile card -->
+      <div class="card reveal" style="padding:24px;">
+        <div style="display:flex;gap:20px;align-items:center;">
+          <div style="position:relative;">
+            <img class="pf-avatar" id="avatarImg" src="" alt="" style="display:none;">
+            <div class="pf-avatar" id="avatarFallback">👤</div>
+          </div>
+          <div>
+            <h3 id="pfName" style="margin:0;">…</h3>
+            <div class="mono" id="pfRole" style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin-top:4px;"></div>
+            <label class="btn btn-ghost" style="padding:8px 14px;font-size:12px;margin-top:10px;display:inline-block;cursor:pointer;">
+              📷 Upload picture <input type="file" id="avatarFile" accept="image/*" style="display:none;">
+            </label>
+          </div>
+        </div>
+        <div class="pf-field">
+          <label>EMAIL</label>
+          <input id="pfEmail" type="email" placeholder="you@example.com">
+        </div>
+        <div class="pf-field">
+          <label>ORGANISATION</label>
+          <input id="pfOrg" placeholder="e.g. University / SOC team">
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:16px;">
+          <button class="btn btn-primary" style="padding:10px 20px;" onclick="saveProfile()">Save profile</button>
+          <span class="mono" id="pfSaved" style="font-family:var(--font-mono);font-size:11px;color:var(--green);"></span>
+        </div>
+        <div class="mono" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);margin-top:14px;">
+          Stored in backend/users.db · avatar kept as an embedded image (≤300 KB)
+        </div>
+      </div>
+
+      <!-- ticket card -->
+      <div class="card reveal" data-delay="1" style="padding:24px;">
+        <h3 style="margin:0 0 4px;">🎫 Raise a ticket</h3>
+        <p style="font-size:12px;color:var(--text-dim);">Goes straight to <b id="tkEmailTo">the platform owner</b> by email, and is tracked below.</p>
+        <div style="display:grid;grid-template-columns:1fr 160px;gap:14px;">
+          <div class="pf-field">
+            <label>SUBJECT</label>
+            <input id="tkSubject" placeholder="What's wrong / what do you need?">
+          </div>
+          <div class="pf-field">
+            <label>SEVERITY</label>
+            <select id="tkSeverity">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+          </div>
+        </div>
+        <div class="pf-field">
+          <label>DESCRIPTION</label>
+          <textarea id="tkBody" rows="5" placeholder="Steps, alert IDs, screenshots links — anything that helps."></textarea>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:16px;">
+          <button class="btn btn-primary" style="padding:10px 20px;" onclick="sendTicket()">Send ticket</button>
+          <span class="mono" id="tkSent" style="font-family:var(--font-mono);font-size:11px;color:var(--green);"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- my tickets -->
+  <section style="padding:14px 0 30px;">
+    <div class="card reveal" style="padding:22px 24px;">
+      <h3 style="margin:0 0 14px;">📋 My tickets <span class="mono" id="tkCount" style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);"></span></h3>
+      <div id="tkList" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+  </section>
+
+  <footer class="footer"><b>SELENE</b> · accounts in backend/users.db · tickets emailed + tracked</footer>
+</main>
+
+<script src="assets/app.js"></script>
+<script>
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+async function loadProfile(){
+  try{
+    const r = await fetch("/api/profile");
+    if(!r.ok) return;
+    const p = (await r.json()).profile || {};
+    document.getElementById("pfName").textContent = p.username || "?";
+    document.getElementById("pfRole").textContent = `${(p.role||"analyst").toUpperCase()} · joined ${(p.created_at||"").slice(0,10)}`;
+    document.getElementById("pfEmail").value = p.email || "";
+    document.getElementById("pfOrg").value = p.organisation || "";
+    if (p.avatar){
+      const img = document.getElementById("avatarImg");
+      img.src = p.avatar; img.style.display = "block";
+      document.getElementById("avatarFallback").style.display = "none";
+    }
+  }catch(_){}
+}
+
+async function saveProfile(){
+  try{
+    await fetch("/api/profile", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ email: document.getElementById("pfEmail").value,
+                             organisation: document.getElementById("pfOrg").value })});
+    document.getElementById("pfSaved").textContent = "saved ✓";
+    setTimeout(()=>document.getElementById("pfSaved").textContent="", 2500);
+    NX.toast("Profile saved");
+  }catch(_){ NX.toast("Save failed"); }
+}
+
+document.getElementById("avatarFile").addEventListener("change", async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  // downscale to 256px so the stored data-URI stays small
+  const img = new Image();
+  img.onload = async () => {
+    const c = document.createElement("canvas");
+    const s = Math.min(256 / img.width, 256 / img.height, 1);
+    c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    const dataUri = c.toDataURL("image/jpeg", 0.85);
+    try{
+      const r = await fetch("/api/profile/avatar", {method:"POST",
+        headers:{"Content-Type":"application/json"}, body: JSON.stringify({avatar: dataUri})});
+      if(!r.ok){ NX.toast((await r.json()).error || "Upload failed"); return; }
+      NX.toast("Picture updated 📷");
+      loadProfile();
+    }catch(_){ NX.toast("Upload failed"); }
+  };
+  img.src = URL.createObjectURL(file);
+});
+
+async function sendTicket(){
+  const subject = document.getElementById("tkSubject").value.trim();
+  const body = document.getElementById("tkBody").value.trim();
+  if(!subject || !body){ NX.toast("Subject and description are required"); return; }
+  try{
+    const r = await fetch("/api/tickets", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({subject, body, severity: document.getElementById("tkSeverity").value})});
+    const d = await r.json();
+    if(!r.ok){ NX.toast(d.error || "Ticket failed"); return; }
+    document.getElementById("tkSubject").value = ""; document.getElementById("tkBody").value = "";
+    document.getElementById("tkSent").textContent = `#${d.ticket.id} sent → ${d.email_to}`;
+    setTimeout(()=>document.getElementById("tkSent").textContent="", 4000);
+    NX.toast(`Ticket #${d.ticket.id} raised 🎫`);
+    loadTickets();
+  }catch(_){ NX.toast("Ticket failed"); }
+}
+
+function emailBadge(s){
+  if(s === "sent") return '<span class="badge low">emailed ✓</span>';
+  if(s === "pending") return '<span class="badge med">emailing…</span>';
+  if((s||"").startsWith("unconfigured")) return '<span class="badge med" title="set SMTP_HOST / SMTP_USER / SMTP_PASS">stored · email not configured</span>';
+  return `<span class="badge crit" title="${esc(s)}">email failed</span>`;
+}
+
+async function loadTickets(){
+  try{
+    const r = await fetch("/api/tickets");
+    if(!r.ok) return;
+    const d = await r.json();
+    document.getElementById("tkEmailTo").textContent = d.email_to || "the platform owner";
+    const tks = d.tickets || [];
+    document.getElementById("tkCount").textContent = tks.length ? `· ${tks.length}` : "";
+    document.getElementById("tkList").innerHTML = tks.length ? tks.map(t=>`
+      <div class="card tk-row ${esc(t.severity)} ${esc(t.status)}">
+        <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+          <div style="font-size:13px;"><b>#${t.id}</b> ${esc(t.subject)}
+            <span class="badge ${t.severity==="critical"||t.severity==="high"?"crit":t.severity==="medium"?"med":"low"}">${esc(t.severity)}</span>
+            <span class="badge ${t.status==="closed"?"low":"high"}">${esc(t.status)}</span>
+            ${emailBadge(t.email_status)}
+          </div>
+          <div class="mono" style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);">${esc((t.created_at||"").replace("T"," ").slice(0,16))} · ${esc(t.username)}</div>
+        </div>
+        <div style="font-size:12px;color:var(--text-soft);margin-top:6px;white-space:pre-wrap;">${esc(t.body)}</div>
+      </div>`).join("")
+      : '<div style="font-size:12px;color:var(--text-dim);">No tickets yet.</div>';
+  }catch(_){}
+}
+
+loadProfile(); loadTickets();
+setInterval(loadTickets, 20000);
+</script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+# nginx reverse proxy for the Wazuh AI backend.
+# Key detail: SSE chat streaming needs buffering OFF on the stream route,
+# otherwise nginx holds tokens and the "streaming" UI arrives all at once.
+#
+#   sudo cp nginx.conf.sample /etc/nginx/sites-available/wazuh-ai
+#   sudo ln -s /etc/nginx/sites-available/wazuh-ai /etc/nginx/sites-enabled/
+#   # add your TLS certs (certbot/letsencrypt), then: sudo nginx -t && sudo systemctl reload nginx
+
+server {
+    listen 443 ssl http2;
+    server_name yourdomain.example;
+
+    ssl_certificate     /etc/letsencrypt/live/yourdomain.example/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/yourdomain.example/privkey.pem;
+
+    # Uploads up to 5 MB (matches the backend's MAX_CONTENT_LENGTH)
+    client_max_body_size 6m;
+
+    # SSE streaming endpoints — buffering MUST be off for token-by-token delivery
+    location ~ ^/api/chat/stream|^/api/test-shield {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 300s;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+# Redirect HTTP → HTTPS
+server {
+    listen 80;
+    server_name yourdomain.example;
+    return 301 https://$host$request_uri;
+}

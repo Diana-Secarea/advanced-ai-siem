@@ -1,0 +1,109 @@
+// Model promotion pipeline — dev → staging → production
+//
+// The three environments are model REGISTRIES plus env configs
+// (wazuh-monorepo/infra/environments/*.env):
+//
+//   dev         data/ai_models            training output, anything goes
+//   staging     wazuh-monorepo/infra/registry/staging   promoted candidates, prod-like validation
+//   production  /var/ossec/ai_models      what the live server scores with
+//
+// Flow: evaluate the DEV candidates → quality gate → promote to STAGING →
+// re-evaluate FROM the staging registry (proves the copied artifacts work) →
+// MANUAL APPROVAL → promote to PRODUCTION.
+//
+// Create as a Pipeline job (script from SCM, path: wazuh-monorepo/infra/jenkins/Jenkinsfile.promote).
+// Typically run after a green ml-retrain build.
+
+pipeline {
+    agent { label 'wazuh-host' }
+
+    parameters {
+        choice(name: 'TARGET', choices: ['staging', 'production'],
+               description: 'staging: dev→staging only. production: full dev→staging→production flow with approval.')
+    }
+
+    environment {
+        PY = 'wazuh-monorepo/services/ai-engine/venv/bin/python3'
+    }
+
+    options {
+        timeout(time: 1, unit: 'HOURS')
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+        disableConcurrentBuilds()
+    }
+
+    stages {
+        stage('Evaluate dev candidates') {
+            steps {
+                sh '''
+                    AI_MODELS_DIR="$WORKSPACE/wazuh-monorepo/services/ai-engine/data/ai_models" \
+                    $PY wazuh-monorepo/infra/scripts/ml_eval_metrics.py \
+                        --out wazuh-monorepo/services/ai-engine/data/eval/promote_dev.json
+                '''
+            }
+        }
+
+        stage('Quality gate (dev)') {
+            steps {
+                sh '''
+                    $PY - <<'EOF'
+import json, sys
+m = json.load(open("wazuh-monorepo/services/ai-engine/data/eval/promote_dev.json"))
+ens = m["models"]["ensemble"]
+print(f"DEV candidates: F1={ens['f1']:.3f} recall={ens['recall']:.3f} fpr={ens['fpr']:.3f}")
+if ens["f1"] < 0.60 or ens["fpr"] > 0.15:
+    print("GATE FAILED — dev models not good enough to promote"); sys.exit(1)
+EOF
+                '''
+            }
+        }
+
+        stage('Promote dev → staging') {
+            steps {
+                sh 'bash wazuh-monorepo/infra/scripts/promote_models.sh dev staging'
+            }
+        }
+
+        stage('Validate staging registry') {
+            steps {
+                sh '''
+                    AI_MODELS_DIR="$WORKSPACE/wazuh-monorepo/infra/registry/staging" \
+                    $PY wazuh-monorepo/infra/scripts/ml_eval_metrics.py \
+                        --out wazuh-monorepo/services/ai-engine/data/eval/promote_staging.json
+                    $PY - <<'EOF'
+import json, sys
+m = json.load(open("wazuh-monorepo/services/ai-engine/data/eval/promote_staging.json"))
+ens = m["models"]["ensemble"]
+print(f"STAGING registry: F1={ens['f1']:.3f} recall={ens['recall']:.3f} fpr={ens['fpr']:.3f}")
+if ens["f1"] < 0.60 or ens["fpr"] > 0.15:
+    print("GATE FAILED — staged artifacts do not reproduce dev quality"); sys.exit(1)
+EOF
+                '''
+            }
+        }
+
+        stage('Approve production deploy') {
+            when { expression { params.TARGET == 'production' } }
+            steps {
+                // Human sign-off — nothing reaches the live scorer without it.
+                input message: 'Staging validated. Deploy these models to PRODUCTION (/var/ossec/ai_models)?',
+                      ok: 'Deploy to production'
+            }
+        }
+
+        stage('Promote staging → production') {
+            when { expression { params.TARGET == 'production' } }
+            steps {
+                sh 'bash wazuh-monorepo/infra/scripts/promote_models.sh staging production'
+                echo 'Restart the production server (or wait for its next model reload) to pick the new artifacts up.'
+            }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'wazuh-monorepo/services/ai-engine/data/eval/promote_*.json',
+                             allowEmptyArchive: true
+        }
+    }
+}

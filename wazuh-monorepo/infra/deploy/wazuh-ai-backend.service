@@ -1,0 +1,37 @@
+# systemd unit for the Wazuh AI backend (waitress production server).
+#
+# Install:
+#   sudo cp wazuh-ai-backend.service /etc/systemd/system/
+#   sudo cp wazuh-ai-backend.env    /etc/wazuh-ai/backend.env   # edit secrets first!
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now wazuh-ai-backend
+#
+# Logs:   journalctl -u wazuh-ai-backend -f      (also files in apps/backend/logs/)
+# Health: curl http://127.0.0.1:5000/health
+
+[Unit]
+Description=Wazuh AI Threat Engine — backend (waitress)
+After=network-online.target docker.service
+Wants=network-online.target
+# Qdrant + Postgres run as docker containers; Ollama as its own service.
+
+[Service]
+Type=simple
+# Root is required to read /var/ossec/logs/alerts and to run active-response.
+# The app drops no privileges itself; keep the network binding on loopback and
+# put a reverse proxy in front for anything beyond localhost.
+User=root
+WorkingDirectory=/home/sek/wazuh/wazuh-monorepo/apps/backend
+EnvironmentFile=/etc/wazuh-ai/backend.env
+ExecStart=/home/sek/wazuh/wazuh-monorepo/services/ai-engine/venv/bin/python wsgi.py
+Restart=on-failure
+RestartSec=5
+# Give SSE streams + model warm-up time on shutdown
+TimeoutStopSec=30
+# Basic hardening
+NoNewPrivileges=false
+ProtectSystem=full
+ReadWritePaths=/home/sek/wazuh/wazuh-monorepo /var/ossec
+
+[Install]
+WantedBy=multi-user.target

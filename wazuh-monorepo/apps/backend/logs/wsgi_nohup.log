@@ -1,0 +1,17 @@
+2026-07-17T17:26:34 INFO    [backend] Logging initialized (level=INFO, dir=/home/sek/wazuh/wazuh-monorepo/apps/backend/logs)
+2026-07-17T17:26:35 INFO    [backend] Production WSGI startup (waitress)
+2026-07-17T17:26:35 INFO    [reactor] Restored 19 incidents from ledger
+2026-07-17T17:26:35 INFO    [agent] Autostart scheduler running (every 24h)
+2026-07-17T17:26:35 INFO    [backend] waitress serving on 127.0.0.1:5000 (8 threads)
+2026-07-17T17:26:35 INFO    [waitress] Serving on http://127.0.0.1:5000
+2026-07-17T17:28:05 INFO    [agent] Auto-run starting (source=all)
+/home/sek/wazuh/wazuh-monorepo/services/ai-engine/venv/lib/python3.13/site-packages/sklearn/utils/parallel.py:161: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x78aa4b6d3f10>
+  for k, v in zip(warning_filter_keys, filter_args)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/sek/wazuh/wazuh-monorepo/services/ai-engine/venv/lib/python3.13/site-packages/sklearn/utils/parallel.py:161: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x78aa4b70f790>
+  for k, v in zip(warning_filter_keys, filter_args)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+2026-07-17T17:31:51 INFO    [waitress] Client disconnected while serving /assets/hero-bg.mp4
+2026-07-17T17:49:35 INFO    [waitress] Client disconnected while serving /assets/hero-bg.mp4
+/home/sek/wazuh/wazuh-monorepo/apps/backend/auth.py:94: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  return datetime.datetime.utcnow()

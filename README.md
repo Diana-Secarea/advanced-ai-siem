@@ -68,7 +68,7 @@ fetch  →  dedup  →  boost  →  score  →  act  →  log
 
 - **Log** every per-CVE decision and a per-run rollup to PostgreSQL.
 
-It is an **agentic scheduled workflow**, not an autonomous agent: control flow is fixed and the only reasoning step is the bounded relevance score — chosen for reproducibility and auditability. See `ai_threat_engine_starter/scheduled_agent/README.md` for full details, and `ai_threat_engine_starter/docs/Scheduled_CVE_Agent_ETH.docx` for the thesis chapter.
+It is an **agentic scheduled workflow**, not an autonomous agent: control flow is fixed and the only reasoning step is the bounded relevance score — chosen for reproducibility and auditability. See `wazuh-monorepo/services/ai-engine/scheduled_agent/README.md` for full details, and `wazuh-monorepo/services/ai-engine/docs/Scheduled_CVE_Agent_ETH.docx` for the thesis chapter.
 
 ### Web dashboard
 
@@ -134,7 +134,7 @@ The detectors extract **16 features** from each Wazuh alert:
 
 ```
 wazuh/                                  # fork of the Wazuh source + AI components
-├── backend/
+├── wazuh-monorepo/apps/backend/
 │   ├── server.py                       # Flask API: alerts, chat, vector-db, CVE-agent endpoints
 │   ├── start_server.sh                 # launches Docker (Qdrant+Postgres), Ollama, Flask
 │   └── .env                            # secrets (git-ignored)
@@ -142,7 +142,7 @@ wazuh/                                  # fork of the Wazuh source + AI componen
 │   ├── index.html  alerts.html  chat.html
 │   ├── vectordb.html                   # Qdrant monitoring dashboard
 │   └── cve-agent.html                  # CVE ingestion agent dashboard
-└── ai_threat_engine_starter/
+└── wazuh-monorepo/services/ai-engine/
     ├── ai_engine/
     │   └── anomaly_detector.py         # Isolation Forest detector
     ├── autoencoders_approach/
@@ -185,7 +185,7 @@ wazuh/                                  # fork of the Wazuh source + AI componen
 ### Setup
 
 ```bash
-cd ai_threat_engine_starter
+cd wazuh-monorepo/services/ai-engine
 
 # 1. Python environment
 python3 -m venv venv
@@ -195,7 +195,7 @@ pip install -r requirements.txt          # scikit-learn, numpy, joblib, flask, f
                                           # fastembed, psycopg2-binary, python-dotenv, requests …
 
 # 2. Configure secrets
-cp ../backend/.env.example ../backend/.env   # set PG_PASSWORD, etc. (never committed)
+cp ../../apps/backend/.env.example ../../apps/backend/.env   # set PG_PASSWORD, etc. (never committed)
 
 # 3. Start datastores (Qdrant + PostgreSQL); schema is auto-applied
 docker compose up -d
@@ -208,7 +208,7 @@ python train_isolation_forest.py
 python autoencoders_approach/train_autoencoder.py
 
 # 6. Start the API server + web dashboard (sudo for alert-log access)
-bash ../backend/start_server.sh
+bash ../../apps/backend/start_server.sh
 ```
 
 Open `http://localhost:5000`.
@@ -253,7 +253,7 @@ curl -X POST http://localhost:5000/api/chat \
 The agent is run on demand from the dashboard or scheduled via cron:
 
 ```cron
-0 2 * * * /path/to/ai_threat_engine_starter/scheduled_agent/run_agent.sh >> agent.log 2>&1
+0 2 * * * /path/to/wazuh-monorepo/services/ai-engine/scheduled_agent/run_agent.sh >> agent.log 2>&1
 ```
 
 ---

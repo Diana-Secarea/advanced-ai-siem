@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Selene — AI Threat Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<canvas id="particles"></canvas>
+<div class="aurora"><span></span><span></span><span></span></div>
+<div class="grid-overlay"></div>
+
+<div class="owner-line">⟡ owned by <b>Diana Secarea</b> ⟡</div>
+<nav class="nav">
+  <a class="brand" href="index.html"><span class="logo">◈</span><em>SELENE</em></a>
+  <a class="link active" href="index.html">Overview</a>
+  <a class="link" href="alerts.html">Live Alerts</a>
+  <a class="link" href="ml.html">ML Engine</a>
+  <a class="link" href="reactor.html">Reactor</a>
+  <a class="link" href="chat.html">AI Analyst</a>
+  <a class="link" href="cve-agent.html">CVE Agent</a>
+  <a class="link" href="vectordb.html">Vector DB</a>
+  <span class="spacer"></span>
+  <span class="status-pill"><span class="dot"></span>ENGINE ONLINE</span>
+</nav>
+
+<main class="page">
+
+  <section class="wrap" style="padding-top:70px;">
+    <div class="hero-grid" style="display:grid;grid-template-columns:1.25fr .75fr;gap:44px;align-items:center;">
+      <div>
+        <span class="eyebrow reveal">⚡ AI-native SIEM intelligence</span>
+        <h1 class="hero-title reveal" data-delay="1">
+          See the attack<br><span class="grad-text">before it lands.</span>
+        </h1>
+        <p class="lede reveal" data-delay="2">
+          Selene fuses unsupervised machine learning, a dual-model anomaly
+          ensemble and retrieval-augmented threat intelligence into one engine —
+          built on Wazuh, tuned by an autonomous CVE agent, explained by a local LLM.
+        </p>
+        <div class="reveal" data-delay="3" style="display:flex;gap:14px;margin-top:32px;flex-wrap:wrap;">
+          <a class="btn btn-primary" href="alerts.html">▶ Open command center</a>
+          <a class="btn btn-ghost" href="chat.html">Ask the AI analyst</a>
+        </div>
+      </div>
+      <div class="reveal float" data-delay="2" style="max-width:360px;justify-self:center;width:100%;">
+        <div class="radar">
+          <div class="sweep"></div>
+          <span class="blip"   style="left:64%;top:30%;animation-delay:.4s;"></span>
+          <span class="blip g" style="left:32%;top:58%;animation-delay:1.3s;"></span>
+          <span class="blip"   style="left:52%;top:72%;animation-delay:2.1s;"></span>
+          <span class="blip g" style="left:24%;top:26%;animation-delay:2.8s;"></span>
+        </div>
+        <p style="text-align:center;margin-top:16px;font-family:var(--font-mono);font-size:11px;color:var(--text-dim);letter-spacing:2px;">LIVE THREAT SURFACE · 24/7</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" style="padding-top:10px;">
+    <div class="grid-3" style="grid-template-columns:repeat(5,1fr);gap:12px;">
+      <div class="card reveal" style="text-align:center;padding:20px;"><div class="stat-num" id="statTotal">0</div><div class="stat-label">Total Alerts</div></div>
+      <div class="card reveal" data-delay="1" style="text-align:center;padding:20px;"><div class="stat-num" style="-webkit-text-fill-color:var(--red);" id="statHigh">0</div><div class="stat-label">Critical / High</div></div>
+      <div class="card reveal" data-delay="2" style="text-align:center;padding:20px;"><div class="stat-num" style="-webkit-text-fill-color:var(--green);" id="statNormal">0</div><div class="stat-label">Normal</div></div>
+      <div class="card reveal" data-delay="3" style="text-align:center;padding:20px;"><div class="stat-num" style="-webkit-text-fill-color:var(--amber);" id="statSusp">0</div><div class="stat-label">Possible</div></div>
+      <div class="card reveal" data-delay="4" style="text-align:center;padding:20px;"><div class="stat-num" id="statAvg">0</div><div class="stat-label">Avg Score</div></div>
+    </div>
+  </section>
+
+  <div class="ticker-shell reveal" style="margin:26px 0;"><div class="ticker" id="ticker"></div></div>
+
+  <section class="wrap">
+    <span class="eyebrow reveal">MODULES</span>
+    <h2 class="section-title reveal" data-delay="1">Your whole SOC, <span class="grad-text">one shield.</span></h2>
+    <div class="grid-3" style="margin-top:26px;">
+      <a href="alerts.html" class="card tilt reveal" style="text-decoration:none;color:inherit;border-color:rgba(251,113,133,.3);">
+        <div class="icon" style="border-color:rgba(251,113,133,.4);">🚨</div>
+        <h3>Alert Dashboard</h3>
+        <p>View, filter and sort every SIEM alert scored by the ensemble — with charts and a live attack-origin map.</p>
+      </a>
+      <a href="chat.html" class="card tilt reveal" data-delay="1" style="text-decoration:none;color:inherit;border-color:rgba(34,211,238,.3);">
+        <div class="icon">💬</div>
+        <h3>RAG Threat Intel Chat</h3>
+        <p>Query MITRE ATT&CK, Sigma, CISA-KEV, vendor advisories and your own uploaded documents — grounded &amp; cited.</p>
+      </a>
+      <a href="vectordb.html" class="card tilt reveal" data-delay="2" style="text-decoration:none;color:inherit;border-color:rgba(167,139,250,.3);">
+        <div class="icon">🌌</div>
+        <h3>Vector DB Dashboard</h3>
+        <p>Live monitoring for the Qdrant vector store — collections, embeddings, document sources and the searchable knowledge galaxy.</p>
+      </a>
+      <a href="alerts.html" class="card tilt reveal" style="text-decoration:none;color:inherit;border-color:rgba(52,211,153,.3);">
+        <div class="icon">🛡️</div>
+        <h3>Benign Exceptions</h3>
+        <p>Mark rule IDs as benign to exclude them from anomaly scoring — no retraining, effective instantly.</p>
+      </a>
+      <a href="alerts.html" class="card tilt reveal" data-delay="1" style="text-decoration:none;color:inherit;border-color:rgba(251,191,36,.3);">
+        <div class="icon">⚡</div>
+        <h3>Suspicious Groups</h3>
+        <p>Tag alert groups as suspicious to boost their anomaly score — tune detection to your environment live.</p>
+      </a>
+      <a href="cve-agent.html" class="card tilt reveal" data-delay="2" style="text-decoration:none;color:inherit;border-color:rgba(192,132,252,.3);">
+        <div class="icon">🤖</div>
+        <h3>Autonomous CVE Agent</h3>
+        <p>A scheduled agent fetches NVD &amp; CISA-KEV daily, scores relevance with a local LLM, and quarantines the uncertain.</p>
+      </a>
+    </div>
+  </section>
+
+  <hr class="shimmer-line wrap">
+
+  <section class="wrap">
+    <span class="eyebrow reveal">HOW IT THINKS</span>
+    <h2 class="section-title reveal" data-delay="1">One signal in. <span class="grad-text">Five brains on it.</span></h2>
+    <div class="pipeline reveal" data-delay="2" id="homePipe">
+      <div class="pipe-node"><span class="glyph">📡</span><b>Ingest</b><small>WAZUH ALERTS</small></div>
+      <div class="pipe-link"></div>
+      <div class="pipe-node"><span class="glyph">🌲</span><b>Isolation Forest</b><small>16 FEATURES</small></div>
+      <div class="pipe-link"></div>
+      <div class="pipe-node"><span class="glyph">🧠</span><b>Autoencoder</b><small>RECON ERROR</small></div>
+      <div class="pipe-link"></div>
+      <div class="pipe-node"><span class="glyph">⚖️</span><b>Ensemble</b><small>FUSED TIER</small></div>
+      <div class="pipe-link"></div>
+      <div class="pipe-node"><span class="glyph">💬</span><b>AI Analyst</b><small>RAG + LLM</small></div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="grid-3" style="grid-template-columns:repeat(4,1fr);">
+      <div class="card reveal" style="text-align:center;"><div class="stat-num" data-count="95.9" data-suffix="%">0</div><div class="stat-label">Attack Recall</div></div>
+      <div class="card reveal" data-delay="1" style="text-align:center;"><div class="stat-num" data-count="89.2" data-suffix="%">0</div><div class="stat-label">Ensemble F1</div></div>
+      <div class="card reveal" data-delay="2" style="text-align:center;"><div class="stat-num" data-count="2171">0</div><div class="stat-label">Alerts Learned</div></div>
+      <div class="card reveal" data-delay="3" style="text-align:center;"><div class="stat-num" data-count="1333">0</div><div class="stat-label">Intel Vectors</div></div>
+    </div>
+  </section>
+
+  <section class="wrap" style="text-align:center;">
+    <div class="card reveal" style="padding:56px 30px;background:linear-gradient(150deg,rgba(34,211,238,.08),rgba(167,139,250,.1),rgba(244,114,182,.07));">
+      <h2 class="section-title">Your logs already know.<br><span class="grad-text">Now they can tell you.</span></h2>
+      <p class="lede" style="margin:14px auto 30px;">Deploy on your own hardware in minutes. Open architecture, open evaluation, zero telemetry.</p>
+      <a class="btn btn-primary" href="chat.html">Start the demo →</a>
+    </div>
+  </section>
+
+  <footer class="footer wrap">
+    <b>SELENE</b> · AI Threat Engine on Wazuh · showcase concept UI — alternative to the production frontend
+  </footer>
+</main>
+
+<script src="assets/app.js"></script>
+<script>
+  const nodes = document.querySelectorAll("#homePipe .pipe-node");
+  let pi = 0;
+  setInterval(() => { nodes.forEach(n => n.classList.remove("active")); nodes[pi % nodes.length].classList.add("active"); pi++; }, 1400);
+  const mq = window.matchMedia("(max-width: 880px)");
+  const grid = document.querySelector(".hero-grid");
+  const apply = () => grid.style.gridTemplateColumns = mq.matches ? "1fr" : "1.25fr .75fr";
+  mq.addEventListener("change", apply); apply();
+
+  /* ---- live hero stats from the real backend ----
+     The session is persistent server-side (alert_session.jsonl), and the last
+     good numbers are also cached in localStorage so the tiles NEVER show 0
+     just because a fetch failed or the page loaded before the backend. */
+  const STATS_KEY = "shield-home-stats";
+
+  function paintStats(s, animate) {
+    const put = (id, v) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (animate) NX.count(el, v); else el.textContent = v;
+    };
+    put("statTotal", s.total); put("statHigh", s.high);
+    put("statNormal", s.norm); put("statSusp", s.susp); put("statAvg", s.avg);
+  }
+
+  // Seed instantly from the last known-good numbers (no flash of zeros)
+  try {
+    const cached = JSON.parse(localStorage.getItem(STATS_KEY) || "null");
+    if (cached && cached.total > 0) paintStats(cached, false);
+  } catch (_) {}
+
+  async function loadStats() {
+    const pill = document.querySelector(".status-pill");
+    try {
+      // stats endpoint = TRUE session total; scored sample = label breakdown
+      const [statsResp, scoredResp] = await Promise.all([
+        fetch("/api/alerts/stats"),
+        fetch("/api/alerts/scored?limit=500"),
+      ]);
+      if (!statsResp.ok || !scoredResp.ok) throw new Error("HTTP error");
+      const stats = await statsResp.json();
+      const alerts = (await scoredResp.json()).alerts || [];
+
+      const high = alerts.filter(a => a.anomaly_label === "CRITICAL" || a.anomaly_label === "HIGH").length;
+      const susp = alerts.filter(a => a.anomaly_label === "POSSIBLE").length;
+      const norm = alerts.filter(a => a.anomaly_label === "NORMAL").length;
+      const scored = alerts.filter(a => a.anomaly_score != null);
+      const avg = scored.length ? Math.round(scored.reduce((s, a) => s + a.anomaly_score, 0) / scored.length) : 0;
+      const s = { total: stats.total_alerts ?? alerts.length, high, norm, susp, avg };
+
+      paintStats(s, true);
+      // Only persist real data — never overwrite good numbers with zeros
+      // from an empty/starting session.
+      if (s.total > 0) localStorage.setItem(STATS_KEY, JSON.stringify(s));
+      if (pill) pill.innerHTML = '<span class="dot"></span>ENGINE ONLINE';
+    } catch (err) {
+      console.error("stats offline:", err);
+      if (pill) pill.innerHTML = '<span class="dot" style="background:var(--red);"></span>ENGINE OFFLINE';
+    }
+  }
+  loadStats();
+  setInterval(loadStats, 15000);
+</script>
+</body>
+</html>

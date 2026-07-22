@@ -1,0 +1,61 @@
+{
+  "timestamp": 1784341689,
+  "test_file": "/home/sek/wazuh/wazuh-monorepo/services/ai-engine/data/test/all_test_alerts.json",
+  "n_alerts": 182,
+  "n_attacks": 11,
+  "stacking_active": true,
+  "models": {
+    "isolation_forest": {
+      "precision": 1.0,
+      "recall": 0.7273,
+      "f1": 0.8421,
+      "fpr": 0.0,
+      "tp": 8,
+      "fp": 0,
+      "fn": 3,
+      "tn": 171,
+      "avg_attack_score": 64.82,
+      "avg_clean_score": 10.2,
+      "separation": 54.62
+    },
+    "autoencoder": {
+      "precision": 0.5263,
+      "recall": 0.9091,
+      "f1": 0.6667,
+      "fpr": 0.0526,
+      "tp": 10,
+      "fp": 9,
+      "fn": 1,
+      "tn": 162,
+      "avg_attack_score": 96.09,
+      "avg_clean_score": 10.53,
+      "separation": 85.56
+    },
+    "ueba": {
+      "precision": 1.0,
+      "recall": 0.8182,
+      "f1": 0.9,
+      "fpr": 0.0,
+      "tp": 9,
+      "fp": 0,
+      "fn": 2,
+      "tn": 171,
+      "avg_attack_score": 47.82,
+      "avg_clean_score": 20.41,
+      "separation": 27.41
+    },
+    "ensemble": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fpr": 0.0,
+      "tp": 11,
+      "fp": 0,
+      "fn": 0,
+      "tn": 171,
+      "avg_attack_score": 91.27,
+      "avg_clean_score": 0.92,
+      "separation": 90.35
+    }
+  }
+}

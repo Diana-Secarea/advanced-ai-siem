@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live Alerts — Selene</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<canvas id="particles"></canvas>
+<div class="aurora"><span></span><span></span><span></span></div>
+<div class="grid-overlay"></div>
+
+<div class="owner-line">⟡ owned by <b>Diana Secarea</b> ⟡</div>
+<nav class="nav">
+  <a class="brand" href="index.html"><span class="logo">◈</span><em>SELENE</em></a>
+  <a class="link" href="index.html">Overview</a>
+  <a class="link active" href="alerts.html">Live Alerts</a>
+  <a class="link" href="ml.html">ML Engine</a>
+  <a class="link" href="reactor.html">Reactor</a>
+  <a class="link" href="chat.html">AI Analyst</a>
+  <a class="link" href="cve-agent.html">CVE Agent</a>
+  <a class="link" href="vectordb.html">Vector DB</a>
+  <span class="spacer"></span>
+  <span class="status-pill"><span class="dot"></span>STREAMING</span>
+</nav>
+
+<main class="page wrap">
+
+  <div class="page-head" style="padding:38px 0 10px;">
+    <span class="eyebrow reveal">⬤ ALERT DASHBOARD</span>
+    <h2 class="section-title reveal" data-delay="1">Every alert, <span class="grad-text">scored &amp; explained.</span></h2>
+  </div>
+
+  <!-- Attack map — above everything -->
+  <section style="padding:6px 0 4px;">
+    <div class="card reveal" style="padding:18px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:12px;">
+        <h3>🌍 Attack Origin Map</h3>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span class="badge crit" id="mapCount">0 EXTERNAL SOURCES</span>
+          <button class="btn btn-ghost" style="padding:10px 16px;font-size:13px;" onclick="populateMap()">🌐 Populate Map</button>
+          <button class="btn btn-primary" style="padding:10px 16px;font-size:13px;" onclick="testShield()">🛡 Test the Shield</button>
+        </div>
+      </div>
+      <div class="map-shell"><div id="attackMap"></div></div>
+      <div id="shieldStatus" style="margin-top:12px;font-family:var(--font-mono);font-size:12px;line-height:1.7;color:var(--text-dim);display:none;max-height:180px;overflow-y:auto;background:rgba(3,4,10,.5);border:1px solid var(--stroke);border-radius:12px;padding:12px 14px;"></div>
+    </div>
+  </section>
+
+  <!-- Reactor — compact status strip (full controls live on reactor.html) -->
+  <section style="padding:6px 0 4px;">
+    <div class="card reveal" style="padding:14px 18px;border-color:rgba(251,113,133,.28);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <h3 style="margin:0;font-size:15px;">⚡ Reactor</h3>
+        <span class="badge" id="rxState" style="background:rgba(120,130,150,.2);">OFF</span>
+        <span class="badge" id="rxArMode" style="background:rgba(120,130,150,.2);font-size:10px;">AR OFF</span>
+        <span class="mono" id="rxCounts" style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);"></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-ghost" id="rxToggle" style="padding:8px 14px;font-size:12px;" onclick="rxToggle()">Enable</button>
+        <a class="btn btn-primary" style="padding:8px 16px;font-size:12px;" href="reactor.html">Open Reactor panel →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Exception chip bar (always visible) -->
+  <div class="exc-bar reveal">
+    <span class="exc-label">🛡 Benign</span>
+    <span id="excBenign" style="display:flex;gap:8px;flex-wrap:wrap;"></span>
+    <button class="btn-mini ok" onclick="NX.openModal('benignModal')">+ Manage</button>
+    <span style="width:1px;height:20px;background:var(--stroke);margin:0 4px;"></span>
+    <span class="exc-label">⚡ Suspicious</span>
+    <span id="excSusp" style="display:flex;gap:8px;flex-wrap:wrap;"></span>
+    <button class="btn-mini ok" onclick="NX.openModal('suspModal')">+ Manage</button>
+  </div>
+
+  <!-- Report cards -->
+  <div class="reveal" style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:14px 0 18px;">
+    <div class="card" style="padding:16px;"><div class="stat-num" style="font-size:30px;" id="rTotal">0</div><div class="stat-label">Total Alerts</div><div class="stat-sub" id="rAgents">—</div></div>
+    <div class="card" style="padding:16px;"><div class="stat-num" style="font-size:30px;-webkit-text-fill-color:var(--red);" id="rHigh">0</div><div class="stat-label">Critical / High</div><div class="stat-sub" id="rHighPct">—</div></div>
+    <div class="card" style="padding:16px;"><div class="stat-num" style="font-size:30px;-webkit-text-fill-color:var(--amber);" id="rPoss">0</div><div class="stat-label">Possible</div><div class="stat-sub" id="rPossPct">—</div></div>
+    <div class="card" style="padding:16px;"><div class="stat-num" style="font-size:30px;-webkit-text-fill-color:var(--green);" id="rNorm">0</div><div class="stat-label">Normal</div><div class="stat-sub" id="rNormPct">—</div></div>
+    <div class="card" style="padding:16px;"><div class="stat-num" style="font-size:30px;-webkit-text-fill-color:var(--cyan);" id="rBenign">0</div><div class="stat-label">Benign</div><div class="stat-sub" id="rBenignPct">—</div></div>
+    <div class="card" style="padding:16px;"><div class="stat-num" style="font-size:30px;" id="rAvg">0</div><div class="stat-label">Avg Score</div><div class="stat-sub" id="rRules">—</div></div>
+  </div>
+
+  <!-- Charts (4) -->
+  <div class="reveal" style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px;">
+    <div class="card"><h3 style="font-size:15px;">📈 Alert Timeline — last 24 h</h3><div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;">click a bar to filter that hour</div><div class="chart-box"><canvas id="chTime"></canvas></div></div>
+    <div class="card"><h3 style="font-size:15px;">🧠 Anomaly Distribution</h3><div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;">click to filter</div><div class="chart-box"><canvas id="chAnom"></canvas></div></div>
+  </div>
+  <div class="reveal" data-delay="1" style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-top:16px;">
+    <div class="card"><h3 style="font-size:15px;">📊 Top 10 Rules by Frequency</h3><div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;">click a bar to filter by rule</div><div class="chart-box"><canvas id="chRules"></canvas></div></div>
+    <div class="card"><h3 style="font-size:15px;">🎚 Alert Level Distribution</h3><div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;">Wazuh rule level 0–15</div><div class="chart-box"><canvas id="chLevel"></canvas></div></div>
+  </div>
+
+  <!-- Filter toolbar -->
+  <div class="card reveal" data-delay="1" style="margin-top:20px;padding:16px 18px;">
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+      <label style="flex:2;min-width:200px;"><div class="stat-label" style="margin-bottom:6px;">Search (rule · description · log content · source)</div>
+        <input class="nx-input" id="search" placeholder="🔎 search…" style="width:100%;"></label>
+      <label><div class="stat-label" style="margin-bottom:6px;">View</div>
+        <select class="nx-select" id="fView"><option value="both">alerts + logs</option><option value="alerts">alerts only</option><option value="logs">logs only</option></select></label>
+      <label><div class="stat-label" style="margin-bottom:6px;">Period</div>
+        <select class="nx-select" id="fPeriod"><option>all</option><option>1h</option><option>6h</option><option>24h</option><option>7d</option></select></label>
+      <label><div class="stat-label" style="margin-bottom:6px;">Anomaly</div>
+        <select class="nx-select" id="fAnom"><option value="all">all</option><option value="CRITICAL">critical</option><option value="HIGH">high</option><option value="POSSIBLE">possible</option><option value="NORMAL">normal</option><option value="BENIGN">benign</option><option value="LOG">system log</option></select></label>
+      <label><div class="stat-label" style="margin-bottom:6px;">Min level</div>
+        <select class="nx-select" id="fLevel"><option value="0">any</option><option value="3">L3+</option><option value="5">L5+</option><option value="7">L7+</option><option value="10">L10+</option><option value="12">L12+</option></select></label>
+      <label><div class="stat-label" style="margin-bottom:6px;">Agent</div>
+        <select class="nx-select" id="fAgent"><option value="all">all agents</option></select></label>
+      <label><div class="stat-label" style="margin-bottom:6px;">Sort by</div>
+        <select class="nx-select" id="fSort"><option value="score">score</option><option value="time">time</option><option value="level">level</option></select></label>
+      <button class="btn btn-ghost" style="padding:10px 16px;" onclick="clearFilters()">Clear</button>
+      <button id="pauseBtn" class="btn btn-ghost" style="padding:10px 16px;">⏸ Pause</button>
+    </div>
+  </div>
+
+  <!-- Alert stream (expandable cards) -->
+  <div id="stream" style="display:flex;flex-direction:column;gap:10px;margin-top:16px;"></div>
+
+  <footer class="footer"><b>SELENE</b> · live data from /api/alerts/scored + /api/logs/scored · ensemble = Isolation Forest + Autoencoder</footer>
+</main>
+
+<!-- AI analyst side panel -->
+<div class="chat-side" id="chatSide">
+  <div class="cs-head"><span style="font-size:18px;">🤖</span> AI Alert Analysis<span style="flex:1"></span>
+    <button class="modal-close" onclick="document.getElementById('chatSide').classList.remove('open')">✕</button></div>
+  <div class="cs-body" id="csBody"></div>
+  <div class="attach-row" id="csAttachRow" style="padding:0 12px 6px;"></div>
+  <div class="cs-input">
+    <button class="icon-btn" id="csAttachBtn" title="Attach an image or document" style="width:38px;height:38px;">
+      <svg viewBox="0 0 24 24"><path d="m21.4 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.2-9.19a4 4 0 0 1 5.65 5.66l-9.2 9.19a2 2 0 0 1-2.82-2.83l8.49-8.48"/></svg>
+    </button>
+    <button class="icon-btn" id="csMicBtn" title="Record a voice message" style="width:38px;height:38px;">
+      <svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v4m-4 0h8"/></svg>
+    </button>
+    <input type="file" id="csAttachFile" accept=".pdf,.docx,.html,.htm,.txt,.md,.json,.png,.jpg,.jpeg,.webp,.gif" style="display:none;">
+    <input id="csInput" placeholder="Ask a follow-up…" onkeydown="if(event.key==='Enter')csSend()">
+    <button class="btn btn-primary" style="padding:10px 16px;" onclick="csSend()">➤</button></div>
+</div>
+
+<!-- Benign rules modal -->
+<div class="modal-overlay" id="benignModal">
+  <div class="modal">
+    <button class="modal-close" onclick="NX.closeModal('benignModal')">✕</button>
+    <h3>🛡 Benign Rule Exceptions</h3>
+    <div class="modal-sub">rules marked benign are zero-scored and excluded from anomaly detection — instant, no retraining</div>
+    <div style="display:flex;gap:10px;margin-bottom:16px;">
+      <input class="nx-input" id="benignIdInput" placeholder="rule ID e.g. 5501" style="width:150px;">
+      <input class="nx-input" id="benignDescInput" placeholder="description (optional)" style="flex:1;">
+      <button class="btn btn-primary" style="padding:10px 18px;" onclick="addBenignManual()">Add</button>
+    </div>
+    <div id="benignList"></div>
+    <h3 style="margin-top:22px;font-size:14px;color:var(--text-soft);">SUGGESTED — frequent low-risk rules</h3>
+    <div id="benignSuggest" style="margin-top:10px;"></div>
+  </div>
+</div>
+
+<!-- Suspicious groups modal -->
+<div class="modal-overlay" id="suspModal">
+  <div class="modal">
+    <button class="modal-close" onclick="NX.closeModal('suspModal')">✕</button>
+    <h3>⚡ Suspicious Groups</h3>
+    <div class="modal-sub">alert groups tagged suspicious boost the anomaly score — tune detection with no retraining</div>
+    <div style="display:flex;gap:10px;margin-bottom:16px;">
+      <input class="nx-input" id="suspInput" placeholder="group name e.g. docker" style="width:170px;">
+      <input class="nx-input" id="suspDescInput" placeholder="description (optional)" style="flex:1;">
+      <button class="btn btn-primary" style="padding:10px 18px;" onclick="addSusp()">Add</button>
+    </div>
+    <div id="suspList"></div>
+    <h3 style="margin-top:22px;font-size:14px;color:var(--text-soft);">SUGGESTED — commonly abused groups</h3>
+    <div id="suspSuggest" style="margin-top:10px;"></div>
+  </div>
+</div>
+
+<script src="assets/app.js"></script>
+<script>
+/* ============================================================
+   LIVE ALERTS — wired to the real backend
+   /api/alerts/scored · /api/populate-map · /api/test-shield (SSE)
+   /api/benign-rules · /api/suspicious-groups (+ suggested)
+   /api/chat/stream (AI analysis side panel)
+   ============================================================ */
+const API = location.origin;
+const REFRESH_MS = 30000;
+
+const stream = document.getElementById("stream");
+let allAlerts = [];
+let paused = false;
+let _knownServerStart = null;
+const filters = { search:"", period:"all", anom:"all", level:0, agent:"all", sort:"score", hour:null, view:"both" };
+let map, chTime, chAnom, chRules, chLevel;
+
+function esc(s){ const d=document.createElement("div"); d.textContent=s==null?"":String(s); return d.innerHTML; }
+function parseTs(ts){ if(!ts) return null; try{ return new Date(ts.replace(/\+0000$/,"Z")); }catch{ return null; } }
+function fmtTs(ts){ const d=parseTs(ts); if(!d||isNaN(d)) return ts||""; return d.toLocaleString("sv-SE"); }
+function tierColor(v){ return v==="CRITICAL"?"var(--red)":v==="HIGH"?"var(--red)":v==="POSSIBLE"?"var(--amber)":v==="BENIGN"?"var(--cyan)":"var(--green)"; }
+function badgeCls(v){ return (v==="CRITICAL"||v==="HIGH")?"crit":v==="POSSIBLE"?"high":v==="BENIGN"?"info":"low"; }
+
+/* ---------- fetch + render loop ---------- */
+async function loadScoredAlerts(){
+  if (paused) return;
+  const pill = document.querySelector(".status-pill");
+  try{
+    const resp = await fetch(API + "/api/alerts/scored?limit=500");
+    if(!resp.ok) throw new Error("HTTP "+resp.status);
+    const data = await resp.json();
+    if(_knownServerStart && data.server_start && _knownServerStart !== data.server_start) allAlerts = [];
+    _knownServerStart = data.server_start || _knownServerStart;
+    allAlerts = data.alerts || [];
+    refreshAgentDropdown(allAlerts.concat(allSysLogs));
+    renderAll();
+    updateMap(allAlerts);
+    if(pill) pill.innerHTML = '<span class="dot"></span>STREAMING · ' + new Date().toLocaleTimeString();
+  }catch(err){
+    console.error("Failed to load alerts:", err);
+    if(pill) pill.innerHTML = '<span class="dot" style="background:var(--red);"></span>OFFLINE';
+  }
+}
+
+function refreshAgentDropdown(alerts){
+  const sel = document.getElementById("fAgent");
+  const cur = sel.value;
+  const agents = [...new Set(alerts.map(a=>a.agent_name).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="all">all agents</option>' + agents.map(a=>`<option value="${esc(a)}">${esc(a)}</option>`).join("");
+  if([...sel.options].some(o=>o.value===cur)) sel.value = cur;
+}
+
+function filterAlerts(alerts){
+  const now = Date.now();
+  const cutoffs = { "1h":3600e3, "6h":6*3600e3, "24h":24*3600e3, "7d":7*24*3600e3 };
+  return alerts.filter(a=>{
+    if(filters.search){
+      const txt = ((a.rule_description||"")+" "+(a.full_log||"")+" "+a.rule_id+" "+(a.location||"")+" "+(a.groups||[]).join(" ")).toLowerCase();
+      if(!txt.includes(filters.search)) return false;
+    }
+    if(filters.anom!=="all" && (a.anomaly_label||"UNKNOWN")!==filters.anom) return false;
+    if((a.level||0) < filters.level) return false;
+    if(filters.agent!=="all" && a.agent_name!==filters.agent) return false;
+    if(filters.period!=="all"){
+      const d = parseTs(a.timestamp);
+      if(!d || now - d.getTime() > cutoffs[filters.period]) return false;
+    }
+    if(filters.hour!=null){
+      const d = parseTs(a.timestamp);
+      if(!d || d.getHours()!==filters.hour) return false;
+    }
+    return true;
+  });
+}
+function sortAlerts(alerts){
+  const s = filters.sort;
+  return [...alerts].sort((a,b)=>{
+    if(s==="score") return (b.anomaly_score||0)-(a.anomaly_score||0);
+    if(s==="level") return (b.level||0)-(a.level||0);
+    return (parseTs(b.timestamp)||0)-(parseTs(a.timestamp)||0);
+  });
+}
+
+function renderAll(){
+  const filtered = sortAlerts(filterAlerts(allAlerts));
+  // Stat tiles + charts stay alert-based; the stream below can also carry
+  // raw collector events (system logs) depending on the View filter.
+  updateReports(filtered);
+  updateCharts(filtered);
+  let rows = filtered;
+  if(filters.view !== "alerts"){
+    const logs = filterAlerts(allSysLogs);
+    rows = filters.view === "logs" ? sortAlerts(logs) : sortAlerts(filtered.concat(logs));
+  }
+  renderAlertList(rows.slice(0,80));
+}
+
+function renderAlertList(rows){
+  stream.innerHTML = "";
+  if(!rows.length){
+    stream.innerHTML = '<div class="card" style="text-align:center;padding:34px;color:var(--text-dim);">No alerts or logs match the current filters.</div>';
+    return;
+  }
+  rows.forEach((a,i)=> a.__syslog ? renderLogCard(a,i) : renderCard(a,i));
+}
+
+function renderCard(a, idx){
+  const v = a.anomaly_label || "UNKNOWN";
+  const col = tierColor(v);
+  const isBenign = v==="BENIGN" || benignRuleIds.has(String(a.rule_id));
+  const el = document.createElement("div");
+  el.className = "card alert-card";
+  el.style.borderLeft = `3px solid ${col}`;
+  const score = a.anomaly_score!=null ? Math.round(a.anomaly_score) : "—";
+  const ifS = a.isolation_forest_score!=null ? Math.round(a.isolation_forest_score) : "—";
+  const aeS = a.autoencoder_score!=null ? Math.round(a.autoencoder_score) : "—";
+  const groups = a.groups||[];
+  const tags = groups.map(g=>{
+    const on = suspGroupNames.has(g);
+    return `<span class="tag" style="${on?'border-color:var(--amber);color:var(--amber);':''}" title="${on?`'${esc(g)}' is flagged suspicious — click to unflag`:`Flag '${esc(g)}' as suspicious`}" onclick="event.stopPropagation();toggleSuspFromChip('${esc(g).replace(/'/g,"\\'")}')">${esc(g)}</span>`;
+  }).join("");
+  const srcip = a.data && a.data.srcip;
+  const meta = [
+    `<span>🖥 <b>${esc(a.agent_name||"?")}</b></span>`,
+    srcip ? `<span>🌐 <b>${esc(srcip)}</b></span>` : "",
+    (a.mitre_ids||[]).length ? `<span>🎯 ${a.mitre_ids.map(esc).join(" ")}</span>` : "",
+  ].filter(Boolean).join("");
+  el.innerHTML = `
+    <div class="ac-head">
+      <div class="ac-headL">
+        <div class="ac-time">${esc(fmtTs(a.timestamp))}</div>
+        <div class="ac-title"><span class="ac-rule" style="color:${col}">Rule ${esc(a.rule_id)}</span>${esc(a.rule_description||"")}</div>
+      </div>
+      <div class="ac-headR">
+        <div class="ac-score" style="color:${col}">${score}<span>/100</span></div>
+        <span class="badge ${badgeCls(v)}">${esc(v)} · L${a.level||0}</span>
+      </div>
+    </div>
+    <div class="ac-meta">${meta}</div>
+    <div class="ac-log" title="click to expand" onclick="event.stopPropagation();this.classList.toggle('expanded')">${esc(a.full_log||a.rule_description||"")}</div>
+    <div class="ac-foot">
+      <div class="ac-tags">${tags}</div>
+      <div class="ac-actions">
+        <span class="ac-subscore" title="Isolation Forest · Autoencoder sub-scores">IF ${ifS} · AE ${aeS}</span>
+        <button class="ac-btn" onclick="event.stopPropagation();toggleBenign('${esc(a.rule_id)}','${esc(a.rule_description||"").replace(/'/g,"\\'")}')">${isBenign?"↩ Unmark":"🛡 Benign"}</button>
+        <button class="ac-btn primary" onclick="event.stopPropagation();analyzeAlert(${idx})">🤖 Investigate</button>
+      </div>
+    </div>`;
+  el._alert = a;
+  stream.appendChild(el);
+}
+
+// Compact row for raw collector events (system logs) interleaved in the
+// stream — no rule/ensemble chrome, but still expandable + investigable.
+function renderLogCard(a, idx){
+  const scored = a.anomaly_score != null;
+  // A high score means "malicious" ONLY when a detector judged the CONTENT hostile
+  // (trained content model or the alert ensemble). A high score from NOVELTY alone
+  // means "new / rarely-seen" — unusual, worth a glance, but NOT an attack — so it
+  // is never painted red. This keeps ordinary-but-unfamiliar system logs from
+  // reading as threats just because the models hadn't seen them before.
+  const isThreat = a.method === "logmodel" || a.method === "ensemble";
+  let col = "#8b93a7", tag = "LOG", tagCls = "info";
+  if (scored) {
+    if (isThreat) {
+      col = a.anomaly_score >= 70 ? "var(--red)" : a.anomaly_score >= 50 ? "var(--amber)" : "var(--violet)";
+      tag = "THREAT"; tagCls = "danger";
+    } else if (a.method === "novelty") {
+      col = a.anomaly_score >= 60 ? "var(--violet)" : "#8b93a7";
+      tag = "NEW"; tagCls = "info";
+    } else { // routine / operational
+      col = "#8b93a7"; tag = "ROUTINE"; tagCls = "info";
+    }
+  }
+  const sub = a.method === "novelty"
+    ? (a.template_seen === 0 ? "new log template — never seen before" : "seen " + a.template_seen + "× before")
+    : isThreat ? (a.method === "ensemble" ? (a.ensemble_label || "hostile content") : "hostile content detected")
+    : "routine system telemetry";
+  const el = document.createElement("div");
+  el.className = "card alert-card";
+  el.style.borderLeft = `3px solid ${col}`;
+  el.style.padding = "10px 14px";
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span class="badge ${tagCls}" style="font-size:9px;" title="${esc(sub)}">${tag}</span>
+      <span class="ac-time">${esc(fmtTs(a.timestamp))}</span>
+      <span style="color:var(--cyan);font-family:var(--font-mono);font-size:11px;">${esc(a.location||"")}</span>
+      ${a.rule_id ? `<span style="font-size:11px;color:var(--text-dim);" title="${esc(a.rule_description||"")}">R${esc(a.rule_id)}·L${a.level||0}</span>` : ""}
+      <span style="flex:1"></span>
+      ${scored ? `<span style="color:${col};font-weight:600;" title="${esc(sub)}">${Math.round(a.anomaly_score)}<span style="font-size:10px;color:var(--text-dim);">/100</span></span>` : ""}
+      <button class="ac-btn primary" onclick="event.stopPropagation();analyzeAlert(${idx})">🤖</button>
+    </div>
+    <div class="ac-log" title="click to expand" onclick="event.stopPropagation();this.classList.toggle('expanded')" style="margin-top:6px;">${esc(a.full_log||"")}</div>`;
+  el._alert = a;
+  stream.appendChild(el);
+}
+
+function updateReports(displayed){
+  const t = displayed.length||1;
+  const high = displayed.filter(a=>a.anomaly_label==="CRITICAL"||a.anomaly_label==="HIGH").length;
+  const poss = displayed.filter(a=>a.anomaly_label==="POSSIBLE").length;
+  const norm = displayed.filter(a=>a.anomaly_label==="NORMAL").length;
+  const ben  = displayed.filter(a=>a.anomaly_label==="BENIGN").length;
+  const scored = displayed.filter(a=>a.anomaly_score!=null);
+  rTotal.textContent = displayed.length;
+  rHigh.textContent = high;  rHighPct.textContent = Math.round(high/t*100)+"% of total";
+  rPoss.textContent = poss;  rPossPct.textContent = Math.round(poss/t*100)+"% of total";
+  rNorm.textContent = norm;  rNormPct.textContent = Math.round(norm/t*100)+"% of total";
+  rBenign.textContent = ben; rBenignPct.textContent = Math.round(ben/t*100)+"% of total";
+  const avg = scored.length ? Math.round(scored.reduce((s,a)=>s+a.anomaly_score,0)/scored.length) : 0;
+  rAvg.textContent = avg;
+  rRules.textContent = new Set(displayed.map(a=>String(a.rule_id))).size+" unique rules";
+  rAgents.textContent = new Set(displayed.map(a=>a.agent_name).filter(Boolean)).size+" agents";
+  /* Publish to the same cache index.html seeds from, so switching pages
+     shows these exact numbers instantly instead of waiting for the
+     ensemble-scored fetch (~5s). Never overwrite good numbers with zeros. */
+  if(displayed.length > 0){
+    try{
+      localStorage.setItem("shield-home-stats", JSON.stringify({
+        total: displayed.length, high, norm, susp: poss, avg,
+      }));
+    }catch(_){}
+  }
+}
+
+/* ---------- AI analysis side panel (real /api/chat/stream) ---------- */
+let csSessionId = null;
+function renderMd(t){
+  t = t.replace(/```(\w*)\n([\s\S]*?)```/g,(_,l,c)=>"<pre><code>"+esc(c.trim())+"</code></pre>");
+  t = t.replace(/`([^`]+)`/g,"<code>$1</code>");
+  t = t.replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>");
+  t = t.replace(/\*(.+?)\*/g,"<em>$1</em>");
+  t = t.replace(/^- (.+)$/gm,"<li>$1</li>");
+  t = t.replace(/(<li>.*<\/li>\n?)+/g,m=>"<ul>"+m+"</ul>");
+  t = t.replace(/^\d+\.\s(.+)$/gm,"<li>$1</li>");
+  t = t.replace(/\n/g,"<br>");
+  t = t.replace(/<br><\/ul>/g,"</ul>").replace(/<ul><br>/g,"<ul>");
+  t = t.replace(/<br><li>/g,"<li>").replace(/<\/li><br>/g,"</li>");
+  return t;
+}
+function addCs(role, html){ const m=document.createElement("div"); m.className="msg "+(role==="user"?"user":"bot"); m.innerHTML=html; document.getElementById("csBody").appendChild(m); m.scrollIntoView({behavior:"smooth"}); return m; }
+
+async function streamChatSSE(resp, onToken, onDone){
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  while(true){
+    const {done, value} = await reader.read();
+    if(done) break;
+    buf += decoder.decode(value, {stream:true});
+    const events = buf.split("\n\n");
+    buf = events.pop();
+    for(const ev of events){
+      let evName = "message";
+      const dataLines = [];
+      for(const line of ev.split("\n")){
+        if(line.startsWith("event:")) evName = line.slice(6).trim();
+        else if(line.startsWith("data: ")) dataLines.push(line.slice(6));
+        else if(line.startsWith("data:")) dataLines.push(line.slice(5));
+      }
+      const data = dataLines.join("\n");
+      if(evName==="done") onDone(data);
+      else if(data) onToken(data.replace(/\\n/g,"\n"));
+    }
+  }
+}
+
+async function csAsk(text){
+  addCs("user", esc(text));
+  const bot = addCs("bot", `<span style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);">retrieving context — dense + BM25 → RRF…</span><div class="typing"><i></i><i></i><i></i></div>`);
+  let fullText = "";
+  try{
+    const resp = await fetch(API + "/api/chat/stream", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ message: text, session_id: csSessionId }),
+    });
+    if(!resp.ok || !resp.body) throw new Error("HTTP "+resp.status);
+    await streamChatSSE(resp,
+      token => { fullText += token; bot.innerHTML = renderMd(fullText); bot.scrollIntoView({behavior:"smooth"}); },
+      doneData => {
+        try{
+          const meta = JSON.parse(doneData);
+          csSessionId = meta.session_id || csSessionId;
+          const sources = meta.sources || [];
+          if(sources.length){
+            const seen = new Set();
+            const chips = sources.filter(s=>{const k=s.type+":"+s.id; if(seen.has(k))return false; seen.add(k); return true;})
+              .map(s=>`<span class="src-chip ${s.type==="uploaded_doc"?"doc":""}" title="${esc(s.summary||"")}">${esc(s.id)}</span>`).join("");
+            bot.innerHTML = renderMd(fullText) + `<div class="srcs">${chips}</div>`;
+          }
+        }catch(_){}
+      });
+    if(!fullText) bot.innerHTML = "No response from the model.";
+  }catch(err){
+    bot.innerHTML = `<span style="color:var(--red)">Connection error: ${esc(err.message)} — is the RAG engine up?</span>`;
+  }
+}
+
+function analyzeAlert(idx){
+  const cards=[...stream.children];
+  const a = cards[idx] && cards[idx]._alert;
+  if(!a) return;
+  document.getElementById("chatSide").classList.add("open");
+  const parts = [];
+  if(a.rule_description) parts.push(a.rule_description);
+  if(a.rule_id) parts.push("rule "+a.rule_id);
+  if(a.full_log) parts.push(a.full_log.slice(0,150));
+  let q = "Analyze this alert: " + parts.join(" — ");
+  if(a.anomaly_score!=null) q += ` [Score: ${Math.round(a.anomaly_score)}/100 (${a.anomaly_label}), Level: ${a.level}]`;
+  csAsk(q);
+}
+/* ---------- side-panel attachments: images, documents, voice ---------- */
+let csAttachments = [];
+function csRenderAttach(){
+  const row = document.getElementById("csAttachRow");
+  row.innerHTML = "";
+  csAttachments.forEach((a,i)=>{
+    const chip = document.createElement("span");
+    chip.className = "attach-chip " + a.kind + (a.pending ? " pending" : "");
+    chip.innerHTML = (a.kind==="image"?"🖼 ":"📄 ") + esc(a.name) + (a.pending ? " — analyzing…" : "");
+    if(!a.pending){
+      const x = document.createElement("button");
+      x.textContent = "✕"; x.onclick = ()=>{ csAttachments.splice(i,1); csRenderAttach(); };
+      chip.appendChild(x);
+    }
+    row.appendChild(chip);
+  });
+}
+document.getElementById("csAttachBtn").onclick = ()=>document.getElementById("csAttachFile").click();
+document.getElementById("csAttachFile").addEventListener("change", async (e)=>{
+  const file = e.target.files[0]; e.target.value = "";
+  if(!file) return;
+  if(file.size > 5*1024*1024){ NX.toast("File too large (max 5 MB)"); return; }
+  const entry = { kind:/\.(png|jpe?g|webp|gif)$/i.test(file.name)?"image":"document", name:file.name, text:"", pending:true };
+  csAttachments.push(entry); csRenderAttach();
+  try{
+    const fd = new FormData(); fd.append("file", file);
+    const r = await fetch(API + "/api/chat/attach", { method:"POST", body:fd });
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.error || "HTTP "+r.status);
+    entry.text = d.text; entry.kind = d.kind; entry.pending = false;
+  }catch(err){
+    csAttachments = csAttachments.filter(a=>a!==entry);
+    NX.toast("Attachment failed: " + err.message, 4200);
+  }
+  csRenderAttach();
+});
+let csRec = null, csRecChunks = [];
+document.getElementById("csMicBtn").addEventListener("click", async ()=>{
+  const btn = document.getElementById("csMicBtn");
+  if(csRec && csRec.state === "recording"){ csRec.stop(); return; }
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+    csRecChunks = [];
+    csRec = new MediaRecorder(stream);
+    csRec.ondataavailable = ev=>{ if(ev.data.size) csRecChunks.push(ev.data); };
+    csRec.onstop = async ()=>{
+      btn.classList.remove("rec");
+      stream.getTracks().forEach(t=>t.stop());
+      const blob = new Blob(csRecChunks, { type: csRec.mimeType || "audio/webm" });
+      if(blob.size < 1000){ NX.toast("Recording too short"); return; }
+      NX.toast("Transcribing…");
+      try{
+        const fd = new FormData(); fd.append("audio", blob, "voice-note.webm");
+        const r = await fetch(API + "/api/chat/transcribe", { method:"POST", body:fd });
+        const d = await r.json();
+        if(!r.ok) throw new Error(d.error || "HTTP "+r.status);
+        if(!d.text){ NX.toast("Couldn't hear anything — try again"); return; }
+        const inp = document.getElementById("csInput");
+        inp.value = (inp.value ? inp.value + " " : "") + d.text;
+        inp.focus();
+      }catch(err){ NX.toast("Transcription failed: " + err.message, 4200); }
+    };
+    csRec.start(); btn.classList.add("rec");
+    NX.toast("Recording — click the mic again to stop");
+  }catch(err){ NX.toast("Microphone unavailable: " + err.message, 4200); }
+});
+
+function csSend(){
+  const inp = document.getElementById("csInput");
+  const q = inp.value.trim();
+  const ready = csAttachments.filter(a=>!a.pending);
+  if(!q && !ready.length) return;
+  if(csAttachments.some(a=>a.pending)){ NX.toast("Still analyzing an attachment — one moment"); return; }
+  inp.value = "";
+  document.getElementById("chatSide").classList.add("open");
+  let msg = q || "Analyze the attached content in the context of my alerts.";
+  if(ready.length){
+    /* question first — the backend truncates the message tail at 8000 chars */
+    msg = "Analyst question: " + msg + "\n\n" + ready.map(a =>
+      a.kind === "image"
+        ? `[Attached image "${a.name}" — description from vision model]:\n${a.text}`
+        : `[Attached document "${a.name}" (excerpt)]:\n${a.text}`).join("\n\n");
+  }
+  csAttachments = []; csRenderAttach();
+  csAsk(msg);
+}
+
+/* ---------- benign + suspicious — backed by the REAL API via NX.benign / NX.susp ---------- */
+let benignRuleIds = new Set();
+let suspGroupNames = new Set();
+
+function syncStores(){
+  benignRuleIds = new Set((NX.benign ? NX.benign.list() : []).map(r=>String(r.name)));
+  suspGroupNames = new Set((NX.susp ? NX.susp.list() : []).map(g=>String(g.name)));
+}
+window.addEventListener("benign-changed", ()=>{ syncStores(); renderBenign(); renderExcBar(); renderAll(); });
+window.addEventListener("susp-changed",  ()=>{ syncStores(); renderSusp();  renderExcBar(); renderAll(); });
+
+function renderExcBar(){
+  document.getElementById("excBenign").innerHTML = (NX.benign?NX.benign.list():[]).map(r=>`<span class="exc-chip benign">rule ${esc(r.name)}<button onclick="rmBenign('${esc(r.name)}')">✕</button></span>`).join("") || '<span style="color:var(--text-dim);font-size:12px;">none</span>';
+  document.getElementById("excSusp").innerHTML = (NX.susp?NX.susp.list():[]).map(g=>`<span class="exc-chip susp">${esc(g.name)}<button onclick="rmSusp('${esc(g.name)}')">✕</button></span>`).join("") || '<span style="color:var(--text-dim);font-size:12px;">none</span>';
+}
+
+let editBenignId=null, editSuspName=null;
+function renderBenign(){
+  const rules = NX.benign ? NX.benign.list() : [];
+  benignList.innerHTML = rules.map(r=>{
+    if(editBenignId===r.name){
+      return `<div class="card" style="padding:12px 16px;display:flex;gap:8px;align-items:center;margin-bottom:8px;border-color:rgba(34,211,238,.5);">
+        <input class="nx-input" id="ebId" value="${esc(r.name)}" style="width:110px;">
+        <input class="nx-input" id="ebDesc" value="${esc(r.desc||'')}" style="flex:1;">
+        <button class="btn-mini ok" onclick="saveBenign('${esc(r.name)}')">Save</button>
+        <button class="btn-mini view" onclick="editBenignId=null;renderBenign()">Cancel</button>
+      </div>`;
+    }
+    return `<div class="card" style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <span><b class="mono" style="color:var(--cyan)">rule ${esc(r.name)}</b> — ${esc(r.desc)||'<span style="color:var(--text-dim)">no description</span>'}</span>
+      <span style="display:flex;gap:8px;">
+        <button class="btn-mini view" onclick="editBenignId='${esc(r.name)}';renderBenign()">✎ Edit</button>
+        <button class="btn-mini no" onclick="rmBenign('${esc(r.name)}')">Remove</button>
+      </span></div>`;
+  }).join("") || `<p style="color:var(--text-dim)">No benign rules yet.</p>`;
+  const sug = NX.benign ? NX.benign.suggested() : [];
+  benignSuggest.innerHTML = sug.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;"><span class="mono" style="font-size:12px;color:var(--text-soft)">rule ${esc(r.name)} · ${esc(r.desc)}</span><button class="btn-mini ok" onclick="addBenign('${esc(r.name)}','${esc(r.desc).replace(/'/g,"\\'")}')">+ Add</button></div>`).join("") || `<p style="color:var(--text-dim);font-size:12px;">All suggestions added.</p>`;
+}
+async function addBenign(id, desc){
+  id = String(id||"").trim(); if(!id) return;
+  if(await NX.benign.add(id, desc||"")) NX.toast(`Rule ${id} marked benign 🛡`);
+  else NX.toast(`Rule ${id} already benign`);
+  loadScoredAlerts();
+}
+function addBenignManual(){
+  const id = document.getElementById("benignIdInput").value.trim();
+  const desc = document.getElementById("benignDescInput").value.trim();
+  if(!id){ NX.toast("Enter a rule ID"); return; }
+  addBenign(id, desc);
+  document.getElementById("benignIdInput").value=""; document.getElementById("benignDescInput").value="";
+}
+async function saveBenign(oldId){
+  const newId = document.getElementById("ebId").value.trim();
+  const desc = document.getElementById("ebDesc").value.trim();
+  if(!newId){ NX.toast("Rule ID required"); return; }
+  await NX.benign.update(oldId, newId, desc);
+  editBenignId=null; NX.toast(`Rule updated → ${newId}`);
+  loadScoredAlerts();
+}
+async function toggleBenign(id, desc){
+  if(benignRuleIds.has(String(id))) rmBenign(id);
+  else addBenign(id, desc||"marked from alert");
+}
+async function rmBenign(id){
+  await NX.benign.remove(String(id));
+  editBenignId=null; NX.toast(`Rule ${id} unmarked`);
+  loadScoredAlerts();
+}
+
+function renderSusp(){
+  const groups = NX.susp ? NX.susp.list() : [];
+  suspList.innerHTML = groups.map(g=>{
+    if(editSuspName===g.name){
+      return `<div class="card" style="padding:12px 16px;display:flex;gap:8px;align-items:center;margin-bottom:8px;border-color:rgba(251,191,36,.5);">
+        <input class="nx-input" id="esName" value="${esc(g.name)}" style="width:150px;">
+        <input class="nx-input" id="esDesc" value="${esc(g.desc||'')}" style="flex:1;">
+        <button class="btn-mini ok" onclick="saveSusp('${esc(g.name).replace(/'/g,"\\'")}')">Save</button>
+        <button class="btn-mini view" onclick="editSuspName=null;renderSusp()">Cancel</button>
+      </div>`;
+    }
+    return `<div class="card" style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <span><b style="color:var(--amber)">${esc(g.name)}</b> <span style="color:var(--text-dim);font-size:12px">— ${esc(g.desc)||'user-defined'}</span></span>
+      <span style="display:flex;gap:8px;">
+        <button class="btn-mini view" onclick="editSuspName='${esc(g.name).replace(/'/g,"\\'")}';renderSusp()">✎ Edit</button>
+        <button class="btn-mini no" onclick="rmSusp('${esc(g.name).replace(/'/g,"\\'")}')">Remove</button>
+      </span></div>`;
+  }).join("") || `<p style="color:var(--text-dim)">No suspicious groups yet.</p>`;
+  const sug = NX.susp ? NX.susp.suggested() : [];
+  const sEl = document.getElementById("suspSuggest");
+  if(sEl) sEl.innerHTML = sug.map(g=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;"><span class="mono" style="font-size:12px;color:var(--text-soft)">${esc(g.name)} · ${esc(g.desc)}</span><button class="btn-mini ok" onclick="addSuspNamed('${esc(g.name).replace(/'/g,"\\'")}','${esc(g.desc).replace(/'/g,"\\'")}')">+ Add</button></div>`).join("") || `<p style="color:var(--text-dim);font-size:12px;">All suggestions added.</p>`;
+}
+async function addSuspNamed(name, desc){
+  if(await NX.susp.add(name, desc||"")) NX.toast(`Group '${name}' boosted ⚡`);
+  else NX.toast(`'${name}' already suspicious`);
+  loadScoredAlerts();
+}
+function addSusp(){
+  const v = document.getElementById("suspInput").value.trim(); if(!v) return;
+  const d = document.getElementById("suspDescInput").value.trim();
+  addSuspNamed(v, d);
+  document.getElementById("suspInput").value=""; document.getElementById("suspDescInput").value="";
+}
+async function toggleSuspFromChip(name){
+  if(suspGroupNames.has(name)){ await NX.susp.remove(name); NX.toast(`Group '${name}' unflagged`); }
+  else { await NX.susp.add(name, "tagged from alert"); NX.toast(`Group '${name}' tagged suspicious ⚡`); }
+  loadScoredAlerts();
+}
+async function saveSusp(oldName){
+  const newName = document.getElementById("esName").value.trim();
+  const desc = document.getElementById("esDesc").value.trim();
+  if(!newName){ NX.toast("Group name required"); return; }
+  await NX.susp.update(oldName, newName, desc);
+  editSuspName=null; NX.toast(`Group updated → ${newName}`);
+  loadScoredAlerts();
+}
+async function rmSusp(n){
+  await NX.susp.remove(n);
+  editSuspName=null;
+  loadScoredAlerts();
+}
+
+/* ---------- Attack Origin Map — real srcip geolocation ---------- */
+const GEO_CACHE_KEY = "wazuh_geo_v1";
+const GEO_CACHE_TTL = 24*60*60*1000;
+let _mapMarkers = [], _geoCache = {};
+try{ const r=localStorage.getItem(GEO_CACHE_KEY); if(r) _geoCache=JSON.parse(r); }catch(_){ _geoCache={}; }
+function saveGeoCache(){ try{ localStorage.setItem(GEO_CACHE_KEY, JSON.stringify(_geoCache)); }catch(_){} }
+
+function isPublicIP(ip){
+  if(!ip || typeof ip!=="string") return false;
+  const p = ip.trim().split(".").map(Number);
+  if(p.length!==4 || p.some(n=>isNaN(n)||n<0||n>255)) return false;
+  if(p[0]===10 || p[0]===127) return false;
+  if(p[0]===172 && p[1]>=16 && p[1]<=31) return false;
+  if(p[0]===192 && p[1]===168) return false;
+  if(p[0]===169 && p[1]===254) return false;
+  if(p[0]===0 || p[0]>=224) return false;
+  return true;
+}
+function extractIPStats(alerts){
+  const m = {};
+  for(const a of alerts){
+    const ip = a.data && a.data.srcip;
+    if(!isPublicIP(ip)) continue;
+    if(!m[ip]) m[ip] = { count:0, maxScore:0, label:"NORMAL", desc:a.rule_description||"" };
+    m[ip].count++;
+    const s = a.anomaly_score||0;
+    if(s > m[ip].maxScore){ m[ip].maxScore = s; m[ip].label = a.anomaly_label||"NORMAL"; m[ip].desc = a.rule_description||""; }
+  }
+  return m;
+}
+async function geolocateBatch(ips){
+  const now = Date.now();
+  const unknown = ips.filter(ip=>!_geoCache[ip] || now-_geoCache[ip].ts > GEO_CACHE_TTL);
+  if(!unknown.length) return;
+  for(let i=0;i<unknown.length;i+=100){
+    const chunk = unknown.slice(i,i+100);
+    try{
+      const resp = await fetch("http://ip-api.com/batch?fields=status,query,country,countryCode,city,lat,lon",
+        { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(chunk) });
+      if(!resp.ok) continue;
+      for(const r of await resp.json()){
+        if(r.status==="success") _geoCache[r.query] = { lat:r.lat, lon:r.lon, country:r.country, countryCode:r.countryCode, city:r.city, ts:Date.now() };
+      }
+      saveGeoCache();
+    }catch(e){ console.warn("[geomap] lookup failed:", e); }
+  }
+}
+function markerColor(label){
+  if(label==="CRITICAL"||label==="HIGH") return "#fb7185";
+  if(label==="POSSIBLE") return "#fbbf24";
+  if(label==="BENIGN") return "#22d3ee";
+  return "#34d399";
+}
+function initMap(){
+  if(map) return;
+  map = L.map("attackMap",{center:[30,10],zoom:2,zoomControl:true,attributionControl:false});
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",{subdomains:"abcd",maxZoom:18}).addTo(map);
+}
+let _pulseGrow = true;
+setInterval(()=>{ // one global pulse for all markers
+  _pulseGrow = !_pulseGrow;
+  _mapMarkers.forEach(m=>{ const r=m.options._baseR||8; m.setRadius(_pulseGrow? r+2.5 : r); });
+}, 700);
+
+async function updateMap(alerts){
+  initMap();
+  const ipStats = extractIPStats(alerts);
+  const ips = Object.keys(ipStats);
+  _mapMarkers.forEach(m=>map.removeLayer(m));
+  _mapMarkers = [];
+  document.getElementById("mapCount").textContent = ips.length+" EXTERNAL SOURCES";
+  if(!ips.length) return;
+  await geolocateBatch(ips);
+  const bounds = [];
+  for(const ip of ips){
+    const geo = _geoCache[ip];
+    if(!geo) continue;
+    const info = ipStats[ip];
+    const color = markerColor(info.label);
+    const radius = Math.min(7 + Math.log1p(info.count)*3, 18);
+    const mk = L.circleMarker([geo.lat, geo.lon], { radius, _baseR:radius, fillColor:color, color, fillOpacity:.65, opacity:.9, weight:1.5 })
+      .bindPopup(`<b style="color:${color}">${esc(ip)}</b><br>${esc(geo.city?geo.city+", ":"")}${esc(geo.country||"Unknown")}<br>Alerts: <b>${info.count}</b> · Score: <b style="color:${color}">${Math.round(info.maxScore)}/100</b> (${esc(info.label)})<br><span style="font-family:monospace;font-size:11px">${esc(info.desc)}</span>`, {className:"geo-popup"});
+    mk.addTo(map);
+    _mapMarkers.push(mk);
+    bounds.push([geo.lat, geo.lon]);
+  }
+  if(bounds.length) map.fitBounds(bounds, {padding:[40,40], maxZoom:6});
+}
+
+/* ---------- Populate Map — runs backend/populate_map.py server-side ---------- */
+async function populateMap(){
+  const btn = event && event.target;
+  if(btn) btn.disabled = true;
+  NX.toast("🌐 Injecting synthetic geo-located attacks (populate_map.py)…");
+  try{
+    const count = 8 + Math.floor(Math.random()*3);
+    const resp = await fetch(`${API}/api/populate-map?count=${count}`, { method:"POST" });
+    const d = await resp.json();
+    if(d.status==="ok"){
+      NX.toast(`✔ Injected ${d.count} attacks — refreshing map…`);
+      for(const delay of [400, 1500, 3000, 5000]) setTimeout(loadScoredAlerts, delay);
+    }else{
+      NX.toast("populate failed — see console"); console.error("populate-map:", d);
+    }
+  }catch(e){
+    NX.toast("populate error — is the server running?"); console.error(e);
+  }finally{
+    if(btn) btn.disabled = false;
+  }
+}
+
+/* ---------- Test the Shield — streams simulate_attack_for_wazuh.sh (SSE) ---------- */
+let shieldRunning = false;
+function testShield(){
+  if(shieldRunning) return;
+  shieldRunning = true;
+  const st = document.getElementById("shieldStatus");
+  st.style.display = "block";
+  st.innerHTML = `<span style="color:var(--cyan)">▸ launching attack_simulation/simulate_attack_for_wazuh.sh …</span>`;
+  NX.toast("🛡 Test the Shield — running the 14 attack families");
+  const es = new EventSource(`${API}/api/test-shield`);
+  es.onmessage = ev => {
+    st.innerHTML += "<br>" + esc(ev.data);
+    st.scrollTop = st.scrollHeight;
+  };
+  es.addEventListener("done", ev => {
+    es.close(); shieldRunning = false;
+    st.innerHTML += `<br><span style="color:var(--green)">✔ simulation finished (exit ${esc(ev.data)}). Scoring incoming alerts…</span>`;
+    st.scrollTop = st.scrollHeight;
+    for(const delay of [1500, 4000, 7000]) setTimeout(loadScoredAlerts, delay);
+    setTimeout(()=>{
+      const high = allAlerts.filter(a=>a.anomaly_label==="CRITICAL"||a.anomaly_label==="HIGH"||(a.level||0)>=10).length;
+      st.innerHTML += `<br>🛡 Shield report: ${allAlerts.length} alerts in view · ${high} high-severity flagged by the ensemble.`;
+      st.scrollTop = st.scrollHeight;
+      NX.toast(`Shield report — ${high} high-severity alerts flagged ✅`);
+    }, 8000);
+  });
+  es.onerror = () => {
+    es.close(); shieldRunning = false;
+    st.innerHTML += `<br><span style="color:var(--amber)">⚠ stream ended (server may have finished or is unreachable).</span>`;
+  };
+}
+
+/* ---------- charts ---------- */
+function initCharts(){
+  const gridC="rgba(255,255,255,.06)", tick="#9aa6c4";
+  chTime = new Chart(document.getElementById("chTime"),{type:"bar",data:{labels:[],datasets:[{label:"all",data:[],backgroundColor:"rgba(34,211,238,.55)",borderRadius:4},{label:"critical/high",data:[],backgroundColor:"rgba(251,113,133,.75)",borderRadius:4}]},options:{onClick:(e,el)=>{ if(el[0]){ const lbl=chTime.data.labels[el[0].index]; const h=parseInt(lbl); filters.hour = (filters.hour===h)?null:h; NX.toast(filters.hour!=null?("Filtered to hour "+lbl):"Hour filter cleared"); renderAll(); } },plugins:{legend:{display:false}},scales:{x:{stacked:false,grid:{color:gridC},ticks:{color:tick,font:{size:8}}},y:{grid:{color:gridC},ticks:{color:tick,font:{size:9}},beginAtZero:true}}}});
+  chAnom = new Chart(document.getElementById("chAnom"),{type:"doughnut",data:{labels:["Critical","High","Possible","Normal","Benign"],datasets:[{data:[0,0,0,0,0],backgroundColor:["#fb7185","#f43f5e","#fbbf24","#34d399","#22d3ee"],borderColor:"#0b0e1a",borderWidth:3}]},options:{onClick:(e,el)=>{ if(el[0]){ const m=["CRITICAL","HIGH","POSSIBLE","NORMAL","BENIGN"]; const v=m[el[0].index]; filters.anom = (filters.anom===v)?"all":v; document.getElementById("fAnom").value=filters.anom; renderAll(); } },plugins:{legend:{labels:{color:tick,font:{size:11}},position:"bottom"}},cutout:"60%"}});
+  chRules = new Chart(document.getElementById("chRules"),{type:"bar",data:{labels:[],datasets:[{data:[],backgroundColor:"#a78bfa",borderRadius:5}]},options:{indexAxis:"y",onClick:(e,el)=>{ if(el[0]){ const rid=chRules.data.labels[el[0].index].replace("rule ",""); document.getElementById("search").value=rid; filters.search=rid.toLowerCase(); renderAll(); } },plugins:{legend:{display:false}},scales:{x:{grid:{color:gridC},ticks:{color:tick,font:{size:9}},beginAtZero:true},y:{grid:{color:gridC},ticks:{color:tick,font:{size:9}}}}}});
+  chLevel = new Chart(document.getElementById("chLevel"),{type:"bar",data:{labels:[],datasets:[{data:[],backgroundColor:"#34d399",borderRadius:5}]},options:{plugins:{legend:{display:false}},scales:{x:{grid:{color:gridC},ticks:{color:tick,font:{size:9}}},y:{grid:{color:gridC},ticks:{color:tick,font:{size:9}},beginAtZero:true}}}});
+}
+function buildTimelineBuckets(alerts){
+  const now = new Date();
+  const labels=[], allCounts=[], highCounts=[];
+  for(let i=23;i>=0;i--){
+    const h = new Date(now.getTime()-i*3600000);
+    labels.push(String(h.getHours()).padStart(2,"0")+":00");
+    allCounts.push(0); highCounts.push(0);
+  }
+  alerts.forEach(a=>{
+    const ts = parseTs(a.timestamp);
+    if(!ts) return;
+    const hoursAgo = (now-ts)/3600000;
+    if(hoursAgo<0 || hoursAgo>24) return;
+    const idx = 23 - Math.floor(hoursAgo);
+    if(idx>=0 && idx<24){
+      allCounts[idx]++;
+      if(a.anomaly_label==="CRITICAL"||a.anomaly_label==="HIGH") highCounts[idx]++;
+    }
+  });
+  return {labels, allCounts, highCounts};
+}
+function updateCharts(alerts){
+  if(!chAnom) return;
+  const tl = buildTimelineBuckets(alerts);
+  chTime.data.labels = tl.labels;
+  chTime.data.datasets[0].data = tl.allCounts;
+  chTime.data.datasets[1].data = tl.highCounts;
+  chTime.update("none");
+  const cnt = l => alerts.filter(a=>a.anomaly_label===l).length;
+  chAnom.data.datasets[0].data = [cnt("CRITICAL"),cnt("HIGH"),cnt("POSSIBLE"),cnt("NORMAL"),cnt("BENIGN")];
+  chAnom.update("none");
+  const ruleCounts = {};
+  alerts.forEach(a=>{ const k=String(a.rule_id); ruleCounts[k]=(ruleCounts[k]||0)+1; });
+  const topR = Object.entries(ruleCounts).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  chRules.data.labels = topR.map(x=>"rule "+x[0]);
+  chRules.data.datasets[0].data = topR.map(x=>x[1]);
+  chRules.update("none");
+  const levelCounts = {};
+  alerts.forEach(a=>{ const k=a.level||0; levelCounts[k]=(levelCounts[k]||0)+1; });
+  const lv = Object.entries(levelCounts).sort((a,b)=>(+a[0])-(+b[0]));
+  chLevel.data.labels = lv.map(x=>"L"+x[0]);
+  chLevel.data.datasets[0].data = lv.map(x=>x[1]);
+  chLevel.update("none");
+}
+
+/* ---------- filter wiring ---------- */
+function clearFilters(){
+  document.getElementById("search").value=""; filters.search="";
+  document.getElementById("fView").value="both"; filters.view="both";
+  document.getElementById("fAnom").value="all"; filters.anom="all";
+  document.getElementById("fLevel").value="0"; filters.level=0;
+  document.getElementById("fAgent").value="all"; filters.agent="all";
+  document.getElementById("fSort").value="score"; filters.sort="score";
+  document.getElementById("fPeriod").value="all"; filters.period="all";
+  filters.hour=null;
+  renderAll(); NX.toast("Filters cleared");
+}
+let searchTimer=null;
+document.getElementById("search").addEventListener("input",e=>{ clearTimeout(searchTimer); searchTimer=setTimeout(()=>{ filters.search=e.target.value.trim().toLowerCase(); renderAll(); },200); });
+document.getElementById("fPeriod").addEventListener("change",e=>{ filters.period=e.target.value; renderAll(); });
+document.getElementById("fAnom").addEventListener("change",e=>{ filters.anom=e.target.value; renderAll(); });
+document.getElementById("fLevel").addEventListener("change",e=>{ filters.level=+e.target.value; renderAll(); });
+document.getElementById("fAgent").addEventListener("change",e=>{ filters.agent=e.target.value; renderAll(); });
+document.getElementById("fSort").addEventListener("change",e=>{ filters.sort=e.target.value; renderAll(); });
+document.getElementById("pauseBtn").addEventListener("click",e=>{ paused=!paused; e.target.textContent=paused?"▶ Resume":"⏸ Pause"; if(!paused) loadScoredAlerts(); });
+
+/* ---------- Reactor status strip (full controls on reactor.html) ---------- */
+let rxEnabled = false;
+async function loadReactor(){
+  try{
+    const s = await (await fetch(API+"/api/reactor/status")).json();
+    rxEnabled = !!s.enabled;
+    const active = s.enabled && s.running;
+    const st = document.getElementById("rxState");
+    st.textContent = active ? "ACTIVE" : (s.enabled ? "STARTING" : "OFF");
+    st.style.background = active ? "rgba(52,211,153,.25)" : "rgba(120,130,150,.2)";
+    st.style.color = active ? "var(--green)" : "var(--text-soft)";
+    document.getElementById("rxToggle").textContent = s.enabled ? "Disable" : "Enable";
+    const c = s.counts || {};
+    document.getElementById("rxCounts").textContent =
+      `min ${s.min_label} · scanned ${c.scanned||0} · fired ${c.fired||0} · incidents ${s.incident_count||0}`;
+    const mode = s.wazuh_ar_mode || "off";
+    const am = document.getElementById("rxArMode");
+    am.textContent = "AR " + mode.toUpperCase();
+    am.style.background = mode==="armed" ? "rgba(251,113,133,.25)"
+                       : mode==="dry-run" ? "rgba(251,191,36,.2)" : "rgba(120,130,150,.2)";
+    am.style.color = mode==="armed" ? "var(--red)" : mode==="dry-run" ? "var(--amber)" : "var(--text-soft)";
+  }catch(e){ /* backend offline */ }
+}
+async function rxToggle(){
+  try{
+    const s = await (await fetch(API+"/api/reactor/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({enabled:!rxEnabled})})).json();
+    NX.toast(s.enabled ? "Reactor enabled — watching the stream ⚡" : "Reactor disabled");
+    loadReactor();
+  }catch(e){ NX.toast("Reactor toggle failed"); }
+}
+
+/* ---------- system logs (full log-collector stream, merged into the alert stream) ---------- */
+let allSysLogs = [];
+
+function logToRow(e){
+  return {
+    __syslog: true,
+    timestamp: e.timestamp,
+    agent_name: e.agent_name || null,
+    rule_id: e.rule_id || "",
+    rule_description: e.rule_description || "",
+    full_log: e.full_log || "",
+    level: e.rule_level || 0,
+    location: e.location || "",
+    groups: e.location ? [e.location] : [],
+    anomaly_label: "LOG",
+    anomaly_score: (typeof e.anomaly_score === "number") ? e.anomaly_score : null,
+    method: e.method, template_seen: e.template_seen, ensemble_label: e.ensemble_label,
+    data: {},
+  };
+}
+
+async function loadSysLogs(){
+  if(paused) return;
+  try{
+    // Prefer the anomaly-scored stream (novelty + ensemble); fall back to the
+    // raw archive tail if scoring is unavailable on this backend.
+    let r = await fetch(API + "/api/logs/scored?limit=100");
+    if(!r.ok) r = await fetch(API + "/api/logs/all?limit=300");
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    const d = await r.json();
+    if(d.enabled === false){ allSysLogs = []; return; }
+    // Rule level ≥3 events already surface in alerts.json — keep only the
+    // lines that would otherwise be invisible, so the merge never duplicates.
+    allSysLogs = (d.events || []).filter(e => (e.rule_level || 0) < 3).map(logToRow);
+    renderAll();
+  }catch(err){
+    console.error("Failed to load system logs:", err);
+  }
+}
+
+/* ---------- bootstrap ---------- */
+window.addEventListener("load",()=>{
+  initMap(); initCharts();
+  syncStores(); renderExcBar(); renderBenign(); renderSusp();
+  loadScoredAlerts();
+  setInterval(loadScoredAlerts, REFRESH_MS);
+  loadReactor();
+  setInterval(loadReactor, 5000);
+  document.getElementById("fView").addEventListener("change", e => { filters.view = e.target.value; renderAll(); });
+  loadSysLogs();
+  setInterval(loadSysLogs, 15000);
+});
+</script>
+</body>
+</html>

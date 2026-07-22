@@ -190,3 +190,12 @@ src/result-*.txt
 
 # Tool files
 tools/repository_bumper_*
+backend/incidents.jsonl
+backend/users.db
+backend/alert_session.jsonl
+# monorepo paths (moved from backend/)
+wazuh-monorepo/apps/backend/incidents.jsonl
+wazuh-monorepo/apps/backend/users.db
+wazuh-monorepo/apps/backend/alert_session.jsonl
+wazuh-monorepo/services/ai-engine/venv
+wazuh-monorepo/infra/registry/staging/*.pkl

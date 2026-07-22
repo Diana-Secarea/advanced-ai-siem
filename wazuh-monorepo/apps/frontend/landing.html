@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Selene — See the attack before it lands</title>
+<meta name="description" content="AI-native threat detection: unsupervised ML ensemble, RAG threat intelligence and an autonomous CVE agent, built on Wazuh.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   SELENE — public landing page
+   Self-contained (no CDN JS) so the demo works offline.
+   Scroll engine + depth scene implemented in vanilla JS below.
+   ============================================================ */
+:root {
+  --bg:        #05060f;
+  --bg2:       #090b1a;
+  --glass:     rgba(255,255,255,0.04);
+  --glass-hi:  rgba(255,255,255,0.08);
+  --stroke:    rgba(255,255,255,0.09);
+  --stroke-hi: rgba(255,255,255,0.20);
+  --cyan:    #22d3ee;
+  --violet:  #a78bfa;
+  --magenta: #f472b6;
+  --green:   #34d399;
+  --amber:   #fbbf24;
+  --red:     #fb7185;
+  --text:      #e8ecf8;
+  --text-soft: #9aa6c4;
+  --text-dim:  #58627e;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-body:    "Inter", sans-serif;
+  --font-mono:    "JetBrains Mono", monospace;
+  --grad-hero: linear-gradient(100deg, #22d3ee 0%, #818cf8 40%, #a78bfa 70%, #f472b6 100%);
+  --ease-out:  cubic-bezier(.16,1,.3,1);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  overflow-x: hidden;
+  line-height: 1.6;
+}
+::selection { background: rgba(167,139,250,.35); }
+a { color: inherit; }
+
+/* ---------- fixed background stack: video → canvas → aurora ---------- */
+.bg-stack { position: fixed; inset: 0; z-index: -3; overflow: hidden; background: var(--bg); }
+.bg-video {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  /* no CSS filter here — filtering a decoding video re-rasterizes every
+     frame and is a major scroll-jank source; darkness comes from opacity
+     over the near-black body background instead */
+  object-fit: cover; opacity: .32;
+}
+.bg-video.hidden { display: none; }
+#depthfield { position: absolute; inset: 0; width: 100%; height: 100%; }
+.aurora { position: absolute; inset: 0; pointer-events: none; }
+.aurora span {
+  position: absolute; border-radius: 50%; filter: blur(90px); opacity: .16;
+  animation: drift 26s ease-in-out infinite alternate;
+}
+.aurora span:nth-child(1) { width: 620px; height: 620px; background: var(--violet); top: -18%; left: -8%; }
+.aurora span:nth-child(2) { width: 520px; height: 520px; background: var(--cyan); top: 34%; right: -12%; animation-delay: -8s; }
+.aurora span:nth-child(3) { width: 560px; height: 560px; background: var(--magenta); bottom: -22%; left: 28%; animation-delay: -16s; opacity: .12; }
+@keyframes drift {
+  from { transform: translate3d(0,0,0) scale(1); }
+  to   { transform: translate3d(70px,-50px,0) scale(1.18); }
+}
+.bg-vignette {
+  position: fixed; inset: 0; z-index: -2; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 30%, transparent 40%, rgba(5,6,15,.85) 100%);
+}
+
+/* ---------- cinematic lighting: a soft key light follows the cursor ---------- */
+.cursor-light {
+  /* fixed-size layer moved with transform (composited) — repainting a
+     full-screen gradient per frame was the other big jank source */
+  position: fixed; top: 0; left: 0; width: 1600px; height: 1600px;
+  margin: -800px 0 0 -800px; z-index: 40; pointer-events: none;
+  mix-blend-mode: screen; will-change: transform;
+  background:
+    radial-gradient(circle at center, rgba(167,139,250,.13), transparent 36%),
+    radial-gradient(circle at center, rgba(34,211,238,.07), transparent 56%);
+}
+
+/* ---------- scroll progress ---------- */
+.scroll-progress {
+  position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 70;
+  background: var(--grad-hero); transform-origin: left; transform: scaleX(0);
+  box-shadow: 0 0 14px rgba(167,139,250,.8); will-change: transform;
+}
+.grid-overlay {
+  position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: .5;
+  background-image:
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse at 50% 20%, black 30%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 20%, black 30%, transparent 75%);
+}
+
+/* ---------- floating depth objects (parallax + scroll scale) ---------- */
+.float-obj {
+  position: absolute; pointer-events: none; will-change: transform;
+  font-family: var(--font-mono);
+}
+.orb {
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 30%, rgba(255,255,255,.25), transparent 42%),
+              radial-gradient(circle at 50% 50%, var(--c, #22d3ee), transparent 72%);
+  box-shadow: 0 0 70px -10px var(--c, #22d3ee);
+  opacity: .38;
+}
+.ring-obj {
+  border: 1px solid var(--stroke-hi); border-radius: 50%; opacity: .38;
+  background: radial-gradient(circle, transparent 58%, rgba(167,139,250,.10) 100%);
+}
+.poly-obj { opacity: .45; }
+.poly-obj svg { display: block; overflow: visible; }
+/* depth cues: far objects are blurred + dimmer, near objects sit above sections */
+.float-obj.far  { filter: blur(2.5px); opacity: .22; }
+.float-obj.near { z-index: 4; }
+
+/* ---------- nav ---------- */
+.nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 60;
+  display: flex; align-items: center; gap: 26px;
+  padding: 16px 34px;
+  background: rgba(5,6,15,.55); backdrop-filter: blur(16px);
+  border-bottom: 1px solid transparent;
+  transition: border-color .3s, background .3s;
+}
+.nav.scrolled { border-bottom-color: var(--stroke); background: rgba(5,6,15,.82); }
+.brand {
+  font-family: var(--font-display); font-weight: 700; font-size: 17px;
+  letter-spacing: 2px; text-decoration: none; display: flex; align-items: center; gap: 10px;
+}
+.brand em { font-style: normal; background: var(--grad-hero); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.brand .logo { color: var(--cyan); font-size: 20px; }
+.nav .link {
+  position: relative; font-size: 13.5px; color: var(--text-soft); text-decoration: none;
+  padding: 6px 2px; transition: color .2s;
+}
+.nav .link::after {
+  content: ""; position: absolute; left: 0; right: 100%; bottom: 0; height: 1.5px;
+  background: var(--grad-hero); transition: right .35s var(--ease-out);
+}
+.nav .link:hover { color: var(--text); }
+.nav .link:hover::after { right: 0; }
+.nav .spacer { flex: 1; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  font-family: var(--font-display); font-weight: 600; font-size: 14.5px;
+  padding: 13px 26px; border-radius: 12px; text-decoration: none;
+  border: 1px solid transparent; cursor: pointer; min-height: 44px;
+  transition: transform .18s var(--ease-out), box-shadow .25s, background .2s, border-color .2s;
+}
+.btn:active { transform: scale(.97); }
+.btn { position: relative; overflow: hidden; }
+.btn::before {
+  content: ""; position: absolute; top: 0; bottom: 0; left: -80%; width: 45%;
+  background: linear-gradient(105deg, transparent, rgba(255,255,255,.35), transparent);
+  transform: skewX(-20deg); transition: left .6s var(--ease-out); pointer-events: none;
+}
+.btn:hover::before { left: 130%; }
+.btn-primary {
+  color: #04121a; background: linear-gradient(100deg, var(--cyan), var(--violet));
+  box-shadow: 0 10px 34px -10px rgba(34,211,238,.55);
+}
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 44px -10px rgba(167,139,250,.6); }
+.btn-ghost { color: var(--text); background: var(--glass); border-color: var(--stroke-hi); }
+.btn-ghost:hover { background: var(--glass-hi); transform: translateY(-2px); }
+.btn-sm { padding: 9px 18px; font-size: 13px; border-radius: 10px; }
+
+/* ---------- sections / typography ---------- */
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 30px; position: relative; }
+section { position: relative; }
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 3px;
+  text-transform: uppercase; color: var(--cyan);
+  padding: 7px 15px; border: 1px solid rgba(34,211,238,.3); border-radius: 999px;
+  background: rgba(34,211,238,.06);
+}
+h1, h2, h3 { font-family: var(--font-display); line-height: 1.12; }
+.grad-text { background: var(--grad-hero); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.section-head { text-align: center; max-width: 720px; margin: 0 auto 64px; }
+.section-head h2 { font-size: clamp(30px, 4.4vw, 46px); margin: 20px 0 16px; }
+.section-head p { color: var(--text-soft); font-size: 17px; }
+
+/* ---------- 3D scroll reveal primitives ---------- */
+.stage { perspective: 1200px; }
+.r3d {
+  opacity: 0;
+  transform: perspective(1100px) rotateX(9deg) translateY(38px) scale(.98);
+  transform-origin: 50% 100%;
+  transition: opacity .8s var(--ease-out), transform .9s var(--ease-out);
+  will-change: transform, opacity;
+}
+.r3d.in { opacity: 1; transform: perspective(1100px) rotateX(0) translateY(0) scale(1); }
+.r3d[data-delay="1"] { transition-delay: .09s; }
+.r3d[data-delay="2"] { transition-delay: .18s; }
+.r3d[data-delay="3"] { transition-delay: .27s; }
+.r3d[data-delay="4"] { transition-delay: .36s; }
+
+/* ---------- hero ---------- */
+.hero { min-height: 100vh; display: flex; align-items: center; padding: 140px 0 90px; overflow: visible; }
+.hero-inner { text-align: center; max-width: 900px; margin: 0 auto; }
+.hero h1 { font-size: clamp(42px, 7vw, 84px); letter-spacing: -1px; margin: 26px 0 22px; }
+.hero .lede { font-size: clamp(16px, 2vw, 19.5px); color: var(--text-soft); max-width: 640px; margin: 0 auto 38px; }
+.hero-ctas { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+.hero-meta {
+  margin-top: 54px; display: flex; gap: 34px; justify-content: center; flex-wrap: wrap;
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: 1.5px; color: var(--text-dim);
+}
+.hero-meta b { color: var(--text); font-size: 20px; display: block; font-family: var(--font-display); letter-spacing: 0; }
+.scroll-cue {
+  position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%);
+  width: 26px; height: 42px; border: 2px solid var(--stroke-hi); border-radius: 14px;
+}
+.scroll-cue::after {
+  content: ""; position: absolute; left: 50%; top: 7px; width: 4px; height: 8px;
+  margin-left: -2px; border-radius: 3px; background: var(--cyan);
+  animation: cue 1.8s ease-in-out infinite;
+}
+@keyframes cue { 0%,100% { transform: translateY(0); opacity: 1; } 60% { transform: translateY(14px); opacity: .2; } }
+
+/* ---------- marquee ---------- */
+.marquee { border-block: 1px solid var(--stroke); padding: 18px 0; overflow: hidden; background: rgba(9,11,26,.45); }
+.marquee-track {
+  display: flex; gap: 56px; width: max-content;
+  animation: marquee 30s linear infinite;
+  font-family: var(--font-mono); font-size: 12.5px; letter-spacing: 2.5px; color: var(--text-dim);
+  white-space: nowrap;
+}
+.marquee-track span b { color: var(--text-soft); }
+@keyframes marquee { to { transform: translateX(-50%); } }
+
+/* ---------- features ---------- */
+.features { padding: 130px 0; }
+.feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+.card {
+  position: relative; border-radius: 20px; padding: 30px 26px;
+  background: linear-gradient(160deg, var(--glass-hi), var(--glass));
+  border: 1px solid var(--stroke);
+  transform-style: preserve-3d; will-change: transform;
+  transition: border-color .25s, box-shadow .3s;
+}
+.card:hover { border-color: var(--stroke-hi); box-shadow: 0 30px 60px -30px rgba(34,211,238,.25); }
+.card .glow {
+  position: absolute; inset: 0; border-radius: 20px; pointer-events: none; opacity: 0;
+  background: radial-gradient(500px circle at var(--mx,50%) var(--my,50%), rgba(167,139,250,.14), transparent 45%);
+  transition: opacity .3s;
+}
+.card:hover .glow { opacity: 1; }
+.card .icon {
+  width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center;
+  margin-bottom: 20px; background: rgba(34,211,238,.07); border: 1px solid var(--stroke-hi);
+  transform: translateZ(34px);
+}
+.card .icon svg { width: 25px; height: 25px; stroke: var(--cyan); fill: none; stroke-width: 1.7; }
+/* color rotation within the brand triad — richer than mono-cyan, calmer than rainbow */
+.card:nth-child(3n+2) .icon { background: rgba(167,139,250,.08); }
+.card:nth-child(3n+2) .icon svg { stroke: var(--violet); }
+.card:nth-child(3n)   .icon { background: rgba(244,114,182,.08); }
+.card:nth-child(3n)   .icon svg { stroke: var(--magenta); }
+.card:nth-child(3n+2) .metric b { color: var(--violet); }
+.card:nth-child(3n)   .metric b { color: var(--magenta); }
+.card h3 { font-size: 19px; margin-bottom: 10px; transform: translateZ(26px); }
+.card p { font-size: 14.5px; color: var(--text-soft); transform: translateZ(16px); }
+.card .metric {
+  margin-top: 18px; font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 1.5px;
+  color: var(--text-dim); transform: translateZ(20px);
+}
+.card .metric b { color: var(--cyan); font-size: 14px; }
+
+/* ---------- depth showcase (scroll-scrубbed scene) ---------- */
+.showcase { padding: 150px 0 170px; overflow: visible; }
+.showcase-scene { position: relative; min-height: 560px; }
+.terminal {
+  position: relative; z-index: 3; max-width: 680px; margin: 0 auto;
+  border-radius: 18px; overflow: hidden;
+  background: rgba(6,8,20,.88); border: 1px solid var(--stroke-hi);
+  box-shadow: 0 60px 120px -40px rgba(0,0,0,.9), 0 0 80px -30px rgba(167,139,250,.35);
+  will-change: transform;
+}
+.terminal-bar {
+  display: flex; align-items: center; gap: 8px; padding: 13px 18px;
+  background: rgba(255,255,255,.04); border-bottom: 1px solid var(--stroke);
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 1.5px; color: var(--text-dim);
+}
+.terminal-bar i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+.terminal-body { padding: 22px 24px 26px; font-family: var(--font-mono); font-size: 13px; line-height: 2.05; }
+.tl { opacity: 0; transform: translateX(-10px); transition: opacity .5s, transform .5s var(--ease-out); }
+.tl.on { opacity: 1; transform: none; }
+.tl .t-dim { color: var(--text-dim); }
+.tl .t-cyan { color: var(--cyan); }
+.tl .t-vio { color: var(--violet); }
+.tl .t-mag { color: var(--magenta); }
+.tl .t-grn { color: var(--green); }
+.tl .t-amb { color: var(--amber); }
+
+/* ---------- pipeline ---------- */
+.pipeline { padding: 120px 0 140px; }
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; counter-reset: step; }
+.step {
+  position: relative; padding: 26px 22px 24px; border-radius: 18px;
+  background: var(--glass); border: 1px solid var(--stroke);
+}
+.step::before {
+  counter-increment: step; content: "0" counter(step);
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: 2px; color: var(--cyan);
+}
+.step h3 { font-size: 16.5px; margin: 12px 0 8px; }
+.step p { font-size: 13.5px; color: var(--text-soft); }
+.step .bar { height: 2px; margin-top: 18px; border-radius: 2px; background: var(--grad-hero); transform-origin: left; transform: scaleX(0); transition: transform 1s var(--ease-out) .3s; }
+.step.in .bar { transform: scaleX(1); }
+
+/* ---------- pricing ---------- */
+.pricing { padding: 130px 0; }
+.plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; align-items: stretch; }
+.plan {
+  position: relative; display: flex; flex-direction: column; gap: 0;
+  border-radius: 22px; padding: 34px 30px;
+  background: linear-gradient(170deg, var(--glass-hi), var(--glass));
+  border: 1px solid var(--stroke); will-change: transform;
+  transition: border-color .25s, box-shadow .3s;
+}
+.plan:hover { border-color: var(--stroke-hi); }
+.plan.featured {
+  border-color: rgba(167,139,250,.55);
+  background: linear-gradient(170deg, rgba(167,139,250,.13), rgba(34,211,238,.05));
+  box-shadow: 0 40px 90px -40px rgba(167,139,250,.5);
+}
+.plan .tag {
+  position: absolute; top: -13px; left: 50%; transform: translateX(-50%);
+  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 2px;
+  padding: 6px 14px; border-radius: 999px; color: var(--violet);
+  background: rgba(19,16,45,.95); border: 1px solid rgba(167,139,250,.5); white-space: nowrap;
+}
+.plan h3 { font-size: 20px; }
+.plan .who { font-size: 13px; color: var(--text-dim); margin-top: 4px; min-height: 20px; }
+.plan .price { font-family: var(--font-display); font-size: 46px; font-weight: 700; margin: 20px 0 2px; }
+.plan .price small { font-size: 15px; font-weight: 500; color: var(--text-dim); }
+.plan ul { list-style: none; margin: 22px 0 28px; display: grid; gap: 11px; flex: 1; }
+.plan li { display: flex; gap: 11px; font-size: 14px; color: var(--text-soft); align-items: flex-start; }
+.plan li svg { width: 17px; height: 17px; stroke: var(--green); fill: none; stroke-width: 2.4; flex: none; margin-top: 3px; }
+.plan .btn { width: 100%; }
+.billing-note {
+  text-align: center; margin-top: 30px; font-size: 13px; color: var(--text-dim);
+  font-family: var(--font-mono); letter-spacing: .5px;
+}
+.billing-note.err { color: var(--amber); }
+
+/* ---------- FAQ ---------- */
+.faq { padding: 110px 0 130px; }
+.faq-list { max-width: 760px; margin: 0 auto; display: grid; gap: 14px; }
+.faq-item { border: 1px solid var(--stroke); border-radius: 16px; background: var(--glass); overflow: hidden; transition: border-color .25s, transform .3s var(--ease-out); }
+.faq-item:hover { transform: translateX(6px); border-color: var(--stroke-hi); }
+.faq-item.open { border-color: rgba(34,211,238,.4); background: var(--glass-hi); }
+.faq-q {
+  width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 18px;
+  padding: 21px 24px; background: none; border: 0; color: var(--text);
+  font-family: var(--font-display); font-weight: 600; font-size: 16.5px; text-align: left;
+  cursor: pointer; min-height: 44px;
+}
+.faq-q .chev { flex: none; width: 22px; height: 22px; transition: transform .35s var(--ease-out); }
+.faq-q .chev svg { width: 100%; height: 100%; stroke: var(--cyan); fill: none; stroke-width: 2; }
+.faq-item.open .chev { transform: rotate(180deg); }
+.faq-a { max-height: 0; overflow: hidden; transition: max-height .45s var(--ease-out); }
+.faq-a p { padding: 0 24px 22px; color: var(--text-soft); font-size: 14.5px; }
+.faq-a code { font-family: var(--font-mono); font-size: 12.5px; color: var(--cyan); background: rgba(34,211,238,.08); padding: 2px 7px; border-radius: 6px; }
+
+/* ---------- final CTA + footer ---------- */
+.final { padding: 120px 0 140px; text-align: center; }
+.final h2 { font-size: clamp(32px, 5vw, 54px); margin-bottom: 18px; }
+.final p { color: var(--text-soft); max-width: 560px; margin: 0 auto 36px; font-size: 17px; }
+footer {
+  border-top: 1px solid var(--stroke); padding: 34px 0;
+  font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 1.5px; color: var(--text-dim);
+}
+footer .wrap { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+footer a { color: var(--text-soft); text-decoration: none; }
+footer a:hover { color: var(--text); }
+
+/* ---------- toast ---------- */
+.toast {
+  position: fixed; bottom: 28px; left: 50%; transform: translate(-50%, 140%);
+  z-index: 90; padding: 14px 24px; border-radius: 13px;
+  background: rgba(9,11,26,.94); border: 1px solid var(--stroke-hi);
+  font-size: 14px; box-shadow: 0 24px 60px -20px rgba(0,0,0,.9);
+  transition: transform .45s var(--ease-out); max-width: min(90vw, 460px); text-align: center;
+}
+.toast.show { transform: translate(-50%, 0); }
+.toast.ok { border-color: rgba(52,211,153,.5); }
+.toast.warn { border-color: rgba(251,191,36,.5); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1024px) {
+  .feature-grid { grid-template-columns: repeat(2, 1fr); }
+  .steps { grid-template-columns: repeat(2, 1fr); }
+  .nav .link { display: none; }
+}
+@media (max-width: 760px) {
+  .feature-grid, .plans, .steps { grid-template-columns: 1fr; }
+  .plan.featured { transform: none; }
+  .hero { padding-top: 120px; }
+  .float-obj { display: none; }
+}
+
+/* ---------- reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  .r3d { opacity: 1; transform: none; }
+  .float-obj { display: none; }
+  .bg-video { display: none; }
+  .cursor-light { display: none; }
+}
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; border-radius: 6px; }
+</style>
+</head>
+<body>
+
+<!-- ==== background: video → depth canvas → aurora blobs ==== -->
+<div class="bg-stack" aria-hidden="true">
+  <!-- Drop a Higgsfield-generated loop at assets/hero-bg.mp4 (and optionally .webm).
+       If the file is missing the JS below hides the element and the animated
+       canvas + aurora take over seamlessly. -->
+  <video class="bg-video" id="bgVideo" autoplay muted loop playsinline preload="metadata" poster="">
+    <source src="assets/hero-bg.webm" type="video/webm">
+    <source src="assets/hero-bg.mp4" type="video/mp4">
+  </video>
+  <canvas id="depthfield"></canvas>
+  <div class="aurora"><span></span><span></span><span></span></div>
+</div>
+<div class="bg-vignette" aria-hidden="true"></div>
+<div class="grid-overlay" aria-hidden="true"></div>
+<div class="cursor-light" id="cursorLight" aria-hidden="true"></div>
+<div class="scroll-progress" id="scrollProgress" aria-hidden="true"></div>
+
+<!-- ==== nav ==== -->
+<nav class="nav" id="nav" aria-label="Main">
+  <a class="brand" href="landing.html"><span class="logo">◈</span><em>SELENE</em></a>
+  <a class="link" href="#features">Platform</a>
+  <a class="link" href="#showcase">Live engine</a>
+  <a class="link" href="#pricing">Pricing</a>
+  <a class="link" href="#faq">FAQ</a>
+  <span class="spacer"></span>
+  <a class="btn btn-ghost btn-sm" href="login.html">Sign in</a>
+  <a class="btn btn-primary btn-sm" href="index.html">Launch console</a>
+</nav>
+
+<main>
+
+<!-- ==== hero ==== -->
+<section class="hero" id="top">
+  <!-- depth objects: data-depth = distance from the glass (0 far … 1 near).
+       The engine scales each object by depth, blurs the far ones, and grows
+       objects as they pass the viewport center — true z-depth on scroll. -->
+  <div class="float-obj orb near" data-depth="0.8"  style="--c:#22d3ee; width:150px; height:150px; top:16%; left:7%;"></div>
+  <div class="float-obj orb far"  data-depth="0.15" style="--c:#a78bfa; width:70px;  height:70px;  top:30%; right:20%;"></div>
+  <div class="float-obj orb near" data-depth="0.7"  style="--c:#f472b6; width:90px;  height:90px;  top:68%; right:10%;"></div>
+  <div class="float-obj ring-obj" data-depth="0.5"  style="width:230px; height:230px; top:58%; left:12%;"></div>
+  <div class="float-obj ring-obj far" data-depth="0.2" style="width:120px; height:120px; top:12%; right:8%;"></div>
+  <div class="float-obj poly-obj" data-depth="0.6" data-spin="1" style="top:22%; right:32%;">
+    <svg width="64" height="64" viewBox="0 0 100 100"><path d="M50 6 88 28v44L50 94 12 72V28z"
+      stroke="#a78bfa" stroke-width="1.5" fill="none" opacity=".8"/></svg>
+  </div>
+
+  <div class="wrap hero-inner stage">
+    <span class="eyebrow r3d">AI-native SIEM intelligence · built on Wazuh</span>
+    <h1 class="r3d" data-delay="1">See the attack<br><span class="grad-text">before it lands.</span></h1>
+    <p class="lede r3d" data-delay="2">
+      Selene fuses an unsupervised ML ensemble, UEBA behavior analytics and
+      retrieval-augmented threat intelligence into one engine — tuned by an autonomous
+      CVE agent and explained in plain language by a local LLM.
+    </p>
+    <div class="hero-ctas r3d" data-delay="3">
+      <a class="btn btn-primary" href="#pricing">Start protecting now</a>
+      <a class="btn btn-ghost" href="#showcase">See it in action</a>
+    </div>
+    <div class="hero-meta r3d" data-delay="4">
+      <span><b data-count="95.9" data-suffix="%">0</b>DETECTION RECALL</span>
+      <span><b data-count="85.7" data-suffix="%">0</b>STACKED F1</span>
+      <span><b data-count="2.5" data-suffix="s" data-dec="1">0</b>FIRST LLM TOKEN</span>
+      <span><b data-count="24" data-suffix="/7">0</b>AUTONOMOUS WATCH</span>
+    </div>
+  </div>
+  <div class="scroll-cue" aria-hidden="true"></div>
+</section>
+
+<!-- ==== marquee ==== -->
+<div class="marquee" aria-hidden="true">
+  <div class="marquee-track" id="marqueeTrack">
+    <span>ISOLATION FOREST <b>·</b></span><span>AUTOENCODER ENSEMBLE <b>·</b></span>
+    <span>UEBA PROFILES <b>·</b></span><span>LOGISTIC STACKER <b>·</b></span>
+    <span>RAG OVER QDRANT <b>·</b></span><span>MITRE ATT&amp;CK MAPPING <b>·</b></span>
+    <span>NVD + CISA-KEV FEEDS <b>·</b></span><span>SSE STREAMING COPILOT <b>·</b></span>
+    <span>ACTIVE RESPONSE SOAR <b>·</b></span><span>PROMETHEUS METRICS <b>·</b></span>
+  </div>
+</div>
+
+<!-- ==== features ==== -->
+<section class="features" id="features">
+  <div class="float-obj orb near" data-depth="0.72" style="--c:#a78bfa; width:110px; height:110px; top:8%; right:5%;"></div>
+  <div class="float-obj orb far" data-depth="0.14" style="--c:#22d3ee; width:60px; height:60px; bottom:12%; left:6%;"></div>
+  <div class="float-obj ring-obj" data-depth="0.45" style="width:200px; height:200px; bottom:4%; right:14%;"></div>
+  <div class="wrap">
+    <div class="section-head stage">
+      <span class="eyebrow r3d">The platform</span>
+      <h2 class="r3d" data-delay="1">Six engines. <span class="grad-text">One shield.</span></h2>
+      <p class="r3d" data-delay="2">Every alert is scored, explained and — if you want — acted on. No cloud dependency, no data leaving your network.</p>
+    </div>
+    <div class="feature-grid stage">
+      <div class="card r3d tilt"><div class="glow"></div>
+        <div class="icon"><svg viewBox="0 0 24 24"><path d="M12 2 4 6v6c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6z"/><path d="m9 12 2 2 4-4"/></svg></div>
+        <h3>Anomaly ensemble</h3>
+        <p>Isolation Forest + deep autoencoder trained one-class on your clean baseline — attacks stand out without ever needing labeled data.</p>
+        <div class="metric">SEPARATION <b>75.1</b> · FPR <b>8%</b></div>
+      </div>
+      <div class="card r3d tilt" data-delay="1"><div class="glow"></div>
+        <div class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg></div>
+        <h3>UEBA behavior analytics</h3>
+        <p>Per-entity profiles learn what "normal" looks like for every agent and rule group, then flag the drift that signature rules miss.</p>
+        <div class="metric">STACKED WEIGHT <b>56%</b></div>
+      </div>
+      <div class="card r3d tilt" data-delay="2"><div class="glow"></div>
+        <div class="icon"><svg viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V6a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg></div>
+        <h3>Grounded AI analyst</h3>
+        <p>Chat with a local LLM that cites its sources — every answer is retrieved from your own indexed threat intel, never hallucinated.</p>
+        <div class="metric">HIT RATE <b>82.9%</b> · LOCAL VRAM-PINNED</div>
+      </div>
+      <div class="card r3d tilt"><div class="glow"></div>
+        <div class="icon"><svg viewBox="0 0 24 24"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3.5"/></svg></div>
+        <h3>Autonomous CVE agent</h3>
+        <p>Ingests NVD and CISA-KEV on schedule, dedupes, scores relevance with the LLM and auto-indexes what matters to <em>your</em> stack.</p>
+        <div class="metric">SCORE ≥7 → AUTO-INDEXED</div>
+      </div>
+      <div class="card r3d tilt" data-delay="1"><div class="glow"></div>
+        <div class="icon"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg></div>
+        <h3>Reactor SOAR</h3>
+        <p>Headless daemon tails live alerts, scores them in real time and reacts — triage tickets, IP blocks, scans — with a full audit ledger.</p>
+        <div class="metric">LEDGER + WEBHOOK + ACTIVE-RESPONSE</div>
+      </div>
+      <div class="card r3d tilt" data-delay="2"><div class="glow"></div>
+        <div class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="m7 9 3 3-3 3m6 0h4"/></svg></div>
+        <h3>Ops-grade deployment</h3>
+        <p>Waitress WSGI, health probes, structured logs, Prometheus metrics and Grafana dashboards — hardened auth with lockout built in.</p>
+        <div class="metric">/health · /ready · /metrics</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==== depth showcase: terminal scene with scroll-scrubbed depth ==== -->
+<section class="showcase" id="showcase">
+  <div class="float-obj orb" data-depth="0.55" style="--c:#22d3ee; width:70px; height:70px; bottom:10%; left:8%;"></div>
+  <div class="float-obj ring-obj" data-depth="0.4" style="width:300px; height:300px; top:30%; right:-4%;"></div>
+  <div class="float-obj orb far" data-depth="0.15" style="--c:#f472b6; width:60px; height:60px; top:10%; left:16%;"></div>
+  <div class="float-obj poly-obj far" data-depth="0.22" data-spin="1" style="bottom:18%; right:18%;">
+    <svg width="52" height="52" viewBox="0 0 100 100"><path d="M50 8 92 82H8z"
+      stroke="#22d3ee" stroke-width="1.5" fill="none" opacity=".8"/></svg>
+  </div>
+
+  <div class="wrap">
+    <div class="section-head stage">
+      <span class="eyebrow r3d">Live engine</span>
+      <h2 class="r3d" data-delay="1">Watch a breach get <span class="grad-text">caught in seconds.</span></h2>
+      <p class="r3d" data-delay="2">A real detection flow from the engine — brute force attempt to scored incident to grounded explanation.</p>
+    </div>
+    <div class="showcase-scene">
+      <div class="terminal" id="terminal">
+        <div class="terminal-bar">
+          <i style="background:#fb7185"></i><i style="background:#fbbf24"></i><i style="background:#34d399"></i>
+          <span style="margin-left:10px">shield-engine — live feed</span>
+        </div>
+        <div class="terminal-body" id="termBody">
+          <div class="tl"><span class="t-dim">01:14:07</span> <span class="t-cyan">sshd</span> failed password for <b>root</b> from 185.220.x.x <span class="t-dim">(×47)</span></div>
+          <div class="tl"><span class="t-dim">01:14:08</span> <span class="t-vio">[UEBA]</span> agent <b>web-01</b> deviates from baseline — auth burst <span class="t-amb">+9.2σ</span></div>
+          <div class="tl"><span class="t-dim">01:14:08</span> <span class="t-vio">[ENSEMBLE]</span> IF 0.81 · AE 0.88 · UEBA 0.97 → <span class="t-mag">stacked score 0.94</span></div>
+          <div class="tl"><span class="t-dim">01:14:09</span> <span class="t-mag">[INCIDENT]</span> T1110 Brute Force — severity <b>HIGH</b> — incident <span class="t-cyan">#4211</span> opened</div>
+          <div class="tl"><span class="t-dim">01:14:09</span> <span class="t-grn">[REACTOR]</span> active-response: <b>block-ip 185.220.x.x</b> · ticket created · ledger updated</div>
+          <div class="tl"><span class="t-dim">01:14:11</span> <span class="t-cyan">[COPILOT]</span> "Credential brute force matching CISA-KEV pattern; source AS is a known Tor exit…" <span class="t-dim">[3 sources]</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==== pipeline ==== -->
+<section class="pipeline">
+  <div class="wrap">
+    <div class="section-head stage">
+      <span class="eyebrow r3d">How it works</span>
+      <h2 class="r3d" data-delay="1">From raw log to <span class="grad-text">explained incident.</span></h2>
+    </div>
+    <div class="steps stage">
+      <div class="step r3d"><h3>Collect</h3><p>Wazuh agents stream every auth event, syscall and rule hit into the engine in real time.</p><div class="bar"></div></div>
+      <div class="step r3d" data-delay="1"><h3>Score</h3><p>16 engineered features feed the IF + AE + UEBA ensemble; a learned stacker fuses them into one score.</p><div class="bar"></div></div>
+      <div class="step r3d" data-delay="2"><h3>Explain</h3><p>The RAG copilot retrieves matching CVEs and intel from Qdrant and explains the incident with citations.</p><div class="bar"></div></div>
+      <div class="step r3d" data-delay="3"><h3>React</h3><p>The Reactor triages, blocks, scans or emails — every action written to a tamper-evident ledger.</p><div class="bar"></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ==== pricing ==== -->
+<section class="pricing" id="pricing">
+  <div class="float-obj orb" data-depth="0.35" style="--c:#a78bfa; width:130px; height:130px; top:0; left:4%;"></div>
+  <div class="float-obj orb near" data-depth="0.75" style="--c:#22d3ee; width:80px; height:80px; bottom:6%; right:6%;"></div>
+  <div class="float-obj ring-obj far" data-depth="0.18" style="width:180px; height:180px; top:40%; left:-3%;"></div>
+  <div class="wrap">
+    <div class="section-head stage">
+      <span class="eyebrow r3d">Pricing</span>
+      <h2 class="r3d" data-delay="1">Protection that <span class="grad-text">pays for itself.</span></h2>
+      <p class="r3d" data-delay="2">Start free on your own hardware. Upgrade when you want the full autonomous stack. Cancel anytime.</p>
+    </div>
+    <div class="plans stage">
+      <div class="plan r3d">
+        <h3>Analyst</h3><div class="who">Solo defenders &amp; home labs</div>
+        <div class="price">€29<small>/mo</small></div>
+        <ul>
+          <li><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg>Anomaly ensemble on 1 Wazuh node</li>
+          <li><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg>Live threat map &amp; alert console</li>
+          <li><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg>AI analyst chat (local LLM)</li>
+          <li><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg>Community support</li>
+        </ul>
+        <button class="btn btn-ghost" data-plan="analyst">Choose Analyst</button>
+      </div>
+      <div class="plan featured r3d" data-delay="1">
+        <span class="tag">MOST POPULAR</span>
+        <h3>Team</h3><div class="who">SOC teams &amp; growing fleets</div>
+        <div class="price">€99<small>/mo</small></div>
+        <ul>
+          <li><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg>Everything in Analyst, up to 25 nodes</li>
+          <li><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg>UEBA + learned stacking models</li>
+          <li><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg>Autonomous CVE ingestion agent</li>
+          <li><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg>Reactor SOAR with active response</li>
+          <li><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg>Grafana dashboards &amp; email tickets</li>
+        </ul>
+        <button class="btn btn-primary" data-plan="team">Choose Team</button>
+      </div>
+      <div class="plan r3d" data-delay="2">
+        <h3>Enterprise</h3><div class="who">Regulated &amp; air-gapped environments</div>
+        <div class="price">Custom</div>
+        <ul>
+          <li><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg>Unlimited nodes, HA deployment</li>
+          <li><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg>On-prem model fine-tuning</li>
+          <li><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg>SSO, audit exports, compliance packs</li>
+          <li><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg>Dedicated response engineer</li>
+        </ul>
+        <a class="btn btn-ghost" href="mailto:diana.secarea1111@gmail.com?subject=Diana's%20Shield%20Enterprise">Talk to us</a>
+      </div>
+    </div>
+    <div class="billing-note" id="billingNote">Secured by Stripe · VAT included · cancel anytime</div>
+  </div>
+</section>
+
+<!-- ==== FAQ ==== -->
+<section class="faq" id="faq">
+  <div class="float-obj orb far" data-depth="0.18" style="--c:#a78bfa; width:70px; height:70px; top:16%; right:8%;"></div>
+  <div class="float-obj poly-obj" data-depth="0.55" data-spin="1" style="bottom:10%; left:7%;">
+    <svg width="58" height="58" viewBox="0 0 100 100"><rect x="18" y="18" width="64" height="64" rx="6"
+      stroke="#f472b6" stroke-width="1.5" fill="none" opacity=".7" transform="rotate(18 50 50)"/></svg>
+  </div>
+  <div class="wrap">
+    <div class="section-head stage">
+      <span class="eyebrow r3d">FAQ</span>
+      <h2 class="r3d" data-delay="1">Common <span class="grad-text">questions.</span></h2>
+    </div>
+    <div class="faq-list stage">
+      <div class="faq-item r3d">
+        <button class="faq-q" aria-expanded="false">Does my security data ever leave my network?
+          <span class="chev"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></button>
+        <div class="faq-a"><p>No. The entire stack — ML models, the Qdrant vector database and the LLM (served by Ollama) — runs on your own hardware. The only outbound traffic is the CVE agent pulling public NVD/CISA feeds, and you can disable even that.</p></div>
+      </div>
+      <div class="faq-item r3d">
+        <button class="faq-q" aria-expanded="false">Do I need labeled attack data to train the models?
+          <span class="chev"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></button>
+        <div class="faq-a"><p>No. The ensemble is trained one-class on your clean baseline: the Isolation Forest and autoencoder learn what normal looks like, and UEBA profiles each entity individually. Anything that deviates gets scored — including attacks nobody has written a signature for yet.</p></div>
+      </div>
+      <div class="faq-item r3d">
+        <button class="faq-q" aria-expanded="false">How is this different from plain Wazuh?
+          <span class="chev"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></button>
+        <div class="faq-a"><p>Wazuh gives you rule-based alerts. Selene sits on top and adds the layers rules can't: behavioral anomaly scoring, a learned model that fuses three detectors, retrieval-grounded explanations with cited sources, and autonomous reaction. Rules catch what you predicted; the ensemble catches what you didn't.</p></div>
+      </div>
+      <div class="faq-item r3d">
+        <button class="faq-q" aria-expanded="false">Can the AI analyst hallucinate threats?
+          <span class="chev"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></button>
+        <div class="faq-a"><p>The copilot is retrieval-grounded: every answer is built from documents indexed in your own vector database, and each response shows clickable source chips so you can verify the origin. Prompt guardrails reject queries outside the security domain.</p></div>
+      </div>
+      <div class="faq-item r3d">
+        <button class="faq-q" aria-expanded="false">What does the Reactor actually do when it fires?
+          <span class="chev"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></button>
+        <div class="faq-a"><p>You choose the blast radius. It can stay observational (ledger + webhook only), open triage tickets, or take active response: block an IP, trigger a scan, send an email. Every action is recorded in an append-only ledger, and the whole service ships <em>off by default</em>.</p></div>
+      </div>
+      <div class="faq-item r3d">
+        <button class="faq-q" aria-expanded="false">How do payments and cancellation work?
+          <span class="chev"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></button>
+        <div class="faq-a"><p>Checkout and subscriptions are handled entirely by <code>Stripe</code> — we never see or store card numbers. Plans are monthly, you can cancel from the Stripe portal at any time, and your deployment keeps running locally regardless.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==== final CTA ==== -->
+<section class="final stage">
+  <div class="float-obj orb" data-depth="0.4" style="--c:#a78bfa; width:100px; height:100px; top:10%; right:12%;"></div>
+  <div class="float-obj orb far" data-depth="0.16" style="--c:#f472b6; width:56px; height:56px; bottom:14%; left:10%;"></div>
+  <div class="wrap">
+    <h2 class="r3d">Your network is talking.<br><span class="grad-text">Start listening.</span></h2>
+    <p class="r3d" data-delay="1">Deploy the shield in an afternoon. Catch what your rules were never going to see.</p>
+    <div class="hero-ctas r3d" data-delay="2">
+      <a class="btn btn-primary" href="#pricing">Get Selene</a>
+      <a class="btn btn-ghost" href="index.html">Explore the live console</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>◈ SELENE — built on Wazuh · © 2026 Diana Secarea</span>
+    <span><a href="#features">Platform</a> &nbsp;·&nbsp; <a href="#pricing">Pricing</a> &nbsp;·&nbsp; <a href="#faq">FAQ</a> &nbsp;·&nbsp; <a href="login.html">Sign in</a></span>
+  </div>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  "use strict";
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ---------- video background: hide gracefully if no file ---------- */
+  var video = document.getElementById("bgVideo");
+  function dropVideo() { video.classList.add("hidden"); }
+  video.addEventListener("error", dropVideo, true);
+  var lastSource = video.querySelector("source:last-child");
+  if (lastSource) lastSource.addEventListener("error", dropVideo);
+  if (reduced) dropVideo();
+
+  /* ---------- depth starfield: particles drift toward the viewer,
+       growing as they approach, then reset — real z-depth motion ------- */
+  var canvas = document.getElementById("depthfield");
+  var ctx = canvas.getContext("2d");
+  var stars = [], W = 0, H = 0, scrollDrift = 0;
+  var COLORS = ["#22d3ee", "#a78bfa", "#f472b6", "#e8ecf8"];
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  function spawn(s) {
+    s.x = (Math.random() - 0.5) * W;
+    s.y = (Math.random() - 0.5) * H;
+    s.z = Math.random() * 0.9 + 0.1;         /* 0 = far, 1 = at the glass */
+    s.v = 0.0006 + Math.random() * 0.0012;   /* approach speed */
+    s.c = COLORS[(Math.random() * COLORS.length) | 0];
+    return s;
+  }
+  function initStars() {
+    stars = [];
+    var n = Math.min(110, Math.floor(W * H / 17000));
+    for (var i = 0; i < n; i++) { var s = spawn({}); s.z = Math.random(); stars.push(s); }
+  }
+  function drawStars() {
+    ctx.clearRect(0, 0, W, H);
+    var cx = W / 2, cy = H / 2 - scrollDrift * 0.05;
+    for (var i = 0; i < stars.length; i++) {
+      var s = stars[i];
+      s.z += s.v;                       /* moves closer → gets bigger */
+      if (s.z >= 1) spawn(s);
+      var k = 0.2 + s.z * 1.6;          /* perspective scale */
+      var px = cx + s.x * k, py = cy + s.y * k;
+      if (px < -20 || px > W + 20 || py < -20 || py > H + 20) { spawn(s); continue; }
+      var r = s.z * s.z * 2.6 + 0.3;
+      ctx.globalAlpha = Math.min(0.85, s.z * 0.9 + 0.08);
+      ctx.fillStyle = s.c;
+      ctx.beginPath(); ctx.arc(px, py, r, 0, 6.2832); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  resize(); initStars();
+  window.addEventListener("resize", function () { resize(); initStars(); });
+
+  /* ---------- inertial smooth scroll (Lenis-style): wheel is intercepted
+       and eased toward its target, so the whole page glides. Keyboard,
+       touch and scrollbar drags stay native and simply resync the target. */
+  var targetY = window.scrollY, smoothY = targetY, gliding = false;
+  var finePointer = window.matchMedia("(pointer: fine)").matches;
+  function maxScroll() { return document.documentElement.scrollHeight - window.innerHeight; }
+  if (finePointer && !reduced) {
+    window.addEventListener("wheel", function (e) {
+      if (e.ctrlKey) return;                    /* keep pinch-zoom native */
+      e.preventDefault();
+      gliding = true;
+      var d = e.deltaMode === 1 ? e.deltaY * 34 : e.deltaY;
+      targetY = Math.max(0, Math.min(maxScroll(), targetY + d));
+    }, { passive: false });
+  }
+  window.addEventListener("scroll", function () {
+    if (!gliding) targetY = window.scrollY;   /* native scroll resyncs us */
+  }, { passive: true });
+
+  /* ---------- mouse state: drives lighting, cursor and parallax ---------- */
+  var mouseX = window.innerWidth / 2, mouseY = window.innerHeight / 2;
+  var lightX = mouseX, lightY = mouseY;
+  var cursorLight = document.getElementById("cursorLight");
+  var progress = document.getElementById("scrollProgress");
+  window.addEventListener("pointermove", function (e) {
+    mouseX = e.clientX; mouseY = e.clientY;
+  }, { passive: true });
+
+  var floats = [].slice.call(document.querySelectorAll(".float-obj"));
+  floats.forEach(function (el) {
+    el._depth = parseFloat(el.dataset.depth || "0.4");
+    el._spin = el.dataset.spin === "1";
+    el._phase = Math.random() * 6.28;
+  });
+
+  var terminal = document.getElementById("terminal");
+  var docH = 1;
+  function measure() {
+    docH = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+    /* document-space center of each float (transforms cleared so the
+       measurement is stable) — used for viewport-proximity scaling */
+    floats.forEach(function (el) { el.style.transform = ""; });
+    floats.forEach(function (el) {
+      var r = el.getBoundingClientRect();
+      el._cy = r.top + window.scrollY + r.height / 2;
+    });
+  }
+  measure(); window.addEventListener("resize", measure);
+
+  function frame(t) {
+    if (gliding) {
+      /* 0.16 lerp: quick response, short glide — runs until settled so the
+         page never stalls mid-motion like the old 140ms wheel-idle cutoff */
+      smoothY += (targetY - smoothY) * 0.16;
+      if (Math.abs(targetY - smoothY) < 0.5) { smoothY = targetY; gliding = false; }
+      window.scrollTo(0, smoothY);
+    } else {
+      smoothY = window.scrollY;              /* keyboard/touch/scrollbar stay native */
+    }
+    scrollDrift = smoothY;
+
+    /* cinematic key light trails the pointer — transform only, no repaint */
+    lightX += (mouseX - lightX) * 0.08;
+    lightY += (mouseY - lightY) * 0.08;
+    if (cursorLight) {
+      cursorLight.style.transform = "translate3d(" + lightX.toFixed(1) + "px," + lightY.toFixed(1) + "px,0)";
+    }
+    if (progress) progress.style.transform = "scaleX(" + Math.min(1, smoothY / docH).toFixed(4) + ")";
+
+    if (!reduced) {
+      /* floating objects — real z-depth illusion:
+         base size from depth (far = small+blurred, near = big),
+         objects GROW as they pass the viewport center and shrink as they
+         recede, near objects parallax faster than far ones, plus a slow
+         breathe and mouse parallax. */
+      var nx = (mouseX / window.innerWidth - 0.5), ny = (mouseY / window.innerHeight - 0.5);
+      var vh = window.innerHeight;
+      for (var i = 0; i < floats.length; i++) {
+        var el = floats[i];
+        var wave = Math.sin(t / 2400 + el._phase) * 10;
+        var rel = ((el._cy || 0) - smoothY - vh * 0.55) / vh;   /* 0 = mid-viewport */
+        var prox = Math.max(0, 1 - Math.abs(rel) * 1.15);       /* 1 when in front of you */
+        var base = 0.5 + el._depth * 0.8;
+        var scale = base * (1 + prox * (0.35 + el._depth * 0.55))
+                         * (1 + Math.sin(t / 2600 + el._phase) * 0.05);
+        var tx = -nx * 46 * el._depth;
+        var ty = -smoothY * el._depth * 0.22 + wave - ny * 34 * el._depth;
+        var rot = el._spin ? (smoothY * 0.06 + t / 90) % 360 : wave * 0.4;
+        el.style.transform = "translate3d(" + tx.toFixed(1) + "px," + ty.toFixed(1) + "px,0) scale(" + scale.toFixed(3) + ") rotate(" + rot.toFixed(1) + "deg)";
+      }
+      /* terminal: scroll-scrubbed 3D pose — tilts up out of the page */
+      if (terminal) {
+        var r = terminal.getBoundingClientRect();
+        var vh = window.innerHeight;
+        var p = Math.min(1, Math.max(0, 1 - (r.top - vh * 0.1) / (vh * 0.85)));
+        var rx = (1 - p) * 26, tz = (1 - p) * -140, sc = 0.9 + p * 0.1;
+        terminal.style.transform = "perspective(1200px) rotateX(" + rx.toFixed(2) + "deg) translateZ(" + tz.toFixed(1) + "px) scale(" + sc.toFixed(3) + ")";
+      }
+      drawStars();
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  /* ---------- nav shadow ---------- */
+  var nav = document.getElementById("nav");
+  window.addEventListener("scroll", function () {
+    nav.classList.toggle("scrolled", window.scrollY > 30);
+  }, { passive: true });
+
+  /* ---------- 3D reveal on scroll (IntersectionObserver) ---------- */
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.18, rootMargin: "0px 0px -40px 0px" });
+  document.querySelectorAll(".r3d, .step").forEach(function (el) { io.observe(el); });
+
+  /* ---------- terminal lines type in when scene is visible ---------- */
+  var termLines = [].slice.call(document.querySelectorAll(".tl"));
+  var tio = new IntersectionObserver(function (entries) {
+    if (!entries[0].isIntersecting) return;
+    tio.disconnect();
+    termLines.forEach(function (l, i) { setTimeout(function () { l.classList.add("on"); }, 350 + i * 480); });
+  }, { threshold: 0.4 });
+  if (terminal) tio.observe(terminal);
+
+  /* ---------- animated stat counters ---------- */
+  var cio = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (!e.isIntersecting) return;
+      cio.unobserve(e.target);
+      var el = e.target, end = parseFloat(el.dataset.count), dec = parseInt(el.dataset.dec || "0", 10);
+      var suf = el.dataset.suffix || "", t0 = null;
+      function tick(ts) {
+        if (!t0) t0 = ts;
+        var p = Math.min(1, (ts - t0) / 1400);
+        var eased = 1 - Math.pow(1 - p, 3);
+        el.textContent = (end * eased).toFixed(dec) + suf;
+        if (p < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  }, { threshold: 0.6 });
+  document.querySelectorAll("[data-count]").forEach(function (el) { cio.observe(el); });
+
+  /* ---------- card tilt: pointer-tracked 3D ---------- */
+  if (!reduced) {
+    document.querySelectorAll(".tilt").forEach(function (card) {
+      card.addEventListener("pointermove", function (ev) {
+        var r = card.getBoundingClientRect();
+        var x = (ev.clientX - r.left) / r.width, y = (ev.clientY - r.top) / r.height;
+        card.style.setProperty("--mx", (x * 100) + "%");
+        card.style.setProperty("--my", (y * 100) + "%");
+        card.style.transform = "perspective(900px) rotateY(" + ((x - 0.5) * 5).toFixed(2) + "deg) rotateX(" + ((0.5 - y) * 4).toFixed(2) + "deg) translateZ(4px)";
+      });
+      card.addEventListener("pointerleave", function () {
+        card.style.transform = "perspective(900px) rotateY(0) rotateX(0)";
+      });
+    });
+  }
+
+  /* ---------- marquee: duplicate track for seamless loop ---------- */
+  var track = document.getElementById("marqueeTrack");
+  track.innerHTML += track.innerHTML;
+
+  /* ---------- FAQ accordion ---------- */
+  document.querySelectorAll(".faq-item").forEach(function (item) {
+    var q = item.querySelector(".faq-q"), a = item.querySelector(".faq-a");
+    q.addEventListener("click", function () {
+      var open = item.classList.contains("open");
+      document.querySelectorAll(".faq-item.open").forEach(function (o) {
+        o.classList.remove("open");
+        o.querySelector(".faq-a").style.maxHeight = null;
+        o.querySelector(".faq-q").setAttribute("aria-expanded", "false");
+      });
+      if (!open) {
+        item.classList.add("open");
+        a.style.maxHeight = a.scrollHeight + "px";
+        q.setAttribute("aria-expanded", "true");
+      }
+    });
+  });
+
+  /* ---------- toast helper ---------- */
+  var toast = document.getElementById("toast"), toastTimer;
+  function showToast(msg, cls) {
+    toast.textContent = msg;
+    toast.className = "toast show " + (cls || "");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toast.className = "toast"; }, 4200);
+  }
+
+  /* ---------- Stripe checkout ---------- */
+  var note = document.getElementById("billingNote");
+  fetch("/api/billing/config").then(function (r) { return r.json(); }).then(function (cfg) {
+    if (!cfg.enabled) {
+      note.textContent = "Stripe is in test setup — checkout activates once STRIPE_SECRET_KEY is configured.";
+      note.classList.add("err");
+    }
+  }).catch(function () { /* backend offline: leave default note */ });
+
+  document.querySelectorAll("[data-plan]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var plan = btn.dataset.plan, label = btn.textContent;
+      btn.disabled = true; btn.textContent = "Redirecting…";
+      fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: plan })
+      }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (res) {
+          if (res.ok && res.j.url) { window.location.href = res.j.url; return; }
+          showToast(res.j.error || "Checkout is not available right now.", "warn");
+          btn.disabled = false; btn.textContent = label;
+        })
+        .catch(function () {
+          showToast("Could not reach the billing service — is the backend running?", "warn");
+          btn.disabled = false; btn.textContent = label;
+        });
+    });
+  });
+
+  /* ---------- checkout return messages ---------- */
+  var qs = new URLSearchParams(location.search);
+  if (qs.get("checkout") === "success") showToast("✓ Payment complete — welcome to Selene! Check your email for onboarding.", "ok");
+  if (qs.get("checkout") === "cancelled") showToast("Checkout cancelled — your plan is waiting whenever you're ready.");
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+{
+  "uid": "wazuh-ml-engine",
+  "title": "ML Engine — Anomaly Detection",
+  "tags": ["wazuh", "ml"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "1m",
+  "time": { "from": "now-7d", "to": "now" },
+  "panels": [
+    {
+      "id": 1, "type": "gauge", "title": "Ensemble F1 (held-out test)",
+      "gridPos": { "h": 7, "w": 5, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "wazuh_ml_f1{model=\"ensemble\"}", "instant": true, "refId": "A" }],
+      "fieldConfig": { "defaults": { "min": 0, "max": 1, "decimals": 3, "thresholds": { "mode": "absolute", "steps": [
+        { "color": "red", "value": null }, { "color": "yellow", "value": 0.6 }, { "color": "green", "value": 0.8 } ] } }, "overrides": [] }
+    },
+    {
+      "id": 2, "type": "stat", "title": "Precision / Recall / FPR (ensemble)",
+      "gridPos": { "h": 7, "w": 7, "x": 5, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "wazuh_ml_precision{model=\"ensemble\"}", "instant": true, "legendFormat": "Precision", "refId": "A" },
+        { "expr": "wazuh_ml_recall{model=\"ensemble\"}", "instant": true, "legendFormat": "Recall", "refId": "B" },
+        { "expr": "wazuh_ml_fpr{model=\"ensemble\"}", "instant": true, "legendFormat": "FPR", "refId": "C" }
+      ],
+      "fieldConfig": { "defaults": { "decimals": 3, "unit": "percentunit" }, "overrides": [] }
+    },
+    {
+      "id": 3, "type": "stat", "title": "Live alerts in session",
+      "gridPos": { "h": 7, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "wazuh_alerts_total", "instant": true, "legendFormat": "Total alerts", "refId": "A" },
+        { "expr": "wazuh_alerts_high_level", "instant": true, "legendFormat": "Level ≥ 7", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "decimals": 0 }, "overrides": [] }
+    },
+    {
+      "id": 4, "type": "stat", "title": "Stacking meta-model",
+      "gridPos": { "h": 7, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "wazuh_ml_stacking_active", "instant": true, "refId": "A" }],
+      "fieldConfig": { "defaults": { "mappings": [ { "type": "value", "options": {
+        "0": { "text": "FIXED WEIGHTS", "color": "yellow" }, "1": { "text": "LEARNED", "color": "green" } } } ] }, "overrides": [] }
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "F1 per model over time",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "wazuh_ml_f1", "legendFormat": "{{model}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "min": 0, "max": 1, "custom": { "spanNulls": true } }, "overrides": [] }
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "False-positive rate per model",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "wazuh_ml_fpr", "legendFormat": "{{model}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "min": 0, "unit": "percentunit", "custom": { "spanNulls": true } }, "overrides": [] }
+    },
+    {
+      "id": 7, "type": "bargauge", "title": "Score separation (attack avg − clean avg)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "wazuh_ml_separation", "instant": true, "legendFormat": "{{model}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "min": 0, "max": 100, "thresholds": { "mode": "absolute", "steps": [
+        { "color": "red", "value": null }, { "color": "yellow", "value": 30 }, { "color": "green", "value": 50 } ] } }, "overrides": [] }
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "Confusion matrix cells (ensemble)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "wazuh_ml_confusion{model=\"ensemble\"}", "legendFormat": "{{cell}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "custom": { "spanNulls": true } }, "overrides": [] }
+    }
+  ]
+}

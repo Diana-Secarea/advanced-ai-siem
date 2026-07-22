@@ -1,0 +1,117 @@
+// ML Engine — automatic retraining + testing pipeline
+//
+// Jenkins job type: Pipeline → "Pipeline script from SCM" → this file, or
+// paste directly. Runs on the WSL host agent (label 'wazuh-host') so it has
+// the project venv, /var/ossec and the models.
+//
+// Triggers:
+//   - every Sunday night (cron)  — scheduled retrain on fresh data
+//   - on push to main (pollSCM)  — retrain when detector/training code changes
+//   - manual "Build with Parameters" — optional hyperparameter tuning first
+
+pipeline {
+    agent { label 'wazuh-host' }
+
+    parameters {
+        booleanParam(name: 'TUNE_HYPERPARAMS', defaultValue: false,
+                     description: 'Grid-search AE/IF hyperparameters before retraining (slow)')
+        booleanParam(name: 'EVAL_ONLY', defaultValue: false,
+                     description: 'Skip training — just evaluate current models and push metrics')
+        booleanParam(name: 'CHAIN_PROMOTE', defaultValue: true,
+                     description: 'On success, trigger the promote job (dev→staging). Prod stays manual.')
+        string(name: 'DOWNSTREAM_JOB', defaultValue: 'wazuh-ml-promote',
+               description: 'Jenkins job name of the promote pipeline to trigger')
+    }
+
+    triggers {
+        cron('H 3 * * 0')                 // weekly retrain, Sunday ~03:00
+        pollSCM('H/15 * * * *')           // retrain when training code changes
+    }
+
+    environment {
+        REPO        = "${env.WORKSPACE}"
+        PUSHGATEWAY = 'http://localhost:9091'
+    }
+
+    options {
+        timeout(time: 2, unit: 'HOURS')
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+        disableConcurrentBuilds()
+    }
+
+    stages {
+        stage('Sanity') {
+            steps {
+                sh '''
+                    test -x wazuh-monorepo/services/ai-engine/venv/bin/python3 \
+                        || { echo "project venv missing on agent"; exit 1; }
+                    wazuh-monorepo/services/ai-engine/venv/bin/python3 -c "import sklearn, numpy, joblib"
+                '''
+            }
+        }
+
+        stage('Tune hyperparameters') {
+            when { expression { params.TUNE_HYPERPARAMS } }
+            steps {
+                sh 'wazuh-monorepo/services/ai-engine/venv/bin/python3 wazuh-monorepo/infra/scripts/tune_hyperparams.py --apply'
+            }
+        }
+
+        stage('Retrain + evaluate + push') {
+            steps {
+                sh """
+                    export PUSHGATEWAY=${PUSHGATEWAY}
+                    export SKIP_TRAIN=${params.EVAL_ONLY ? '1' : '0'}
+                    bash wazuh-monorepo/infra/scripts/run_ml_pipeline.sh
+                """
+            }
+        }
+
+        stage('Quality gate') {
+            steps {
+                sh '''
+                    wazuh-monorepo/services/ai-engine/venv/bin/python3 - <<'EOF'
+import json, sys
+m = json.load(open("wazuh-monorepo/services/ai-engine/data/eval/ml_metrics.json"))
+ens = m["models"]["ensemble"]
+print(f"Ensemble on held-out test: F1={ens['f1']:.3f} recall={ens['recall']:.3f} fpr={ens['fpr']:.3f}")
+# Fail the build if the new models regress below the floor —
+# the previous .pkl archives (dated copies) remain on disk for rollback.
+if ens["f1"] < 0.60 or ens["fpr"] > 0.15:
+    print("QUALITY GATE FAILED — investigate before deploying these models")
+    sys.exit(1)
+print("Quality gate passed")
+EOF
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'wazuh-monorepo/services/ai-engine/data/eval/ml_metrics.json',
+                             allowEmptyArchive: true
+        }
+        success {
+            // CHAIN: a green retrain (models passed the quality gate) hands off
+            // to the promote pipeline for dev→staging. Production stays behind
+            // promote's own manual approval, so this never auto-ships to prod.
+            // Set CHAIN_PROMOTE=false to disable. DOWNSTREAM_JOB must match the
+            // Jenkins job name you gave the promote pipeline.
+            script {
+                if (params.CHAIN_PROMOTE) {
+                    try {
+                        build job: params.DOWNSTREAM_JOB,
+                              parameters: [string(name: 'TARGET', value: 'staging')],
+                              wait: false,          // don't block this build on the child
+                              propagate: false      // child result doesn't fail this build
+                        echo "Triggered downstream promote job '${params.DOWNSTREAM_JOB}' (dev→staging)."
+                    } catch (err) {
+                        echo "Could not trigger '${params.DOWNSTREAM_JOB}': ${err.message}. " +
+                             "Create that Pipeline job (Jenkinsfile.promote) or set CHAIN_PROMOTE=false."
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  # Batch metrics pushed by Jenkins jobs (training, testing, RAG evaluation)
+  - job_name: pushgateway
+    honor_labels: true          # keep the job/model labels set by the pusher
+    static_configs:
+      - targets: ["pushgateway:9091"]
+
+  # Live metrics from the Flask backend (/metrics — auth-exempt, read-only)
+  - job_name: wazuh-ai-backend
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["host.docker.internal:5000"]
+
+  # Prometheus self-monitoring
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

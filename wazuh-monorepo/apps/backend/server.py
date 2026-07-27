@@ -4702,6 +4702,54 @@ def download_linux():
                      mimetype="application/gzip")
 
 
+# --- Windows endpoint agent ------------------------------------------------- #
+# Enrolment installer for a customer's Windows machine. Only the Wazuh agent is
+# installed there — collection happens on the endpoint, all ML scoring and the
+# AI layer stay on this server. The rendered script carries the enrolment
+# password, so this route deliberately stays behind the auth gate.
+_AGENT_TEMPLATE = os.path.join(os.path.dirname(__file__), "..", "..",
+                               "infra", "deploy", "agent",
+                               "install-selenne-agent.ps1")
+WAZUH_AGENT_VERSION = os.environ.get("WAZUH_AGENT_VERSION", "4.14.6")
+
+
+@app.route("/api/download/agent/windows")
+@app.route("/download/install-selenne-agent.ps1")
+@limiter.limit("20 per hour")
+def download_agent_windows():
+    """Render the Windows enrolment script for the signed-in account."""
+    username, _ = _current_username()
+    if not username or username == "anonymous":
+        return jsonify({"error": "Sign in to download the endpoint installer"}), 401
+
+    reg_password = os.environ.get("WAZUH_REG_PASSWORD", "")
+    if not reg_password:
+        return jsonify({"error": "Endpoint enrolment is not configured on this "
+                                 "server (WAZUH_REG_PASSWORD unset)"}), 503
+
+    manager = os.environ.get("SELENNE_MANAGER_HOST") or request.host.split(":")[0]
+    try:
+        with open(os.path.abspath(_AGENT_TEMPLATE), encoding="utf-8") as fh:
+            script = fh.read()
+    except OSError as exc:
+        log.error("agent template unreadable: %s", exc)
+        return jsonify({"error": "installer template unavailable"}), 500
+
+    for placeholder, value in (("__MANAGER__", manager),
+                               ("__REG_PASSWORD__", reg_password),
+                               ("__AGENT_GROUP__", "default"),
+                               ("__AGENT_VERSION__", WAZUH_AGENT_VERSION)):
+        script = script.replace(placeholder, value)
+
+    log.info("[agent] Windows installer downloaded by '%s'", username)
+    resp = Response(script.replace("\n", "\r\n"),   # PowerShell prefers CRLF
+                    mimetype="text/plain; charset=utf-8")
+    resp.headers["Content-Disposition"] = \
+        'attachment; filename="install-selenne-agent.ps1"'
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
 @app.route("/")
 def index():
     return send_from_directory(UI_DIR, "index.html")

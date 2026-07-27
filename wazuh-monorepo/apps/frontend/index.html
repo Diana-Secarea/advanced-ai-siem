@@ -111,6 +111,37 @@
 
   <hr class="shimmer-line wrap">
 
+  <!-- connect an endpoint -->
+  <section class="wrap">
+    <span class="eyebrow reveal">CONNECT YOUR MACHINES</span>
+    <h2 class="section-title reveal" data-delay="1">Monitor an <span class="grad-text">endpoint.</span></h2>
+    <div class="card reveal" data-delay="2" style="padding:24px;">
+      <div style="display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap;">
+        <div style="font-size:38px;line-height:1;">🪟</div>
+        <div style="flex:1;min-width:260px;">
+          <h3 style="margin:0 0 6px;">Windows endpoint</h3>
+          <p style="margin:0 0 4px;font-size:13px;color:var(--text-dim);">
+            Installs a lightweight collector on the Windows machine and enrols it with Selenne.
+            Its security events stream here, get scored by the ML ensemble, and show up in
+            <a href="alerts.html">Live Alerts</a> within a minute.
+            <b>Nothing is analysed on the endpoint</b> — no models, no Python, just the collector.
+          </p>
+          <p class="mono" style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin:10px 0 0;">
+            Run it in an <b>Administrator PowerShell</b>:<br>
+            <code>powershell -ExecutionPolicy Bypass -File .\install-selenne-agent.ps1</code>
+          </p>
+          <div style="display:flex;gap:10px;align-items:center;margin-top:16px;flex-wrap:wrap;">
+            <a class="btn btn-primary" style="padding:10px 20px;" href="/api/download/agent/windows"
+               download="install-selenne-agent.ps1">⬇ Download Windows installer</a>
+            <span class="mono" style="font-family:var(--font-mono);font-size:10px;color:var(--amber);">
+              contains your enrolment key — don't share it
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="wrap">
     <span class="eyebrow reveal">HOW IT THINKS</span>
     <h2 class="section-title reveal" data-delay="1">One signal in. <span class="grad-text">Five brains on it.</span></h2>

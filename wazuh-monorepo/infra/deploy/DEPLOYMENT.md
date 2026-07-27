@@ -66,7 +66,11 @@ models, Qdrant/Postgres containers, Ollama + the pulled model, and `/health` +
 ```bash
 # 1. Dependencies (reproducible)
 cd wazuh-monorepo/services/ai-engine
-python3 -m venv venv && venv/bin/pip install -r requirements.lock
+python3 -m venv venv
+# GPU-less host: install the CPU torch build FIRST — the plain torch pin pulls
+# the CUDA wheels (~4 GB of nvidia-* libs this host will never use).
+venv/bin/pip install --index-url https://download.pytorch.org/whl/cpu torch==2.9.1
+venv/bin/pip install -r requirements.lock
 
 # 2. Data services
 cd ../../infra && docker compose up -d          # (or just Qdrant+Postgres compose)

@@ -77,7 +77,8 @@ pydantic_core==2.41.5
 pyparsing==3.3.2
 pypdf==6.14.2
 pypdfium2==5.11.0
-py_rust_stemmers==0.1.5
+# 0.1.5 segfaults (SIGSEGV) on Python 3.14 whenever BM25 sparse retrieval runs
+py_rust_stemmers==0.1.8
 python-dateutil==2.9.0.post0
 python-docx==1.2.0
 python-dotenv==1.2.2

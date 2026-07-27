@@ -159,6 +159,31 @@ def auth_logout():
     return resp
 
 
+@app.route("/api/auth/password", methods=["POST"])
+@limiter.limit("5 per minute")
+def auth_change_password():
+    """Change your own password (requires the current one)."""
+    username, _ = _current_username()
+    if not username or username == "anonymous":
+        return jsonify({"error": "Sign in to change your password"}), 401
+    body = request.get_json(silent=True) or {}
+    current = str(body.get("current_password") or "")[:200]
+    new = str(body.get("new_password") or "")[:200]
+    token = _request_token()
+
+    ip = get_remote_address()
+    locked = _auth.lockout_remaining(username, ip)
+    if locked:
+        return jsonify({"error": f"Too many failed attempts — locked for {locked}s"}), 429
+
+    ok, err = _auth.change_password(username, current, new, keep_token=token)
+    if not ok:
+        if err == "Current password is incorrect":
+            _auth.record_failure(username, ip)
+        return jsonify({"error": err}), 400
+    return jsonify({"status": "ok", "message": "Password changed — other sessions signed out"})
+
+
 @app.route("/api/auth/me", methods=["GET"])
 def auth_me():
     """Session probe — exempt from the gate so the UI can test login state."""

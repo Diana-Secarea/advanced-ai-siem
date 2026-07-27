@@ -79,6 +79,11 @@ def _record_failure(username, ip):
                 _failed_logins.pop(k, None)
 
 
+def record_failure(username, ip):
+    """Public hook so non-login flows (e.g. password change) feed the lockout."""
+    _record_failure(username, ip)
+
+
 def _record_success(username, ip):
     with _failed_lock:
         _failed_logins.pop(f"{(username or '').strip().lower()}|{ip}", None)
@@ -188,6 +193,36 @@ def login(username, password, ip="?"):
         conn.execute("DELETE FROM sessions WHERE expires_at < ?", (_iso(_now()),))
     _record_success(username, ip)
     return token, {"username": row["username"], "role": row["role"]}
+
+
+def change_password(username, current_password, new_password, keep_token=None):
+    """Change a password after re-verifying the current one.
+
+    Returns (ok, error_message). Every other session of that user is dropped, so
+    a stolen cookie stops working the moment the owner changes their password.
+    """
+    username = (username or "").strip().lower()
+    if len(new_password or "") < 8:
+        return False, "New password must be at least 8 characters"
+    if new_password == current_password:
+        return False, "New password must differ from the current one"
+    with _db_lock, _conn() as conn:
+        row = conn.execute(
+            "SELECT password_hash FROM users WHERE username = ?", (username,)
+        ).fetchone()
+        if row is None:
+            return False, "Account not found"
+        if not check_password_hash(row["password_hash"], current_password or ""):
+            return False, "Current password is incorrect"
+        conn.execute("UPDATE users SET password_hash = ? WHERE username = ?",
+                     (generate_password_hash(new_password), username))
+        if keep_token:
+            conn.execute("DELETE FROM sessions WHERE username = ? AND token != ?",
+                         (username, _token_digest(keep_token)))
+        else:
+            conn.execute("DELETE FROM sessions WHERE username = ?", (username,))
+    print(f"[auth] Password changed for '{username}' — other sessions revoked")
+    return True, None
 
 
 def validate_token(token):

@@ -82,6 +82,29 @@
         <div class="mono" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);margin-top:14px;">
           Stored in backend/users.db · avatar kept as an embedded image (≤300 KB)
         </div>
+
+        <div style="border-top:1px solid var(--line, rgba(255,255,255,.08));margin:20px 0 0;padding-top:18px;">
+          <h3 style="margin:0 0 4px;font-size:15px;">🔑 Change password</h3>
+          <p style="font-size:12px;color:var(--text-dim);margin:0 0 6px;">
+            Signs out every other device once changed.
+          </p>
+          <div class="pf-field">
+            <label>CURRENT PASSWORD</label>
+            <input id="pwCurrent" type="password" autocomplete="current-password">
+          </div>
+          <div class="pf-field">
+            <label>NEW PASSWORD</label>
+            <input id="pwNew" type="password" autocomplete="new-password" placeholder="at least 8 characters">
+          </div>
+          <div class="pf-field">
+            <label>CONFIRM NEW PASSWORD</label>
+            <input id="pwConfirm" type="password" autocomplete="new-password">
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;margin-top:16px;">
+            <button class="btn btn-primary" style="padding:10px 20px;" onclick="changePassword()">Update password</button>
+            <span class="mono" id="pwMsg" style="font-family:var(--font-mono);font-size:11px;"></span>
+          </div>
+        </div>
       </div>
 
       <!-- ticket card -->
@@ -156,6 +179,35 @@ async function saveProfile(){
     setTimeout(()=>document.getElementById("pfSaved").textContent="", 2500);
     NX.toast("Profile saved");
   }catch(_){ NX.toast("Save failed"); }
+}
+
+async function changePassword(){
+  const cur = document.getElementById("pwCurrent").value;
+  const neu = document.getElementById("pwNew").value;
+  const conf = document.getElementById("pwConfirm").value;
+  const msg = document.getElementById("pwMsg");
+  const show = (text, ok) => {
+    msg.textContent = text;
+    msg.style.color = ok ? "var(--green)" : "var(--red, #ff6b6b)";
+  };
+
+  if(!cur || !neu)      return show("Fill in both password fields", false);
+  if(neu.length < 8)    return show("New password must be at least 8 characters", false);
+  if(neu !== conf)      return show("New passwords do not match", false);
+
+  try{
+    const r = await fetch("/api/auth/password", {method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ current_password: cur, new_password: neu })});
+    const d = await r.json();
+    if(!r.ok) return show(d.error || "Could not change password", false);
+    document.getElementById("pwCurrent").value = "";
+    document.getElementById("pwNew").value = "";
+    document.getElementById("pwConfirm").value = "";
+    show("password updated ✓", true);
+    setTimeout(()=>{ msg.textContent=""; }, 4000);
+    NX.toast("Password changed — other devices signed out");
+  }catch(_){ show("Network error", false); }
 }
 
 document.getElementById("avatarFile").addEventListener("change", async (e)=>{

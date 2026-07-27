@@ -1,5 +1,5 @@
 /* ============================================================
-   SELENE — shared runtime
+   SELENNE — shared runtime
    Particle network, scroll reveal, counters, tilt, ticker,
    page transitions, modal + toast helpers.
    Pure vanilla JS, no dependencies.
@@ -235,7 +235,7 @@ document.addEventListener("keydown", e => {
 });
 
 /* ============================================================
-   SELENE — global list managers in the nav/tab bar
+   SELENNE — global list managers in the nav/tab bar
    One reusable factory drives BOTH the Suspicious Groups and the
    Benign Rules managers. Each lives in the constant nav bar on
    every page and persists to the REAL backend:

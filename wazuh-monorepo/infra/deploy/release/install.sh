@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  Selene — one-time installer (Linux)
+#  Selenne — one-time installer (Linux)
 #
 #  Sets up the Python environment and, when available, the supporting services
 #  (Qdrant + Postgres via Docker, and a local Ollama LLM). Safe to re-run.
@@ -17,7 +17,7 @@ VENV="$AI/venv"
 say() { printf '\033[1;36m%s\033[0m\n' "$*"; }
 warn(){ printf '\033[1;33m  [skip] %s\033[0m\n' "$*"; }
 
-say "== Selene installer =="
+say "== Selenne installer =="
 
 # 1. Python (required) --------------------------------------------------------
 if ! command -v python3 >/dev/null 2>&1; then
@@ -61,5 +61,5 @@ else
 fi
 
 echo ""
-say "Done ✔  Start Selene with:   ./run.sh"
+say "Done ✔  Start Selenne with:   ./run.sh"
 say "Then open your browser at:   http://127.0.0.1:5000"

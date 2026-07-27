@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Selene — See the attack before it lands</title>
+<title>Selenne — See the attack before it lands</title>
 <meta name="description" content="AI-native threat detection: unsupervised ML ensemble, RAG threat intelligence and an autonomous CVE agent, built on Wazuh.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 /* ============================================================
-   SELENE — public landing page
+   SELENNE — public landing page
    Self-contained (no CDN JS) so the demo works offline.
    Scroll engine + depth scene implemented in vanilla JS below.
    ============================================================ */
@@ -445,7 +445,7 @@ footer a:hover { color: var(--text); }
 
 <!-- ==== nav ==== -->
 <nav class="nav" id="nav" aria-label="Main">
-  <a class="brand" href="landing.html"><span class="logo">◈</span><em>SELENE</em></a>
+  <a class="brand" href="landing.html"><span class="logo">◈</span><em>SELENNE</em></a>
   <a class="link" href="#features">Platform</a>
   <a class="link" href="#showcase">Live engine</a>
   <a class="link" href="#pricing">Pricing</a>
@@ -476,7 +476,7 @@ footer a:hover { color: var(--text); }
     <span class="eyebrow r3d">AI-native SIEM intelligence · built on Wazuh</span>
     <h1 class="r3d" data-delay="1">See the attack<br><span class="grad-text">before it lands.</span></h1>
     <p class="lede r3d" data-delay="2">
-      Selene fuses an unsupervised ML ensemble, UEBA behavior analytics and
+      Selenne fuses an unsupervised ML ensemble, UEBA behavior analytics and
       retrieval-augmented threat intelligence into one engine — tuned by an autonomous
       CVE agent and explained in plain language by a local LLM.
     </p>
@@ -485,7 +485,7 @@ footer a:hover { color: var(--text); }
       <a class="btn btn-ghost" href="#showcase">See it in action</a>
     </div>
     <div class="hero-dl-note r3d" data-delay="3" style="margin-top:8px;font-size:12px;color:var(--muted,#8b93a7);">
-      Free &amp; self-hosted · <code style="font-size:11px;">tar -xzf selene-linux.tar.gz &amp;&amp; cd selene-linux &amp;&amp; ./install.sh &amp;&amp; ./run.sh</code>
+      Free &amp; self-hosted · <code style="font-size:11px;">tar -xzf selenne-linux.tar.gz &amp;&amp; cd selenne-linux &amp;&amp; ./install.sh &amp;&amp; ./run.sh</code>
     </div>
     <div class="hero-meta r3d" data-delay="4">
       <span><b data-count="95.9" data-suffix="%">0</b>DETECTION RECALL</span>
@@ -689,7 +689,7 @@ footer a:hover { color: var(--text); }
       <div class="faq-item r3d">
         <button class="faq-q" aria-expanded="false">How is this different from plain Wazuh?
           <span class="chev"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></button>
-        <div class="faq-a"><p>Wazuh gives you rule-based alerts. Selene sits on top and adds the layers rules can't: behavioral anomaly scoring, a learned model that fuses three detectors, retrieval-grounded explanations with cited sources, and autonomous reaction. Rules catch what you predicted; the ensemble catches what you didn't.</p></div>
+        <div class="faq-a"><p>Wazuh gives you rule-based alerts. Selenne sits on top and adds the layers rules can't: behavioral anomaly scoring, a learned model that fuses three detectors, retrieval-grounded explanations with cited sources, and autonomous reaction. Rules catch what you predicted; the ensemble catches what you didn't.</p></div>
       </div>
       <div class="faq-item r3d">
         <button class="faq-q" aria-expanded="false">Can the AI analyst hallucinate threats?
@@ -718,7 +718,7 @@ footer a:hover { color: var(--text); }
     <h2 class="r3d">Your network is talking.<br><span class="grad-text">Start listening.</span></h2>
     <p class="r3d" data-delay="1">Deploy the shield in an afternoon. Catch what your rules were never going to see.</p>
     <div class="hero-ctas r3d" data-delay="2">
-      <a class="btn btn-primary" href="#pricing">Get Selene</a>
+      <a class="btn btn-primary" href="#pricing">Get Selenne</a>
       <a class="btn btn-ghost" href="index.html">Explore the live console</a>
     </div>
   </div>
@@ -728,7 +728,7 @@ footer a:hover { color: var(--text); }
 
 <footer>
   <div class="wrap">
-    <span>◈ SELENE — built on Wazuh · © 2026 Diana Secarea</span>
+    <span>◈ SELENNE — built on Wazuh · © 2026 Diana Secarea</span>
     <span><a href="#features">Platform</a> &nbsp;·&nbsp; <a href="#pricing">Pricing</a> &nbsp;·&nbsp; <a href="#faq">FAQ</a> &nbsp;·&nbsp; <a href="login.html">Sign in</a></span>
   </div>
 </footer>
@@ -1004,7 +1004,7 @@ footer a:hover { color: var(--text); }
 
   /* ---------- checkout return messages ---------- */
   var qs = new URLSearchParams(location.search);
-  if (qs.get("checkout") === "success") showToast("✓ Payment complete — welcome to Selene! Check your email for onboarding.", "ok");
+  if (qs.get("checkout") === "success") showToast("✓ Payment complete — welcome to Selenne! Check your email for onboarding.", "ok");
   if (qs.get("checkout") === "cancelled") showToast("Checkout cancelled — your plan is waiting whenever you're ready.");
 })();
 </script>

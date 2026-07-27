@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Analyst — Selene</title>
+<title>AI Analyst — Selenne</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
@@ -16,7 +16,7 @@
 
 <div class="owner-line">⟡ owned by <b>Diana Secarea</b> ⟡</div>
 <nav class="nav">
-  <a class="brand" href="index.html"><span class="logo">◈</span><em>SELENE</em></a>
+  <a class="brand" href="index.html"><span class="logo">◈</span><em>SELENNE</em></a>
   <a class="link" href="index.html">Overview</a>
   <a class="link" href="alerts.html">Live Alerts</a>
   <a class="link" href="ml.html">ML Engine</a>
@@ -337,7 +337,7 @@ async function send(text){
         try{
           const meta = JSON.parse(doneData);
           sessionId = meta.session_id || sessionId;
-          if(sessionId) localStorage.setItem("selene-chat-session", sessionId);
+          if(sessionId) localStorage.setItem("selenne-chat-session", sessionId);
           loadConversations();   // refresh titles/order in the sidebar
           const sources = meta.sources || [];
           if(sources.length){
@@ -373,7 +373,7 @@ function newChat(){
   // The current conversation is already saved server-side per account, so "New"
   // just starts a fresh thread — it must NOT delete anything.
   sessionId = null;
-  localStorage.removeItem("selene-chat-session");
+  localStorage.removeItem("selenne-chat-session");
   scroll.querySelectorAll(".msg:not(:first-child)").forEach(m=>m.remove());
   if(typeof renderConversations==="function") renderConversations();
   NX.toast("New conversation started");
@@ -551,7 +551,7 @@ async function openConversation(id){
     if(!r.ok){ NX.toast("Could not open that conversation"); return; }
     const d = await r.json();
     sessionId = id;
-    localStorage.setItem("selene-chat-session", id);
+    localStorage.setItem("selenne-chat-session", id);
     scroll.querySelectorAll(".msg:not(:first-child)").forEach(m=>m.remove());
     (d.history||[]).forEach(m=>{
       const el = document.createElement("div");
@@ -606,7 +606,7 @@ async function deleteConversation(id){
   const q = new URLSearchParams(location.search).get("q");
   if(q){ history.replaceState(null,"",location.pathname); setTimeout(()=>send(q),400); return; }
   // resume the last conversation for this account, if it still exists
-  const last = localStorage.getItem("selene-chat-session");
+  const last = localStorage.getItem("selenne-chat-session");
   if(last && conversations.some(c=>c.session_id===last)) openConversation(last);
 })();
 </script>

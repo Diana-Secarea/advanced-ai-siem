@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  Build the downloadable Selene release: infra/deploy/dist/selene-linux.tar.gz
+#  Build the downloadable Selenne release: infra/deploy/dist/selenne-linux.tar.gz
 #
 #  Bundles the app source + trained models + installer, EXCLUDING virtualenvs,
 #  caches, and every secret/stateful file (.env, users.db, *.jsonl, vector data).
@@ -11,7 +11,7 @@ cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.."   # -> wazuh-monorepo
 MONO="$PWD"
 REL="$MONO/infra/deploy/release"
 DIST="$MONO/infra/deploy/dist"
-NAME="selene-linux"
+NAME="selenne-linux"
 STAGE="$(mktemp -d)"
 APP="$STAGE/$NAME/app"
 trap 'rm -rf "$STAGE"' EXIT

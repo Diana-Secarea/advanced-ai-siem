@@ -64,7 +64,7 @@ def _send_email(ticket_id, username, subject, body, severity):
                 f"Raised by: {username}\n"
                 f"At: {datetime.datetime.utcnow().isoformat()}Z\n\n{body}\n",
                 "plain", "utf-8")
-            msg["Subject"] = f"[Selene] #{ticket_id} {severity.upper()}: {subject}"
+            msg["Subject"] = f"[Selenne] #{ticket_id} {severity.upper()}: {subject}"
             msg["From"] = user or "shield@localhost"
             msg["To"] = TICKET_EMAIL_TO
             with smtplib.SMTP(host, port, timeout=20) as s:

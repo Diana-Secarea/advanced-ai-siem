@@ -1,4 +1,4 @@
-# Selene — production frontend
+# Selenne — production frontend
 
 The production UI for the Wazuh AI Threat Engine, served by Flask at
 **http://localhost:5000** (`backend/server.py`). Fully wired to the live

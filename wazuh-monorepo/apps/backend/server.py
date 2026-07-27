@@ -75,7 +75,7 @@ _AUTH_EXEMPT_PREFIXES = ("/assets/", "/legacy/assets/")
 _AUTH_EXEMPT_PATHS = {
     "/login.html", "/favicon.ico",
     "/landing.html",  # public marketing/pricing page
-    "/api/download/linux", "/download/selene-linux.tar.gz",  # public app download
+    "/api/download/linux", "/download/selenne-linux.tar.gz",  # public app download
     "/api/billing/config", "/api/billing/checkout",  # Stripe checkout (public)
     "/api/auth/login", "/api/auth/register", "/api/auth/me",
     "/metrics",   # Prometheus scrape — read-only counters, no alert content
@@ -4070,7 +4070,7 @@ def reactor_test():
     return jsonify({"status": "ok", "incident": inc})
 
 
-# The UI served at / is the improved_UI (Selene). The legacy
+# The UI served at / is the improved_UI (Selenne). The legacy
 # frontend/ stays reachable under /legacy/ as a fallback during the switch.
 UI_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
 LEGACY_UI_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend-legacy")
@@ -4081,15 +4081,15 @@ LEGACY_UI_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend-legacy")
 # built by infra/deploy/package_release.sh. Built on demand and cached; the
 # package script's secret-guard guarantees no .env/users.db/session data ships.
 _RELEASE_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "infra", "deploy")
-_RELEASE_TARBALL = os.path.join(_RELEASE_DIR, "dist", "selene-linux.tar.gz")
+_RELEASE_TARBALL = os.path.join(_RELEASE_DIR, "dist", "selenne-linux.tar.gz")
 _RELEASE_SCRIPT = os.path.join(_RELEASE_DIR, "package_release.sh")
 _release_lock = threading.Lock()
 
 
 @app.route("/api/download/linux")
-@app.route("/download/selene-linux.tar.gz")
+@app.route("/download/selenne-linux.tar.gz")
 def download_linux():
-    """Download the Selene Linux bundle (extract → ./install.sh → ./run.sh)."""
+    """Download the Selenne Linux bundle (extract → ./install.sh → ./run.sh)."""
     path = os.path.abspath(_RELEASE_TARBALL)
     if not os.path.isfile(path):
         with _release_lock:                       # build once if it's missing
@@ -4104,7 +4104,7 @@ def download_linux():
     if not os.path.isfile(path):
         return jsonify({"error": "release artifact unavailable"}), 500
     return send_file(path, as_attachment=True,
-                     download_name="selene-linux.tar.gz",
+                     download_name="selenne-linux.tar.gz",
                      mimetype="application/gzip")
 
 

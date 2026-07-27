@@ -336,3 +336,20 @@
 2026-07-22T17:09:00 INFO    [backend] waitress serving on 127.0.0.1:5000 (8 threads)
 2026-07-22T17:09:00 INFO    [waitress] Serving on http://127.0.0.1:5000
 2026-07-22T17:10:30 INFO    [agent] Auto-run starting (source=all)
+2026-07-22T17:36:17 INFO    [backend] Logging initialized (level=INFO, dir=/home/sek/wazuh/wazuh-monorepo/apps/backend/logs)
+2026-07-22T17:36:17 INFO    [backend] Production WSGI startup (waitress)
+2026-07-22T17:36:17 INFO    [reactor] Restored 22 incidents from ledger
+2026-07-22T17:36:17 INFO    [agent] Autostart scheduler running (every 24h)
+2026-07-22T17:36:17 INFO    [backend] waitress serving on 127.0.0.1:5000 (8 threads)
+2026-07-22T17:36:17 INFO    [waitress] Serving on http://127.0.0.1:5000
+2026-07-22T17:37:47 INFO    [agent] Auto-run starting (source=all)
+2026-07-22T17:41:07 INFO    [sentence_transformers.SentenceTransformer] Use pytorch device_name: cpu
+2026-07-22T17:41:07 INFO    [sentence_transformers.SentenceTransformer] Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2026-07-22T18:34:58 INFO    [backend] Logging initialized (level=INFO, dir=/home/sek/wazuh/wazuh-monorepo/apps/backend/logs)
+2026-07-22T18:34:58 INFO    [backend] Production WSGI startup (waitress)
+2026-07-22T18:34:58 INFO    [reactor] Restored 22 incidents from ledger
+2026-07-22T18:34:58 INFO    [agent] Autostart scheduler running (every 24h)
+2026-07-22T18:34:58 INFO    [backend] waitress serving on 127.0.0.1:5000 (8 threads)
+2026-07-22T18:34:58 INFO    [waitress] Serving on http://127.0.0.1:5000
+2026-07-22T18:35:40 INFO    [waitress] Client disconnected while serving /assets/hero-bg.mp4
+2026-07-22T18:36:28 INFO    [agent] Auto-run starting (source=all)

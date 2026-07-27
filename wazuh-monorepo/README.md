@@ -1,6 +1,6 @@
 # wazuh-monorepo
 
-All of **Selene** (the AI Threat Engine built on top of this Wazuh fork)
+All of **Selenne** (the AI Threat Engine built on top of this Wazuh fork)
 lives here, organized as a monorepo. The surrounding repository root is the
 upstream Wazuh source tree — untouched.
 
@@ -9,7 +9,7 @@ wazuh-monorepo/
 ├── apps/
 │   ├── backend/          Flask API :5000 — alerts, ensemble scoring, RAG chat,
 │   │                     auth (users.db), tickets, reactor, CVE-agent endpoints, /metrics
-│   ├── frontend/         Selene UI (served at /) — dashboard, ML engine,
+│   ├── frontend/         Selenne UI (served at /) — dashboard, ML engine,
 │   │                     reactor panel, CVE agent, vector DB, profile, login
 │   └── frontend-legacy/  previous UI (served at /legacy/)
 ├── services/

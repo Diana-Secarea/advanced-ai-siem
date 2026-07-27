@@ -103,6 +103,20 @@ def _iso(dt):
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _restrict_db_permissions():
+    """Keep the credential store owner-only (0600).
+
+    Applied on every startup, not just at creation: SQLite's -wal/-shm side
+    files are recreated on demand and would otherwise inherit the umask.
+    """
+    for path in (DB_PATH, DB_PATH + "-wal", DB_PATH + "-shm"):
+        try:
+            if os.path.exists(path) and (os.stat(path).st_mode & 0o077):
+                os.chmod(path, 0o600)
+        except OSError as exc:                      # e.g. NFS, foreign owner
+            print(f"[auth] could not restrict {path}: {exc}")
+
+
 def init_db():
     """Create tables and seed the admin account if the DB is fresh."""
     with _db_lock, _conn() as conn:
@@ -137,9 +151,13 @@ def init_db():
                 "VALUES (?, ?, 'admin', ?)",
                 ("admin", generate_password_hash(password), _iso(_now())),
             )
-            source = "from ADMIN_PASSWORD env" if os.environ.get("ADMIN_PASSWORD") \
-                else "GENERATED — SAVE IT NOW, it is not shown again"
-            print(f"[auth] Created default account  admin / {password}  ({source})")
+            if os.environ.get("ADMIN_PASSWORD"):
+                # Already in the operator's env file — don't copy it into the logs.
+                print("[auth] Created default account 'admin' (password from ADMIN_PASSWORD env)")
+            else:
+                print(f"[auth] Created default account  admin / {password}  "
+                      f"(GENERATED — SAVE IT NOW, it is not shown again)")
+    _restrict_db_permissions()
 
 
 def create_user(username, password, role="analyst"):

@@ -91,6 +91,9 @@
       </button>
       <input type="file" id="attachFile" accept=".pdf,.docx,.html,.htm,.txt,.md,.json,.png,.jpg,.jpeg,.webp,.gif" style="display:none;">
       <input id="inp" type="text" placeholder="Ask about threats, techniques, alerts — or attach an image, document or voice note…" autocomplete="off">
+      <label title="Agent mode: the model investigates with tools (threat intel, alerts, raw logs, CVE ledger, incidents) before answering" style="display:flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:11px;color:var(--text-dim);cursor:pointer;white-space:nowrap;">
+        <input type="checkbox" id="agentMode" checked style="accent-color:var(--accent);"> 🛠 Agent
+      </label>
       <button class="btn btn-primary" id="send" style="padding:12px 22px;">Send ➤</button>
     </div>
   </div>
@@ -182,8 +185,9 @@ function renderMd(t){
 
 function addUser(text){ const m=document.createElement("div"); m.className="msg user"; m.textContent=text; scroll.appendChild(m); scroll.scrollTop=scroll.scrollHeight; }
 
-/* SSE parser: plain data lines are tokens, `event: done` carries meta JSON */
-async function streamChatSSE(resp, onToken, onDone){
+/* SSE parser: plain data lines are tokens, `event: trace` are live agent
+   tool-call steps, `event: done` carries meta JSON */
+async function streamChatSSE(resp, onToken, onDone, onTrace){
   const reader = resp.body.getReader();
   const decoder = new TextDecoder();
   let buf = "";
@@ -203,6 +207,7 @@ async function streamChatSSE(resp, onToken, onDone){
       }
       const data = dataLines.join("\n");
       if(evName==="done") onDone(data);
+      else if(evName==="trace"){ if(onTrace) onTrace(data); }
       else if(data) onToken(data.replace(/\\n/g,"\n"));
     }
   }
@@ -317,14 +322,18 @@ async function send(text){
   attachments = []; renderAttachRow();
   text = outbound;
   inp.value = "";
+  const agentOn = !!document.getElementById("agentMode")?.checked;
   const wrap = document.createElement("div"); wrap.className = "msg bot";
-  wrap.innerHTML = `<span style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);">retrieving context — dense + BM25 → RRF…</span><div class="typing"><i></i><i></i><i></i></div>`;
+  wrap.innerHTML = `<span class="ctx-note" style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);">${agentOn ? "🛠 agent investigating…" : "retrieving context — dense + BM25 → RRF…"}</span><div class="typing"><i></i><i></i><i></i></div>`;
   scroll.appendChild(wrap); scroll.scrollTop = scroll.scrollHeight;
   let fullText = "";
+  const traceSteps = [];
+  const TOOL_LABELS = {search_threat_intel:"searching threat intel", search_alerts:"checking the alert store",
+                       get_recent_logs:"pulling raw logs", lookup_cve:"looking up CVE", get_incidents:"reviewing incidents"};
   try{
     const resp = await fetch(API + "/api/chat/stream", {
       method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ message: text, session_id: sessionId }),
+      body: JSON.stringify({ message: text, session_id: sessionId, agent: agentOn }),
     });
     if(!resp.ok || !resp.body) throw new Error("HTTP "+resp.status);
     await streamChatSSE(resp,
@@ -356,6 +365,43 @@ async function send(text){
             wrap.innerHTML = renderMd(fullText);
             wrap.appendChild(srcs);
           }
+          const rm = meta.rag_meta || {};
+          if(rm.low_confidence || (rm.queries||[]).length > 1 || rm.gate === "skip"){
+            const note = document.createElement("div");
+            note.style.cssText = "margin-top:6px;font-family:var(--font-mono);font-size:10px;color:var(--text-dim);";
+            if(rm.gate === "skip"){
+              note.textContent = "⏭ retrieval skipped (conversational)";
+            }else{
+              const extra = (rm.queries||[]).slice(1);
+              let t = extra.length ? "🔍 also searched: " + extra.join(" · ") : "";
+              if(rm.corrective_retry) t += (t?"  ·  ":"") + "↻ re-searched (first pass irrelevant)";
+              note.textContent = t;
+            }
+            if(rm.low_confidence){
+              const warn = document.createElement("span");
+              warn.style.color = "var(--red)";
+              warn.textContent = (note.textContent?"  ·  ":"") + "⚠ low-confidence sources";
+              note.appendChild(warn);
+            }
+            if(note.textContent) wrap.appendChild(note);
+          }
+          if(traceSteps.length){
+            const tdiv = document.createElement("div");
+            tdiv.style.cssText = "margin-top:4px;font-family:var(--font-mono);font-size:10px;color:var(--text-dim);";
+            tdiv.textContent = "🛠 investigation: " + traceSteps.join(" → ");
+            wrap.appendChild(tdiv);
+          }
+        }catch(_){}
+      },
+      traceData => {
+        try{
+          const ev = JSON.parse(traceData);
+          const label = TOOL_LABELS[ev.tool] || ev.tool;
+          const argStr = ev.args && (ev.args.query || ev.args.cve_id || ev.args.contains || ev.args.agent) || "";
+          traceSteps.push(label + (argStr ? ` (${String(argStr).slice(0,40)})` : ""));
+          const noteEl = wrap.querySelector(".ctx-note");
+          if(noteEl) noteEl.textContent = `🛠 step ${ev.step}: ${label}${argStr ? " — " + String(argStr).slice(0,60) : ""}…`;
+          scroll.scrollTop = scroll.scrollHeight;
         }catch(_){}
       });
     if(!fullText) wrap.innerHTML = "No response from the model — is Ollama running?";

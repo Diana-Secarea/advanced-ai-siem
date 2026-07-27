@@ -160,7 +160,15 @@
     <div class="card reveal" style="padding:22px 24px;margin-top:16px;">
       <h3 style="margin:0 0 4px;">⚙ Reactive actions <span class="mono" style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);">SOAR/EDR — per action, all opt-in</span></h3>
       <p style="font-size:12px;color:var(--text-dim);margin-bottom:14px;">On every incident the reactor can investigate and contain, like an analyst + EDR would. Blocking actions target public IPs only and default to dry-run.</p>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;">
+        <div class="card" style="padding:14px 16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <b style="font-size:13px;">🧠 AI triage</b>
+            <span class="badge" id="axAiTriage" style="background:rgba(120,130,150,.2);">OFF</span>
+          </div>
+          <p style="font-size:11px;color:var(--text-dim);margin:8px 0;">Autonomous agent investigates each incident (raw logs, threat intel, CVE ledger) and writes a verdict + report. Read-only, advisory.</p>
+          <button class="btn-mini" id="axAiTriageBtn" onclick="axToggle('ai_triage')">Enable</button>
+        </div>
         <div class="card" style="padding:14px 16px;">
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <b style="font-size:13px;">🔎 Host triage</b>
@@ -266,6 +274,8 @@ async function loadStatus(){
 
     // SOAR/EDR reactive-action badges
     axBadge("axTriage", "axTriageBtn", s.triage, false);
+    axBadge("axAiTriage", "axAiTriageBtn", s.ai_triage, false);
+    if(s.ai_triage){ const b=document.getElementById("axAiTriage"); b.textContent="ON"; b.style.background="rgba(52,211,153,.2)"; b.style.color="var(--green)"; }
     const blkMode = !s.block_ip ? "off" : (s.block_ip_dryrun ? "dry-run" : "armed");
     axBadge("axBlock", "axBlockBtn", s.block_ip, blkMode==="armed");
     document.getElementById("axBlockArm").textContent = blkMode==="armed" ? "Disarm" : "Arm";
@@ -306,6 +316,36 @@ async function axArmScan(){
   NX.toast(arm?"⚠ Host scan ARMED":"Host scan → dry-run");
 }
 
+const verdictStyle = v => v==="malicious" ? "crit" : v==="suspicious" ? "med" : v==="benign" ? "low" : "";
+function aiTriageBlock(i){
+  const t = i.ai_triage;
+  if(!t) return "";
+  if(t.error) return `<div class="mono" style="font-family:var(--font-mono);font-size:10px;color:var(--amber);margin-top:6px;">🧠 AI triage failed: ${esc(t.error)}</div>`;
+  return `
+    <div style="margin-top:8px;padding:10px 12px;border-radius:8px;background:rgba(120,130,150,.08);border:1px solid rgba(120,130,150,.15);">
+      <div style="font-size:12px;">
+        🧠 <b>AI triage:</b> <span class="badge ${verdictStyle(t.verdict)}">${esc((t.verdict||"?").toUpperCase())}</span>
+        <span class="mono" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);">confidence ${t.confidence ?? "?"}% · ${(t.tool_calls||[]).join(" → ")||"no tools"} · ${((t.elapsed_ms||0)/1000).toFixed(1)}s</span>
+      </div>
+      <div style="font-size:12px;margin-top:5px;">${esc(t.summary||"")}</div>
+      ${(t.evidence||[]).length?`<ul style="font-size:11px;color:var(--text-soft);margin:6px 0 0 16px;">${t.evidence.map(e=>`<li>${esc(e)}</li>`).join("")}</ul>`:""}
+      <div class="mono" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);margin-top:6px;">
+        ${(t.mitre||[]).length?("MITRE "+t.mitre.map(esc).join(" ")+" · "):""}
+        ${(t.recommended_actions||[]).length?("suggested: "+t.recommended_actions.map(esc).join(" · ")):""}
+      </div>
+      <div style="font-size:10px;color:var(--text-dim);margin-top:4px;">advisory only — no actions were executed</div>
+    </div>`;
+}
+
+async function rxAiTriage(id){
+  try{
+    const r = await (await fetch(API+`/api/reactor/incidents/${encodeURIComponent(id)}/ai-triage`,{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})).json();
+    if(r.error){ NX.toast("AI triage: "+r.error); return; }
+    NX.toast(r.queued ? "🧠 AI triage running — report attaches when done" : "Report already available");
+    setTimeout(loadIncidents, 5000); setTimeout(loadIncidents, 20000); setTimeout(loadIncidents, 45000);
+  }catch(e){ NX.toast("AI triage request failed"); }
+}
+
 async function loadIncidents(){
   try{
     const d = await (await fetch(API+"/api/reactor/incidents?limit=50")).json();
@@ -327,10 +367,12 @@ async function loadIncidents(){
           <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;">
             ${(i.reactions||[]).map(r=>`<span class="badge ${r.endsWith(':ok')||r.includes('ran')||r.includes('blocked')?'low':r.includes('error')?'crit':'med'}" style="font-size:10px;">${esc(r)}</span>`).join("")}
           </div>
+          ${aiTriageBlock(i)}
         </div>
-        <div style="flex-shrink:0;">
+        <div style="flex-shrink:0;display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
           ${i.ack ? '<span class="mono" style="font-family:var(--font-mono);font-size:10px;color:var(--green);">✓ ACK</span>'
                   : `<button class="btn-mini ok" onclick="rxAck('${esc(i.id)}')">Acknowledge</button>`}
+          ${!i.ai_triage ? `<button class="btn-mini" onclick="rxAiTriage('${esc(i.id)}')">🧠 AI triage</button>` : ""}
         </div>
       </div>`).join("")
       : `<div style="font-size:12px;color:var(--text-dim);">No incidents ${rxEnabled?"— reactor is watching the stream…":"— reactor is off."}</div>`;

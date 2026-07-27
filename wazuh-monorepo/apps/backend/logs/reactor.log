@@ -195,3 +195,9 @@
 2026-07-22T17:09:00 INFO    [reactor] Restored 22 incidents from ledger
 2026-07-22T17:36:17 INFO    [reactor] Restored 22 incidents from ledger
 2026-07-22T18:34:58 INFO    [reactor] Restored 22 incidents from ledger
+2026-07-27T12:49:24 INFO    [reactor] Restored 22 incidents from ledger
+2026-07-27T16:35:52 INFO    [reactor] Restored 22 incidents from ledger
+2026-07-27T16:37:25 INFO    [reactor] INCIDENT 🚨 CRITICAL 99/100 | rule 0 — Reactor self-test incident | src 203.0.113.99 | agent reactor-test | T0000 -> ['ledger:ok', 'ai_triage:queued']
+2026-07-27T16:37:42 INFO    [reactor] AI TRIAGE ab667ae6d83d: suspicious (70%) via ['get_recent_logs', 'search_alerts', 'search_threat_intel']
+2026-07-27T17:39:56 INFO    [reactor] Restored 23 incidents from ledger
+2026-07-27T18:02:06 INFO    [reactor] Restored 23 incidents from ledger

@@ -389,3 +389,16 @@
 2026-07-27T18:02:06 INFO    [backend] waitress serving on 127.0.0.1:5000 (8 threads)
 2026-07-27T18:02:27 INFO    [waitress] Client disconnected while serving /assets/hero-bg.mp4
 2026-07-27T18:02:50 INFO    [waitress] Client disconnected while serving /assets/hero-bg.mp4
+2026-07-27T18:29:37 WARNING [waitress.queue] Task queue depth is 1
+2026-07-27T18:29:37 WARNING [waitress.queue] Task queue depth is 2
+2026-07-27T18:29:37 WARNING [waitress.queue] Task queue depth is 2
+2026-07-27T18:29:37 WARNING [waitress.queue] Task queue depth is 3
+2026-07-27T18:29:37 WARNING [waitress.queue] Task queue depth is 3
+2026-07-27T18:29:37 WARNING [waitress.queue] Task queue depth is 4
+2026-07-27T18:29:37 WARNING [waitress.queue] Task queue depth is 5
+2026-07-27T18:29:37 WARNING [waitress.queue] Task queue depth is 6
+2026-07-27T18:29:37 WARNING [waitress.queue] Task queue depth is 6
+2026-07-27T18:29:37 WARNING [waitress.queue] Task queue depth is 7
+2026-07-27T18:29:37 WARNING [waitress.queue] Task queue depth is 7
+2026-07-27T18:29:37 WARNING [waitress.queue] Task queue depth is 7
+2026-07-27T18:29:37 WARNING [waitress.queue] Task queue depth is 8

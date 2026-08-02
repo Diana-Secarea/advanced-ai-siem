@@ -4820,6 +4820,8 @@ _COLLECTORS = {
     # platform: (template file, download name, line ending)
     "windows": ("install-selenne-agent.ps1", "install-selenne-agent.ps1", "\r\n"),
     "linux":   ("install-selenne-collector.sh", "install-selenne-collector.sh", "\n"),
+    "macos":   ("install-selenne-collector-macos.sh",
+                "install-selenne-collector-macos.sh", "\n"),
 }
 WAZUH_AGENT_VERSION = os.environ.get("WAZUH_AGENT_VERSION", "4.14.6")
 
@@ -4875,6 +4877,15 @@ def download_agent_windows():
 def download_agent_linux():
     """Linux endpoint collector, personalised for the signed-in account."""
     resp, err = _render_collector("linux")
+    return resp if resp is not None else err
+
+
+@app.route("/api/download/agent/macos")
+@app.route("/download/install-selenne-collector-macos.sh")
+@limiter.limit("20 per hour")
+def download_agent_macos():
+    """macOS endpoint collector (Apple Silicon + Intel), personalised per account."""
+    resp, err = _render_collector("macos")
     return resp if resp is not None else err
 
 

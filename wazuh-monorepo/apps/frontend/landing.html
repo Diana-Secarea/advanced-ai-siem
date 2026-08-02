@@ -485,6 +485,8 @@ footer a:hover { color: var(--text); }
          href="/api/download/agent/windows" download="install-selenne-agent.ps1">⬇ Collector for Windows</a>
       <a class="btn btn-primary collector-dl" id="dlLinux" data-plat="linux"
          href="/api/download/agent/linux" download="install-selenne-collector.sh">⬇ Collector for Linux</a>
+      <a class="btn btn-primary collector-dl" id="dlMac" data-plat="macos"
+         href="/api/download/agent/macos" download="install-selenne-collector-macos.sh">⬇ Collector for macOS</a>
       <a class="btn btn-ghost" href="#showcase">See it in action</a>
     </div>
     <div class="hero-dl-note r3d" data-delay="3" style="margin-top:8px;font-size:12px;color:var(--muted,#8b93a7);">
@@ -495,6 +497,8 @@ footer a:hover { color: var(--text); }
       <code style="font-size:11px;">powershell -ExecutionPolicy Bypass -File .\install-selenne-agent.ps1</code>
       &nbsp;·&nbsp;
       <code style="font-size:11px;">sudo bash install-selenne-collector.sh</code>
+      &nbsp;·&nbsp;
+      <code style="font-size:11px;">sudo bash install-selenne-collector-macos.sh</code>
       <br>
       <span style="opacity:.75;">Running your own server instead?
         <a href="/api/download/linux" download>Download the full self-hosted engine for Linux</a>.</span>

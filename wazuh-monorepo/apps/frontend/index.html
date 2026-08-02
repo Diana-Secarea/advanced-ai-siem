@@ -116,28 +116,39 @@
     <span class="eyebrow reveal">CONNECT YOUR MACHINES</span>
     <h2 class="section-title reveal" data-delay="1">Monitor an <span class="grad-text">endpoint.</span></h2>
     <div class="card reveal" data-delay="2" style="padding:24px;">
-      <div style="display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap;">
-        <div style="font-size:38px;line-height:1;">🪟</div>
-        <div style="flex:1;min-width:260px;">
-          <h3 style="margin:0 0 6px;">Windows endpoint</h3>
-          <p style="margin:0 0 4px;font-size:13px;color:var(--text-dim);">
-            Installs a lightweight collector on the Windows machine and enrols it with Selenne.
-            Its security events stream here, get scored by the ML ensemble, and show up in
-            <a href="alerts.html">Live Alerts</a> within a minute.
-            <b>Nothing is analysed on the endpoint</b> — no models, no Python, just the collector.
-          </p>
-          <p class="mono" style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin:10px 0 0;">
-            Run it in an <b>Administrator PowerShell</b>:<br>
+      <p style="margin:0 0 18px;font-size:13px;color:var(--text-dim);">
+        The collector is a 13 MB background service that reads the machine's logs and ships them here.
+        <b>Nothing is analysed on the endpoint</b> — no models, no Python. Detection, ML scoring and the
+        AI analyst all run on this server, and the machine's events appear in
+        <a href="alerts.html">Live Alerts</a> within a minute of install.
+      </p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
+
+        <div style="border:1px solid var(--line,rgba(255,255,255,.08));border-radius:12px;padding:18px;">
+          <div style="font-size:30px;line-height:1;">🪟</div>
+          <h3 style="margin:8px 0 6px;">Windows</h3>
+          <p class="mono" style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin:0 0 12px;">
+            Run in an <b>Administrator PowerShell</b>:<br>
             <code>powershell -ExecutionPolicy Bypass -File .\install-selenne-agent.ps1</code>
           </p>
-          <div style="display:flex;gap:10px;align-items:center;margin-top:16px;flex-wrap:wrap;">
-            <a class="btn btn-primary" style="padding:10px 20px;" href="/api/download/agent/windows"
-               download="install-selenne-agent.ps1">⬇ Download Windows installer</a>
-            <span class="mono" style="font-family:var(--font-mono);font-size:10px;color:var(--amber);">
-              contains your enrolment key — don't share it
-            </span>
-          </div>
+          <a class="btn btn-primary" style="padding:9px 18px;" href="/api/download/agent/windows"
+             download="install-selenne-agent.ps1">⬇ Windows collector</a>
         </div>
+
+        <div style="border:1px solid var(--line,rgba(255,255,255,.08));border-radius:12px;padding:18px;">
+          <div style="font-size:30px;line-height:1;">🐧</div>
+          <h3 style="margin:8px 0 6px;">Linux</h3>
+          <p class="mono" style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin:0 0 12px;">
+            Debian/Ubuntu, RHEL/Fedora, SUSE:<br>
+            <code>sudo bash install-selenne-collector.sh</code>
+          </p>
+          <a class="btn btn-primary" style="padding:9px 18px;" href="/api/download/agent/linux"
+             download="install-selenne-collector.sh">⬇ Linux collector</a>
+        </div>
+
+      </div>
+      <div class="mono" style="font-family:var(--font-mono);font-size:10px;color:var(--amber);margin-top:14px;">
+        each download is generated for your account and contains your enrolment key — don't share it
       </div>
     </div>
   </section>

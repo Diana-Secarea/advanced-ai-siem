@@ -481,17 +481,23 @@ footer a:hover { color: var(--text); }
       CVE agent and explained in plain language by a local LLM.
     </p>
     <div class="hero-ctas r3d" data-delay="3">
-      <a class="btn btn-primary" href="/api/download/linux" download>⬇ Download for Linux</a>
-      <a class="btn btn-primary" id="dlWindows" href="/api/download/agent/windows"
-         download="install-selenne-agent.ps1">⬇ Download for Windows</a>
+      <a class="btn btn-primary collector-dl" id="dlWindows" data-plat="windows"
+         href="/api/download/agent/windows" download="install-selenne-agent.ps1">⬇ Collector for Windows</a>
+      <a class="btn btn-primary collector-dl" id="dlLinux" data-plat="linux"
+         href="/api/download/agent/linux" download="install-selenne-collector.sh">⬇ Collector for Linux</a>
       <a class="btn btn-ghost" href="#showcase">See it in action</a>
     </div>
     <div class="hero-dl-note r3d" data-delay="3" style="margin-top:8px;font-size:12px;color:var(--muted,#8b93a7);">
-      <b>Linux</b> — the full self-hosted engine ·
-      <code style="font-size:11px;">tar -xzf selenne-linux.tar.gz &amp;&amp; cd selenne-linux &amp;&amp; ./install.sh &amp;&amp; ./run.sh</code>
+      Sign in, download, run once — the collector installs as a background service and starts
+      shipping logs immediately. <b>13 MB. Nothing is analysed on your machine</b>; detection and
+      ML scoring run here.
       <br>
-      <b>Windows</b> — connects a PC to your Selenne account; events are analysed here, nothing runs on the endpoint ·
       <code style="font-size:11px;">powershell -ExecutionPolicy Bypass -File .\install-selenne-agent.ps1</code>
+      &nbsp;·&nbsp;
+      <code style="font-size:11px;">sudo bash install-selenne-collector.sh</code>
+      <br>
+      <span style="opacity:.75;">Running your own server instead?
+        <a href="/api/download/linux" download>Download the full self-hosted engine for Linux</a>.</span>
     </div>
     <div class="hero-meta r3d" data-delay="4">
       <span><b data-count="95.9" data-suffix="%">0</b>DETECTION RECALL</span>
@@ -1012,23 +1018,23 @@ footer a:hover { color: var(--text); }
      The installer is rendered per-account and carries an enrolment key, so it
      needs a session. Signed-out visitors go to the sign-in page instead of
      downloading a 401 response as a file. */
-  var winBtn = document.getElementById("dlWindows");
-  if (winBtn) {
-    winBtn.addEventListener("click", function (e) {
+  Array.prototype.forEach.call(document.querySelectorAll(".collector-dl"), function (btn) {
+    btn.addEventListener("click", function (e) {
       e.preventDefault();
+      var url = btn.getAttribute("href");
       fetch("/api/auth/me", { credentials: "same-origin" })
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (d) {
           if (d && d.user) {
-            window.location.href = "/api/download/agent/windows";
+            window.location.href = url;
           } else {
-            showToast("Sign in first — the Windows installer is tied to your account.");
+            showToast("Sign in first — the collector is tied to your account.");
             setTimeout(function () { window.location.href = "login.html"; }, 1400);
           }
         })
         .catch(function () { window.location.href = "login.html"; });
     });
-  }
+  });
 
   /* ---------- checkout return messages ---------- */
   var qs = new URLSearchParams(location.search);

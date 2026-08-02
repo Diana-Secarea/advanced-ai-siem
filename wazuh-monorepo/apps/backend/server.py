@@ -4808,39 +4808,43 @@ def download_linux():
                      mimetype="application/gzip")
 
 
-# --- Windows endpoint agent ------------------------------------------------- #
-# Enrolment installer for a customer's Windows machine. Only the Wazuh agent is
-# installed there — collection happens on the endpoint, all ML scoring and the
-# AI layer stay on this server. The rendered script carries the enrolment
-# password, so this route deliberately stays behind the auth gate.
-_AGENT_TEMPLATE = os.path.join(os.path.dirname(__file__), "..", "..",
-                               "infra", "deploy", "agent",
-                               "install-selenne-agent.ps1")
+# --- Endpoint log collector -------------------------------------------------- #
+# The endpoint gets the Wazuh *agent* only (13 MB download / 47 MB installed):
+# a service that reads logs and ships them here. No models, no analysis locally —
+# all detection and ML scoring happens on this server. Each rendered script is
+# personalised with the caller's account and carries the enrolment password, so
+# these routes stay behind the auth gate.
+_AGENT_DIR = os.path.join(os.path.dirname(__file__), "..", "..",
+                          "infra", "deploy", "agent")
+_COLLECTORS = {
+    # platform: (template file, download name, line ending)
+    "windows": ("install-selenne-agent.ps1", "install-selenne-agent.ps1", "\r\n"),
+    "linux":   ("install-selenne-collector.sh", "install-selenne-collector.sh", "\n"),
+}
 WAZUH_AGENT_VERSION = os.environ.get("WAZUH_AGENT_VERSION", "4.14.6")
 
 
-@app.route("/api/download/agent/windows")
-@app.route("/download/install-selenne-agent.ps1")
-@limiter.limit("20 per hour")
-def download_agent_windows():
-    """Render the Windows enrolment script for the signed-in account."""
+def _render_collector(platform):
+    """Render an enrolment script for the signed-in account, or an error tuple."""
     username, _ = _current_username()
     if not username or username == "anonymous":
-        return jsonify({"error": "Sign in to download the endpoint installer"}), 401
+        return None, (jsonify({"error": "Sign in to download the collector"}), 401)
 
     reg_password = os.environ.get("WAZUH_REG_PASSWORD", "")
     if not reg_password:
-        return jsonify({"error": "Endpoint enrolment is not configured on this "
-                                 "server (WAZUH_REG_PASSWORD unset)"}), 503
+        return None, (jsonify({"error": "Endpoint enrolment is not configured on "
+                                        "this server (WAZUH_REG_PASSWORD unset)"}), 503)
 
-    manager = os.environ.get("SELENNE_MANAGER_HOST") or request.host.split(":")[0]
+    template, download_name, newline = _COLLECTORS[platform]
     try:
-        with open(os.path.abspath(_AGENT_TEMPLATE), encoding="utf-8") as fh:
+        with open(os.path.abspath(os.path.join(_AGENT_DIR, template)),
+                  encoding="utf-8") as fh:
             script = fh.read()
     except OSError as exc:
-        log.error("agent template unreadable: %s", exc)
-        return jsonify({"error": "installer template unavailable"}), 500
+        log.error("collector template unreadable (%s): %s", platform, exc)
+        return None, (jsonify({"error": "installer template unavailable"}), 500)
 
+    manager = os.environ.get("SELENNE_MANAGER_HOST") or request.host.split(":")[0]
     for placeholder, value in (("__MANAGER__", manager),
                                ("__REG_PASSWORD__", reg_password),
                                ("__AGENT_GROUP__", "default"),
@@ -4848,13 +4852,30 @@ def download_agent_windows():
                                ("__AGENT_VERSION__", WAZUH_AGENT_VERSION)):
         script = script.replace(placeholder, value)
 
-    log.info("[agent] Windows installer downloaded by '%s'", username)
-    resp = Response(script.replace("\n", "\r\n"),   # PowerShell prefers CRLF
+    log.info("[collector] %s installer downloaded by '%s'", platform, username)
+    resp = Response(script.replace("\n", newline),
                     mimetype="text/plain; charset=utf-8")
-    resp.headers["Content-Disposition"] = \
-        'attachment; filename="install-selenne-agent.ps1"'
+    resp.headers["Content-Disposition"] = f'attachment; filename="{download_name}"'
     resp.headers["Cache-Control"] = "no-store"
-    return resp
+    return resp, None
+
+
+@app.route("/api/download/agent/windows")
+@app.route("/download/install-selenne-agent.ps1")
+@limiter.limit("20 per hour")
+def download_agent_windows():
+    """Windows endpoint collector, personalised for the signed-in account."""
+    resp, err = _render_collector("windows")
+    return resp if resp is not None else err
+
+
+@app.route("/api/download/agent/linux")
+@app.route("/download/install-selenne-collector.sh")
+@limiter.limit("20 per hour")
+def download_agent_linux():
+    """Linux endpoint collector, personalised for the signed-in account."""
+    resp, err = _render_collector("linux")
+    return resp if resp is not None else err
 
 
 @app.route("/")

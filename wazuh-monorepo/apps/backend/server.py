@@ -59,6 +59,7 @@ MAX_TEXT_FIELD = 8000
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import auth as _auth
 import logging_setup
+import tenancy as _tenancy
 
 logging_setup.setup_logging()
 log = logging_setup.get_logger("backend")
@@ -68,6 +69,7 @@ alog = logging_setup.get_logger("agent")
 AUTH_ENABLED = os.environ.get("AUTH_ENABLED", "1") == "1"
 if AUTH_ENABLED:
     _auth.init_db()
+    _tenancy.init_db()
 
 # Paths reachable without a session: the login page + its assets, and the
 # auth endpoints themselves.
@@ -184,6 +186,55 @@ def auth_change_password():
     return jsonify({"status": "ok", "message": "Password changed — other sessions signed out"})
 
 
+@app.route("/api/endpoints", methods=["GET"])
+def endpoints_list():
+    """Endpoints seen in the alert stream, with the account that owns each.
+
+    Non-admins see only their own; admins see everything plus unclaimed agents.
+    """
+    username, is_admin = _current_username()
+    if not username:
+        return jsonify({"error": "Authentication required"}), 401
+
+    with _wazuh_alerts_lock:
+        alerts = list(_wazuh_alerts)
+
+    seen = {}
+    for a in alerts:
+        name = _agent_name_of(a)
+        if not name:
+            continue
+        row = seen.setdefault(name, {"agent_name": name,
+                                     "machine": _tenancy.machine_name(name),
+                                     "owner": _tenancy.owner_of(name),
+                                     "alerts": 0})
+        row["alerts"] += 1
+
+    rows = [r for r in seen.values()
+            if is_admin or r["owner"] == username]
+    rows.sort(key=lambda r: -r["alerts"])
+    return jsonify({"endpoints": rows, "is_admin": is_admin})
+
+
+@app.route("/api/endpoints/assign", methods=["POST"])
+def endpoints_assign():
+    """Bind an endpoint to an account (admin only)."""
+    _, is_admin = _current_username()
+    if not is_admin:
+        return jsonify({"error": "Admin role required"}), 403
+    body = request.get_json(silent=True) or {}
+    agent_name = _scalar_str(body.get("agent_name"))[:128]
+    owner = _scalar_str(body.get("owner"))[:64]
+    if owner:
+        ok, err = _tenancy.assign(agent_name, owner)
+    else:
+        ok, err = _tenancy.unassign(agent_name)
+    if not ok:
+        return jsonify({"error": err}), 400
+    log.info("[tenancy] '%s' -> owner '%s'", agent_name, owner or "(unclaimed)")
+    return jsonify({"status": "ok", "agent_name": agent_name, "owner": owner or None})
+
+
 @app.route("/api/auth/me", methods=["GET"])
 def auth_me():
     """Session probe — exempt from the gate so the UI can test login state."""
@@ -214,6 +265,37 @@ def _current_username():
     if user:
         return user["username"], user.get("role") == "admin"
     return ("anonymous", True) if not AUTH_ENABLED else (None, False)
+
+
+# --- Per-account endpoint scoping ------------------------------------------ #
+# Alerts belong to the account that owns the reporting endpoint. Admins see
+# everything; everyone else sees only their own machines. Unclaimed agents
+# (the manager itself, hand-enrolled hosts) stay admin-only — fail closed.
+
+def _agent_name_of(alert):
+    """Agent name from a raw Wazuh alert dict, or the parsed text form."""
+    agent = alert.get("agent")
+    if isinstance(agent, dict):
+        return (agent.get("name") or "").strip()
+    # alerts.log text format: hostname looks like "(AGENT) 10.0.0.5->/var/log/x"
+    host = str(alert.get("agent_name") or alert.get("hostname") or "")
+    if host.startswith("("):
+        return host[1:].split(")", 1)[0].strip()
+    return host.strip()
+
+
+def _alert_visible(alert, username, is_admin):
+    return _tenancy.visible_to(_agent_name_of(alert), username, is_admin)
+
+
+def _visible_alerts():
+    """Snapshot of the alert store scoped to the caller."""
+    username, is_admin = _current_username()
+    with _wazuh_alerts_lock:
+        alerts = list(_wazuh_alerts)
+    if is_admin:
+        return alerts
+    return [a for a in alerts if _alert_visible(a, username, is_admin)]
 
 
 @app.route("/api/profile", methods=["GET", "POST"])
@@ -867,15 +949,18 @@ def _alert_to_text(alert):
 
 
 def _search_wazuh_alerts(query: str, top_k: int = 10) -> list:
-    """Search Wazuh alerts by keyword matching and scoring."""
+    """Search Wazuh alerts by keyword matching and scoring.
+
+    Scoped to the caller's endpoints — the AI analyst and the agent tools must
+    not surface another account's machines in an answer.
+    """
     if not _wazuh_loaded:
         _load_all_wazuh_alerts()
 
     # Check for new alerts on each search
     _check_new_alerts()
 
-    with _wazuh_alerts_lock:
-        alerts = list(_wazuh_alerts)
+    alerts = _visible_alerts()
 
     if not alerts:
         return []
@@ -1499,8 +1584,7 @@ def _build_rag_context(user_message: str, history: list, inj_flagged: bool) -> t
     if not alert_block:
         alert_block = "No matching Wazuh alerts found."
 
-    with _wazuh_alerts_lock:
-        n_total = len(_wazuh_alerts)
+    n_total = len(_visible_alerts())
 
     augmented = (
         f"=== Threat Intelligence Context ===\n{_guardrails.wrap_context(ti_block)}\n\n"
@@ -1896,11 +1980,19 @@ def _parse_all_blocks(text):
 BACKLOG_ALERTS = 50  # Number of recent alerts to show on page load
 
 
-def stream_parsed_alerts():
-    """Yield recent historical alerts then tail for new ones."""
+def stream_parsed_alerts(username=None, is_admin=False):
+    """Yield recent historical alerts then tail for new ones.
+
+    The caller's identity is passed in because the generator outlives the
+    request context — resolving it lazily here would raise once streaming
+    starts, and silently streaming *everything* would leak other tenants.
+    """
     if not os.path.isfile(ALERTS_LOG):
         yield f"data: {json.dumps({'error': f'File not found: {ALERTS_LOG}'})}\n\n"
         return
+
+    def _mine(alert):
+        return _tenancy.visible_to(_agent_name_of(alert), username, is_admin)
 
     try:
         with open(ALERTS_LOG, "r", encoding="utf-8", errors="replace") as f:
@@ -1908,7 +2000,8 @@ def stream_parsed_alerts():
             content = f.read()
             backlog = _parse_all_blocks(content)
             for alert in backlog[-BACKLOG_ALERTS:]:
-                yield f"data: {json.dumps(alert)}\n\n"
+                if _mine(alert):
+                    yield f"data: {json.dumps(alert)}\n\n"
 
             # --- Now tail for new alerts ---
             current_block = []
@@ -1922,7 +2015,7 @@ def stream_parsed_alerts():
                     if line.startswith("** Alert"):
                         if current_block:
                             alert = parse_alert_block(current_block)
-                            if alert:
+                            if alert and _mine(alert):
                                 yield f"data: {json.dumps(alert)}\n\n"
                         current_block = [line]
                     elif line.strip():
@@ -1930,7 +2023,7 @@ def stream_parsed_alerts():
                     elif current_block:
                         # Blank line = end of alert block
                         alert = parse_alert_block(current_block)
-                        if alert:
+                        if alert and _mine(alert):
                             yield f"data: {json.dumps(alert)}\n\n"
                         current_block = []
     except PermissionError:
@@ -1944,8 +2037,9 @@ def stream_parsed_alerts():
 
 @app.route("/stream")
 def sse_stream():
+    username, is_admin = _current_username()
     return Response(
-        stream_parsed_alerts(),
+        stream_parsed_alerts(username, is_admin),
         mimetype="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -1978,8 +2072,7 @@ def api_alerts_scored():
         _load_all_wazuh_alerts()
     _check_new_alerts()
 
-    with _wazuh_alerts_lock:
-        alerts = list(_wazuh_alerts)
+    alerts = _visible_alerts()
 
     # Take the most recent N alerts
     recent = alerts[-limit:] if len(alerts) > limit else alerts
@@ -2821,6 +2914,7 @@ def api_logs_all():
     limit = max(1, min(limit, 1000))
     q = (request.args.get("q") or "").strip()[:200].lower()
     loc_filter = (request.args.get("location") or "").strip()[:300]
+    _log_user, _log_admin = _current_username()
 
     # Only events since server start (ALERTS_SINCE_START); baseline half unused here.
     _base, lines = _archive_lines_windowed(limit * 3)
@@ -2842,6 +2936,8 @@ def api_logs_all():
         except ValueError:
             continue
         if not isinstance(ev, dict):
+            continue
+        if not _alert_visible(ev, _log_user, _log_admin):
             continue
         location = str(ev.get("location", ""))
         sources[location] = sources.get(location, 0) + 1
@@ -2897,6 +2993,7 @@ def api_logs_scored():
     # sees); `base_lines` = pre-start history used ONLY to calibrate novelty so the
     # first live events aren't all judged "never seen". With ALERTS_SINCE_START off,
     # base_lines is empty and display_lines is the recent tail (old behaviour).
+    _log_user, _log_admin = _current_username()
     base_lines, display_lines = _archive_lines_windowed(4000)
     if display_lines is None:
         return jsonify({
@@ -2916,6 +3013,8 @@ def api_logs_scored():
             except ValueError:
                 continue
             if isinstance(ev, dict):
+                if not _alert_visible(ev, _log_user, _log_admin):
+                    continue
                 out.append(ev)
                 if count_sources:
                     loc = str(ev.get("location", ""))
@@ -2970,16 +3069,16 @@ def alert_stats():
     if not _wazuh_loaded:
         _load_all_wazuh_alerts()
 
-    with _wazuh_alerts_lock:
-        total = len(_wazuh_alerts)
-        levels = {}
-        groups = {}
-        for a in _wazuh_alerts:
-            rule = a.get("rule", {})
-            lvl = rule.get("level", 0)
-            levels[lvl] = levels.get(lvl, 0) + 1
-            for g in rule.get("groups", []):
-                groups[g] = groups.get(g, 0) + 1
+    visible = _visible_alerts()
+    total = len(visible)
+    levels = {}
+    groups = {}
+    for a in visible:
+        rule = a.get("rule", {})
+        lvl = rule.get("level", 0)
+        levels[lvl] = levels.get(lvl, 0) + 1
+        for g in rule.get("groups", []):
+            groups[g] = groups.get(g, 0) + 1
 
     return jsonify({
         "total_alerts": total,
@@ -3167,8 +3266,15 @@ def prometheus_metrics():
 
 @app.route("/api/alerts/reset", methods=["POST"])
 def alert_session_reset():
-    """Start a fresh alert session: clear the persistent store and in-memory list."""
+    """Start a fresh alert session: clear the persistent store and in-memory list.
+
+    Admin only — the alert store is shared across accounts, so a tenant must not
+    be able to wipe everyone's history.
+    """
     global _wazuh_alerts
+    _, is_admin = _current_username()
+    if not is_admin:
+        return jsonify({"error": "Admin role required"}), 403
     with _wazuh_alerts_lock:
         count = len(_wazuh_alerts)
         _wazuh_alerts = []
@@ -4738,6 +4844,7 @@ def download_agent_windows():
     for placeholder, value in (("__MANAGER__", manager),
                                ("__REG_PASSWORD__", reg_password),
                                ("__AGENT_GROUP__", "default"),
+                               ("__OWNER__", username),
                                ("__AGENT_VERSION__", WAZUH_AGENT_VERSION)):
         script = script.replace(placeholder, value)
 

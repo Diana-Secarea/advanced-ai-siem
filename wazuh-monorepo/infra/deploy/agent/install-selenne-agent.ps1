@@ -16,7 +16,11 @@ $Manager      = '__MANAGER__'
 $RegPassword  = '__REG_PASSWORD__'
 $AgentGroup   = '__AGENT_GROUP__'
 $AgentVersion = '__AGENT_VERSION__'
-$AgentName    = if ($env:SELENNE_AGENT_NAME) { $env:SELENNE_AGENT_NAME } else { $env:COMPUTERNAME }
+$Owner        = '__OWNER__'
+# The owner travels with the agent name, so this machine's events are attributed
+# to the right Selenne account even after a re-enrolment or a database restore.
+$Machine      = if ($env:SELENNE_AGENT_NAME) { $env:SELENNE_AGENT_NAME } else { $env:COMPUTERNAME }
+$AgentName    = "$Owner`__$Machine"
 
 function Say  { param($m) Write-Host $m -ForegroundColor Cyan }
 function Warn { param($m) Write-Host "  $m" -ForegroundColor Yellow }
@@ -84,7 +88,7 @@ if ($svc -and $svc.Status -eq 'Running') {
     Write-Host ''
     Say 'Done — this computer is now monitored by Selenne.'
     Write-Host "  Events flow to https://$Manager — they appear in Live Alerts within a minute." -ForegroundColor Gray
-    Write-Host "  Endpoint name: $AgentName" -ForegroundColor Gray
+    Write-Host "  Endpoint: $Machine   (account: $Owner)" -ForegroundColor Gray
 } else {
     Warn 'The agent service did not start. Check C:\Program Files (x86)\ossec-agent\ossec.log'
 }

@@ -482,10 +482,16 @@ footer a:hover { color: var(--text); }
     </p>
     <div class="hero-ctas r3d" data-delay="3">
       <a class="btn btn-primary" href="/api/download/linux" download>⬇ Download for Linux</a>
+      <a class="btn btn-primary" id="dlWindows" href="/api/download/agent/windows"
+         download="install-selenne-agent.ps1">⬇ Download for Windows</a>
       <a class="btn btn-ghost" href="#showcase">See it in action</a>
     </div>
     <div class="hero-dl-note r3d" data-delay="3" style="margin-top:8px;font-size:12px;color:var(--muted,#8b93a7);">
-      Free &amp; self-hosted · <code style="font-size:11px;">tar -xzf selenne-linux.tar.gz &amp;&amp; cd selenne-linux &amp;&amp; ./install.sh &amp;&amp; ./run.sh</code>
+      <b>Linux</b> — the full self-hosted engine ·
+      <code style="font-size:11px;">tar -xzf selenne-linux.tar.gz &amp;&amp; cd selenne-linux &amp;&amp; ./install.sh &amp;&amp; ./run.sh</code>
+      <br>
+      <b>Windows</b> — connects a PC to your Selenne account; events are analysed here, nothing runs on the endpoint ·
+      <code style="font-size:11px;">powershell -ExecutionPolicy Bypass -File .\install-selenne-agent.ps1</code>
     </div>
     <div class="hero-meta r3d" data-delay="4">
       <span><b data-count="95.9" data-suffix="%">0</b>DETECTION RECALL</span>
@@ -1001,6 +1007,28 @@ footer a:hover { color: var(--text); }
         });
     });
   });
+
+  /* ---------- Windows agent download ----------
+     The installer is rendered per-account and carries an enrolment key, so it
+     needs a session. Signed-out visitors go to the sign-in page instead of
+     downloading a 401 response as a file. */
+  var winBtn = document.getElementById("dlWindows");
+  if (winBtn) {
+    winBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      fetch("/api/auth/me", { credentials: "same-origin" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          if (d && d.user) {
+            window.location.href = "/api/download/agent/windows";
+          } else {
+            showToast("Sign in first — the Windows installer is tied to your account.");
+            setTimeout(function () { window.location.href = "login.html"; }, 1400);
+          }
+        })
+        .catch(function () { window.location.href = "login.html"; });
+    });
+  }
 
   /* ---------- checkout return messages ---------- */
   var qs = new URLSearchParams(location.search);

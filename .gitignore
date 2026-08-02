@@ -199,3 +199,14 @@ wazuh-monorepo/apps/backend/users.db
 wazuh-monorepo/apps/backend/alert_session.jsonl
 wazuh-monorepo/services/ai-engine/venv
 wazuh-monorepo/infra/registry/staging/*.pkl
+
+# ── Runtime state — per-machine, must never sync between dev and production ──
+# Application logs (reactor.log is the security audit trail: back it up, don't
+# version it — nightly backups cover it).
+wazuh-monorepo/apps/backend/logs/
+# Learned baseline for the raw-log content model: production's copy encodes what
+# is normal *on that host*. Overwriting it from another machine silently
+# degrades detection.
+wazuh-monorepo/services/ai-engine/data/ai_models/log_baseline.json
+# Reactor AI-triage reports written at runtime.
+wazuh-monorepo/apps/backend/ai_triage.jsonl

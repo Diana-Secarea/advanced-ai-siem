@@ -59,7 +59,9 @@ server {
     # SSE streaming endpoints — buffering MUST be off for token-by-token
     # delivery. nginx drops inherited proxy_set_header directives as soon as a
     # location declares its own, so the forwarding headers are repeated here.
-    location ~ ^/api/chat/stream|^/api/test-shield {
+    # Keep this list in step with the live site: /stream and /api/agent stream
+    # too, and dropping them from here would silently re-buffer them.
+    location ~ ^/(stream|api/chat/stream|api/test-shield|api/agent) {
         proxy_pass http://127.0.0.1:5000;
         proxy_http_version 1.1;
         proxy_set_header Connection "";

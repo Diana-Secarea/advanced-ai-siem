@@ -417,6 +417,17 @@ makeNavManager({
     if (!d.auth_enabled || !d.user) return;
     const nav = document.querySelector(".nav");
     if (!nav) return;
+    // Admin panel — only administrators ever see the entry point. The API
+    // behind it enforces the same rule, this just keeps it out of the way.
+    if (d.user.role === "admin" && !location.pathname.endsWith("/admin.html")) {
+      const admin = document.createElement("a");
+      admin.className = "link";
+      admin.href = "admin.html";
+      admin.title = "Admin panel — user accounts & signups";
+      admin.style.cssText = "display:inline-flex;align-items:center;gap:6px;color:#22d3ee;";
+      admin.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3 4 6v6c0 5 3.4 8.4 8 9 4.6-.6 8-4 8-9V6Z"/></svg>Admin';
+      nav.appendChild(admin);
+    }
     // Landing link closes the loop: landing → login → console → landing
     const home = document.createElement("a");
     home.className = "link";

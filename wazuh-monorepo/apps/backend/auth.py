@@ -138,6 +138,7 @@ def init_db():
         # Profile fields (added later — ALTER is a no-op when they exist)
         for col, decl in (("email", "TEXT DEFAULT ''"),
                           ("organisation", "TEXT DEFAULT ''"),
+                          ("last_login", "TEXT DEFAULT ''"),
                           ("avatar", "TEXT DEFAULT ''")):   # data-URI, capped by API
             try:
                 conn.execute(f"ALTER TABLE users ADD COLUMN {col} {decl}")
@@ -207,6 +208,8 @@ def login(username, password, ip="?"):
             (_token_digest(token), username, _iso(_now()),
              _iso(_now() + datetime.timedelta(hours=SESSION_TTL_HOURS))),
         )
+        conn.execute("UPDATE users SET last_login = ? WHERE username = ?",
+                     (_iso(_now()), row["username"]))
         # opportunistic cleanup of expired sessions
         conn.execute("DELETE FROM sessions WHERE expires_at < ?", (_iso(_now()),))
     _record_success(username, ip)
@@ -271,6 +274,55 @@ def list_users():
             "SELECT username, role, created_at, email, organisation FROM users ORDER BY created_at"
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def admin_accounts():
+    """Every account plus the activity a console admin needs to judge it.
+
+    Avatars are deliberately left out — they are data-URIs of up to 300 KB and
+    a hundred of them would make this response megabytes wide; the UI draws a
+    monogram from the username instead.
+    """
+    now = _iso(_now())
+    with _db_lock, _conn() as conn:
+        rows = conn.execute(
+            "SELECT u.username, u.role, u.created_at, u.email, u.organisation, "
+            "       u.last_login, "
+            "       (SELECT COUNT(*) FROM sessions s "
+            "         WHERE s.username = u.username AND s.expires_at > ?) AS live_sessions "
+            "FROM users u ORDER BY u.created_at DESC",
+            (now,),
+        ).fetchall()
+
+    accounts = []
+    for row in rows:
+        acct = dict(row)
+        # 'active' = holds a session right now; 'idle' = has signed in before;
+        # 'never' = created (by an admin or a signup) but never used.
+        acct["status"] = ("active" if acct["live_sessions"]
+                          else "idle" if acct["last_login"]
+                          else "never")
+        accounts.append(acct)
+    return accounts
+
+
+def signup_series(days=30):
+    """Accounts created per day over the last `days` days, oldest first.
+
+    Zero-filled so the chart keeps a flat baseline on quiet days.
+    """
+    days = max(1, min(int(days or 30), 365))
+    first = _now().date() - datetime.timedelta(days=days - 1)
+    with _db_lock, _conn() as conn:
+        rows = conn.execute(
+            "SELECT substr(created_at, 1, 10) AS day, COUNT(*) AS c FROM users "
+            "WHERE substr(created_at, 1, 10) >= ? GROUP BY day",
+            (first.isoformat(),),
+        ).fetchall()
+    counts = {r["day"]: r["c"] for r in rows}
+    return [{"date": (first + datetime.timedelta(days=i)).isoformat(),
+             "count": counts.get((first + datetime.timedelta(days=i)).isoformat(), 0)}
+            for i in range(days)]
 
 
 def get_profile(username):

@@ -38,6 +38,16 @@ if [[ -f "$ENV_FILE" ]]; then
   esac
   [[ "${AUTH_COOKIE_SECURE:-0}" == "1" ]] && ok "AUTH_COOKIE_SECURE=1 (set once HTTPS is live)" \
     || note "AUTH_COOKIE_SECURE!=1 — enable once TLS is in front"
+  # Behind a proxy the login lockout / rate limits must key on the visitor IP,
+  # not on 127.0.0.1 — one attacker would otherwise lock out every account.
+  case "${ALLOWED_ORIGINS:-}" in
+    https://* ) [[ "${TRUST_PROXY:-0}" == "1" ]] \
+        && ok "TRUST_PROXY=1 (real client IPs behind nginx/Cloudflare)" \
+        || bad "TRUST_PROXY!=1 while serving over HTTPS — rate limits and the login lockout would see only the proxy IP";;
+    * ) [[ "${TRUST_PROXY:-0}" == "1" ]] \
+        && note "TRUST_PROXY=1 without a proxy in front — X-Forwarded-For is caller-controlled" \
+        || ok "TRUST_PROXY=0 (direct exposure — correct without a proxy)";;
+  esac
 else
   note "no env file at $ENV_FILE (set ENV_FILE=… or copy infra/deploy/wazuh-ai-backend.env)"
 fi

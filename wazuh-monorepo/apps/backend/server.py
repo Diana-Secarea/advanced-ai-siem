@@ -31,6 +31,19 @@ from flask_limiter.util import get_remote_address
 app = Flask(__name__, static_folder=None)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.urandom(32)
 
+# Behind the selenne.app edge (Cloudflare → nginx → waitress) every request
+# arrives from 127.0.0.1, which would collapse the login lockout and the rate
+# limiter into a single shared bucket — one attacker could lock everyone out.
+#
+# x_for=1 reads the LAST X-Forwarded-For entry, which nginx appends from its
+# own $remote_addr; nginx in turn takes that from CF-Connecting-IP, a header
+# only Cloudflare can set. A client stuffing its own X-Forwarded-For only adds
+# entries to the left of that one, so the value used here cannot be forged.
+# OFF by default: with nothing rewriting the header, it is caller-controlled.
+if os.environ.get("TRUST_PROXY", "0") == "1":
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
 _allowed_origins = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "http://localhost:5000").split(",") if o.strip()]
 CORS(app, origins=_allowed_origins)
 
@@ -253,6 +266,55 @@ def auth_users():
     if AUTH_ENABLED and (not user or user.get("role") != "admin"):
         return jsonify({"error": "Admin only"}), 403
     return jsonify({"users": _auth.list_users(), "store": "backend/users.db"})
+
+
+@app.route("/api/admin/accounts", methods=["GET"])
+@limiter.limit("60 per minute")
+def admin_accounts_api():
+    """Signup analytics + the account roster behind the admin panel.
+
+    Admin only — this is the one view that crosses tenant boundaries, so it
+    fails closed for every other role (and for an unauthenticated caller the
+    global gate has already answered 401).
+    """
+    _, is_admin = _current_username()
+    if not is_admin:
+        return jsonify({"error": "Admin role required"}), 403
+
+    try:
+        days = int(request.args.get("days", 30))
+    except (TypeError, ValueError):
+        days = 30
+    days = max(1, min(days, 365))
+
+    accounts = _auth.admin_accounts()
+    series = _auth.signup_series(days)
+
+    # Endpoints each account owns, counted from the live alert stream the same
+    # way /api/endpoints does, so both views agree.
+    owned = {}
+    with _wazuh_alerts_lock:
+        alerts = list(_wazuh_alerts)
+    for name in {n for n in (_agent_name_of(a) for a in alerts) if n}:
+        owner = _tenancy.owner_of(name)
+        if owner:
+            owned[owner] = owned.get(owner, 0) + 1
+    for acct in accounts:
+        acct["endpoints"] = owned.get(acct["username"], 0)
+
+    window_new = sum(p["count"] for p in series)
+    return jsonify({
+        "accounts": accounts,
+        "signups": series,
+        "window_days": days,
+        "totals": {
+            "accounts": len(accounts),
+            "new_in_window": window_new,
+            "active_now": sum(1 for a in accounts if a["status"] == "active"),
+            "admins": sum(1 for a in accounts if a["role"] == "admin"),
+            "never_signed_in": sum(1 for a in accounts if a["status"] == "never"),
+        },
+    })
 
 
 # ==================== Profile & Tickets ====================

@@ -1,48 +1,96 @@
-# nginx reverse proxy for the Wazuh AI backend.
-# Key detail: SSE chat streaming needs buffering OFF on the stream route,
-# otherwise nginx holds tokens and the "streaming" UI arrives all at once.
+# nginx reverse proxy for Selenne — https://selenne.app
 #
-#   sudo cp nginx.conf.sample /etc/nginx/sites-available/wazuh-ai
-#   sudo ln -s /etc/nginx/sites-available/wazuh-ai /etc/nginx/sites-enabled/
-#   # add your TLS certs (certbot/letsencrypt), then: sudo nginx -t && sudo systemctl reload nginx
+# Two details that break things if you skip them:
+#   1. SSE chat streaming needs buffering OFF on the stream route, otherwise
+#      nginx holds tokens and the "streaming" UI arrives all at once.
+#   2. Real client IPs must survive Cloudflare + nginx, or the login lockout
+#      and the rate limiter bucket every visitor together (see TRUST_PROXY=1
+#      in backend.env — nginx sets the headers, the backend trusts one hop).
+#
+#   sudo cp nginx.conf.sample /etc/nginx/sites-available/selenne
+#   sudo ln -s /etc/nginx/sites-available/selenne /etc/nginx/sites-enabled/
+#   sudo certbot --nginx -d selenne.app -d www.selenne.app
+#   sudo nginx -t && sudo systemctl reload nginx
 
 server {
-    listen 443 ssl http2;
-    server_name yourdomain.example;
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name selenne.app www.selenne.app;
 
-    ssl_certificate     /etc/letsencrypt/live/yourdomain.example/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/yourdomain.example/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/selenne.app/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/selenne.app/privkey.pem;
+
+    # HTTPS only, remembered by the browser. Add "; preload" once you are sure.
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
     # Uploads up to 5 MB (matches the backend's MAX_CONTENT_LENGTH)
     client_max_body_size 6m;
 
-    # SSE streaming endpoints — buffering MUST be off for token-by-token delivery
+    # --- Cloudflare: restore the visitor's IP -------------------------------
+    # selenne.app is proxied by Cloudflare, so $remote_addr is a Cloudflare
+    # edge node. Refresh these ranges from https://www.cloudflare.com/ips/
+    # (they change rarely). If you ever move off Cloudflare, delete this block:
+    # with no trusted source, CF-Connecting-IP is just a spoofable header.
+    set_real_ip_from 173.245.48.0/20;
+    set_real_ip_from 103.21.244.0/22;
+    set_real_ip_from 103.22.200.0/22;
+    set_real_ip_from 103.31.4.0/22;
+    set_real_ip_from 141.101.64.0/18;
+    set_real_ip_from 108.162.192.0/18;
+    set_real_ip_from 190.93.240.0/20;
+    set_real_ip_from 188.114.96.0/20;
+    set_real_ip_from 197.234.240.0/22;
+    set_real_ip_from 198.41.128.0/17;
+    set_real_ip_from 162.158.0.0/15;
+    set_real_ip_from 104.16.0.0/13;
+    set_real_ip_from 104.24.0.0/14;
+    set_real_ip_from 172.64.0.0/13;
+    set_real_ip_from 131.0.72.0/22;
+    set_real_ip_from 2400:cb00::/32;
+    set_real_ip_from 2606:4700::/32;
+    set_real_ip_from 2803:f800::/32;
+    set_real_ip_from 2405:b500::/32;
+    set_real_ip_from 2405:8100::/32;
+    set_real_ip_from 2a06:98c0::/29;
+    set_real_ip_from 2c0f:f248::/32;
+    real_ip_header CF-Connecting-IP;
+
+    # SSE streaming endpoints — buffering MUST be off for token-by-token
+    # delivery. nginx drops inherited proxy_set_header directives as soon as a
+    # location declares its own, so the forwarding headers are repeated here.
     location ~ ^/api/chat/stream|^/api/test-shield {
         proxy_pass http://127.0.0.1:5000;
         proxy_http_version 1.1;
         proxy_set_header Connection "";
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_buffering off;
         proxy_cache off;
         proxy_read_timeout 300s;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # The console — every page except /landing.html and /login.html sits behind
+    # the session cookie, and /admin.html additionally behind the admin role.
+    # Both checks live in the backend; nginx just forwards.
     location / {
         proxy_pass http://127.0.0.1:5000;
         proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 
-# Redirect HTTP → HTTPS
+# Redirect HTTP → HTTPS (also serves the ACME challenge for renewals)
 server {
     listen 80;
-    server_name yourdomain.example;
-    return 301 https://$host$request_uri;
+    listen [::]:80;
+    server_name selenne.app www.selenne.app;
+
+    location /.well-known/acme-challenge/ { root /var/www/html; }
+    location / { return 301 https://selenne.app$request_uri; }
 }

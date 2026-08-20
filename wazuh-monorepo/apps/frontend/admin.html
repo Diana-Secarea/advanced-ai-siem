@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Selenne</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<style>
+  /* --- settings shell: sticky side rail + content column --- */
+  .ad-shell { display:grid; grid-template-columns:232px 1fr; gap:26px; align-items:start; padding:8px 0 60px; }
+  /* grid items default to min-width:auto and refuse to shrink below their
+     content — without this the wide table stretches the page instead of
+     scrolling inside .ad-tablewrap */
+  .ad-shell > section { min-width:0; }
+  @media (max-width: 900px){ .ad-shell { grid-template-columns:1fr; } .ad-rail { position:static !important; } }
+
+  .ad-rail { position:sticky; top:96px; }
+  .ad-rail .group { font-family:var(--font-mono); font-size:10px; letter-spacing:1.6px;
+    color:var(--text-dim); padding:0 12px; margin:18px 0 8px; }
+  .ad-rail .group:first-child { margin-top:0; }
+  .ad-rail a { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:10px;
+    font-size:13.5px; color:var(--text-soft); text-decoration:none; transition:background .2s, color .2s; }
+  .ad-rail a:hover { background:var(--glass); color:var(--text); }
+  .ad-rail a.on { background:rgba(34,211,238,.10); color:var(--text);
+    box-shadow:inset 0 0 0 1px rgba(34,211,238,.28); }
+  .ad-rail a .ic { width:16px; text-align:center; opacity:.85; }
+
+  .ad-head { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+  .ad-head h2 { font-family:var(--font-display); font-size:26px; margin:0; }
+  .ad-head p { font-size:13px; color:var(--text-soft); margin-top:4px; }
+
+  /* range switch */
+  .ad-range { display:inline-flex; gap:2px; padding:3px; border-radius:11px;
+    background:var(--glass); box-shadow:inset 0 0 0 1px var(--stroke); }
+  .ad-range button { background:none; border:0; cursor:pointer; padding:7px 13px; border-radius:9px;
+    font-family:var(--font-mono); font-size:11px; letter-spacing:.5px; color:var(--text-dim); transition:.2s; }
+  .ad-range button:hover { color:var(--text); }
+  .ad-range button.on { background:rgba(34,211,238,.14); color:var(--cyan); }
+
+  .ad-stats { display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin:16px 0; }
+  @media (max-width: 720px){ .ad-stats { grid-template-columns:repeat(2, 1fr); } }
+  .ad-stat { padding:16px 18px; }
+  .ad-stat .n { font-family:var(--font-display); font-size:28px; line-height:1.1; }
+  .ad-stat .l { font-family:var(--font-mono); font-size:10px; letter-spacing:1.4px;
+    color:var(--text-dim); margin-top:6px; }
+
+  .ad-toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:22px 0 12px; }
+  .ad-toolbar input, .ad-toolbar select {
+    padding:10px 13px; border-radius:10px; border:1px solid rgba(255,255,255,.12);
+    background:rgba(255,255,255,.04); color:var(--text); font-size:13px; font-family:inherit; outline:none; }
+  .ad-toolbar input { flex:1; min-width:220px; }
+  .ad-toolbar input:focus, .ad-toolbar select:focus { border-color:rgba(34,211,238,.55); }
+
+  /* monogram avatar — real avatars are 300 KB data-URIs, too heavy for a roster */
+  .ad-mono { width:30px; height:30px; border-radius:50%; display:inline-grid; place-items:center;
+    font-family:var(--font-display); font-size:12px; color:#05060f; flex:none; }
+  .ad-user { display:flex; align-items:center; gap:11px; }
+  .ad-user b { color:var(--text); font-weight:600; }
+  /* scoped to the text column — a bare `.ad-user span` would outrank .ad-mono
+     (class+type beats class) and knock the monogram out of its grid centring */
+  .ad-user div span { display:block; font-size:11px; color:var(--text-dim); }
+
+  .ad-dot { width:7px; height:7px; border-radius:50%; display:inline-block; margin-right:7px; }
+  /* "Never signed in" otherwise wraps onto three lines in a narrow column */
+  .ad-st { white-space:nowrap; }
+  /* the session badge sits on its own line — inline it set the column width
+     for every row (208px for one account holding 7 sessions) */
+  .ad-st .badge { display:block; width:max-content; margin:5px 0 0; }
+
+  /* The shared .table-card is overflow:hidden, so on a phone the right-hand
+     columns get clipped with no way to reach them. Let the table scroll inside
+     its own card instead of widening the page. */
+  .ad-tablewrap { overflow-x:auto; }
+  .ad-tablewrap table.nx { min-width:760px; }
+  /* seven columns don't fit at the shared 18px cell padding */
+  .ad-tablewrap table.nx th,
+  .ad-tablewrap table.nx td { padding-left:12px; padding-right:12px; }
+  /* long addresses (diana.secarea1111@gmail.com) would otherwise set the
+     column width for everyone — truncate instead, full value in the tooltip */
+  .ad-user > div { min-width:0; }
+  .ad-user div span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px; }
+  /* dates: fixed-width ISO on top, relative age underneath — keeps the two
+     time columns narrow and predictable so nothing clips on a laptop */
+  .ad-when { white-space:nowrap; }
+  .ad-rel { display:block; font-size:10.5px; color:var(--text-dim); }
+  .ad-locked { max-width:520px; margin:80px auto; text-align:center; padding:40px 32px; }
+</style>
+</head>
+<body>
+
+<canvas id="particles"></canvas>
+<div class="aurora"><span></span><span></span><span></span></div>
+<div class="grid-overlay"></div>
+
+<div class="owner-line">⟡ owned by <b>Diana Secarea</b> ⟡</div>
+<nav class="nav">
+  <a class="brand" href="index.html"><span class="logo">◈</span><em>SELENNE</em></a>
+  <a class="link" href="index.html">Overview</a>
+  <a class="link" href="alerts.html">Live Alerts</a>
+  <a class="link" href="ml.html">ML Engine</a>
+  <a class="link" href="reactor.html">Reactor</a>
+  <a class="link" href="chat.html">AI Analyst</a>
+  <a class="link" href="cve-agent.html">CVE Agent</a>
+  <a class="link" href="vectordb.html">Vector DB</a>
+  <span class="spacer"></span>
+  <span class="status-pill"><span class="dot"></span>ADMIN</span>
+</nav>
+
+<main class="page wrap">
+
+  <!-- shown to anyone who is not an admin -->
+  <div class="card ad-locked" id="denied" style="display:none;">
+    <div style="font-size:38px;">🔒</div>
+    <h3 style="margin:14px 0 6px;">Admin only</h3>
+    <p>The account panel is restricted to administrators. Your role is
+       <b class="mono" id="deniedRole" style="font-family:var(--font-mono);">—</b>.</p>
+    <a class="btn btn-ghost" href="index.html" style="margin-top:18px;display:inline-block;">← Back to console</a>
+  </div>
+
+  <div id="panel" style="display:none;">
+    <div class="page-head" style="padding:44px 0 12px;">
+      <span class="eyebrow reveal">🛡 ADMINISTRATION</span>
+      <h2 class="section-title reveal" data-delay="1">User <span class="grad-text">accounts.</span></h2>
+    </div>
+
+    <div class="ad-shell">
+
+      <!-- ---------------- side rail ---------------- -->
+      <aside class="card ad-rail reveal" style="padding:14px 10px;">
+        <div class="group">ACCOUNT</div>
+        <a href="profile.html"><span class="ic">👤</span> Profile</a>
+        <a href="profile.html#tickets"><span class="ic">🎫</span> Tickets</a>
+        <a href="landing.html#pricing"><span class="ic">💳</span> Plan</a>
+        <div class="group">ADMIN</div>
+        <a href="admin.html" class="on"><span class="ic">👥</span> User accounts</a>
+        <a href="reactor.html"><span class="ic">⚡</span> Reactor</a>
+        <a href="vectordb.html"><span class="ic">🗂</span> Knowledge base</a>
+      </aside>
+
+      <!-- ---------------- content ---------------- -->
+      <section>
+        <div class="ad-head reveal" data-delay="1">
+          <div>
+            <h2>Signups</h2>
+            <p><b id="sumCount" style="color:var(--text);">…</b> accounts created ·
+               <span id="sumWindow">last 30 days</span></p>
+          </div>
+          <div class="ad-range" id="rangeSwitch">
+            <button data-days="7">7 D</button>
+            <button data-days="30" class="on">30 D</button>
+            <button data-days="90">90 D</button>
+            <button data-days="365">1 Y</button>
+          </div>
+        </div>
+
+        <div class="card reveal" data-delay="2" style="padding:20px 20px 14px;margin-top:14px;">
+          <div class="chart-box" style="height:230px;"><canvas id="signupChart"></canvas></div>
+        </div>
+
+        <div class="ad-stats">
+          <div class="card ad-stat"><div class="n" id="stTotal">—</div><div class="l">TOTAL ACCOUNTS</div></div>
+          <div class="card ad-stat"><div class="n" id="stNew" style="color:var(--cyan);">—</div><div class="l">NEW IN WINDOW</div></div>
+          <div class="card ad-stat"><div class="n" id="stActive" style="color:var(--green);">—</div><div class="l">SIGNED IN NOW</div></div>
+          <div class="card ad-stat"><div class="n" id="stAdmins" style="color:var(--violet);">—</div><div class="l">ADMINS</div></div>
+        </div>
+
+        <div class="ad-toolbar">
+          <input id="search" placeholder="Search by name, email or organisation…" autocomplete="off">
+          <select id="fRole">
+            <option value="all">All roles</option>
+            <option value="admin">Admin</option>
+            <option value="analyst">Analyst</option>
+          </select>
+          <select id="fStatus">
+            <option value="all">All statuses</option>
+            <option value="active">Signed in</option>
+            <option value="idle">Idle</option>
+            <option value="never">Never signed in</option>
+          </select>
+          <span class="mono" id="rowCount"
+                style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);"></span>
+        </div>
+
+        <div class="card table-card">
+          <div class="ad-tablewrap">
+          <table class="nx">
+            <thead>
+              <tr>
+                <th>Account</th><th>Organisation</th><th>Role</th>
+                <th>Endpoints</th><th>Created</th><th>Last sign-in</th><th class="ad-st">Status</th>
+              </tr>
+            </thead>
+            <tbody id="rows">
+              <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-dim);">loading…</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+
+        <div class="mono" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);margin-top:12px;">
+          Source: backend/users.db · endpoint counts from the live alert stream · refreshes every 60 s
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<script src="assets/app.js"></script>
+<script>
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+let DAYS = 30, ACCOUNTS = [], chart = null;
+
+/* ---------- gate: the API refuses non-admins, the UI shouldn't tease them ---------- */
+async function guard(){
+  try{
+    const r = await fetch("/api/auth/me");
+    const d = await r.json();
+    const role = (d.user && d.user.role) || "guest";
+    if(role !== "admin"){
+      document.getElementById("deniedRole").textContent = role;
+      document.getElementById("denied").style.display = "block";
+      return false;
+    }
+    document.getElementById("panel").style.display = "block";
+    return true;
+  }catch(_){ return false; }
+}
+
+/* ---------- data ---------- */
+async function load(){
+  try{
+    const r = await fetch(`/api/admin/accounts?days=${DAYS}`);
+    if(!r.ok) return;
+    const d = await r.json();
+    ACCOUNTS = d.accounts || [];
+    const t = d.totals || {};
+    document.getElementById("stTotal").textContent  = t.accounts ?? 0;
+    document.getElementById("stNew").textContent    = t.new_in_window ?? 0;
+    document.getElementById("stActive").textContent = t.active_now ?? 0;
+    document.getElementById("stAdmins").textContent = t.admins ?? 0;
+    document.getElementById("sumCount").textContent = t.new_in_window ?? 0;
+    document.getElementById("sumWindow").textContent =
+      DAYS === 365 ? "last 12 months" : `last ${DAYS} days`;
+    drawChart(d.signups || []);
+    renderRows();
+  }catch(_){}
+}
+
+/* ---------- signups chart ---------- */
+function drawChart(series){
+  const ctx = document.getElementById("signupChart");
+  if(!ctx || !window.Chart) return;
+  // Long windows get too many ticks to read — label roughly every 6th day.
+  const step = Math.max(1, Math.round(series.length / 8));
+  const labels = series.map(p => new Date(p.date + "T00:00:00Z")
+    .toLocaleDateString(undefined, {month:"short", day:"numeric", timeZone:"UTC"}));
+  const data = series.map(p => p.count);
+  const grid = "rgba(255,255,255,.05)", tick = "#58627e";
+
+  if(chart){ chart.data.labels = labels; chart.data.datasets[0].data = data; chart.update(); return; }
+
+  const fill = ctx.getContext("2d").createLinearGradient(0, 0, 0, 230);
+  fill.addColorStop(0, "rgba(34,211,238,.85)");
+  fill.addColorStop(1, "rgba(167,139,250,.35)");
+
+  chart = new Chart(ctx, {
+    type: "bar",
+    data: { labels, datasets: [{ label: "accounts created", data,
+            backgroundColor: fill, borderRadius: 4, maxBarThickness: 26 }] },
+    options: {
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => `${c.parsed.y} account${c.parsed.y === 1 ? "" : "s"}` } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: tick, font: {size: 9}, maxRotation: 0,
+             autoSkip: false, callback: (v, i) => (i % step === 0 ? labels[i] : "") } },
+        y: { beginAtZero: true, grid: { color: grid },
+             ticks: { color: tick, font: {size: 9}, precision: 0 } }
+      }
+    }
+  });
+}
+
+/* ---------- roster ---------- */
+const MONO_HUES = ["#22d3ee","#a78bfa","#f472b6","#34d399","#fbbf24"];
+function monogram(name){
+  let h = 0;
+  for(const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const bg = MONO_HUES[h % MONO_HUES.length];
+  return `<span class="ad-mono" style="background:${bg};">${esc(name.slice(0,2).toUpperCase())}</span>`;
+}
+
+function when(iso){
+  if(!iso) return '<span style="color:var(--text-dim);">never</span>';
+  const d = new Date(iso.endsWith("Z") ? iso : iso + "Z");
+  if(isNaN(d)) return esc(iso);
+  const days = Math.floor((Date.now() - d) / 86400000);
+  const rel = days <= 0 ? "today" : days === 1 ? "yesterday" : `${days}d ago`;
+  return `${d.toISOString().slice(0,10)}<span class="ad-rel">${rel}</span>`;
+}
+
+const STATUS = {
+  active: ["var(--green)",  "Signed in"],
+  idle:   ["var(--amber)",  "Idle"],
+  never:  ["var(--text-dim)", "Never"],
+};
+
+function renderRows(){
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  const role = document.getElementById("fRole").value;
+  const status = document.getElementById("fStatus").value;
+
+  const rows = ACCOUNTS.filter(a =>
+    (role === "all" || a.role === role) &&
+    (status === "all" || a.status === status) &&
+    (!q || `${a.username} ${a.email || ""} ${a.organisation || ""}`.toLowerCase().includes(q)));
+
+  document.getElementById("rowCount").textContent =
+    `${rows.length} of ${ACCOUNTS.length} account${ACCOUNTS.length === 1 ? "" : "s"}`;
+
+  document.getElementById("rows").innerHTML = rows.length ? rows.map(a => {
+    const [colour, label] = STATUS[a.status] || STATUS.never;
+    return `<tr>
+      <td><div class="ad-user">${monogram(a.username)}
+            <div><b>${esc(a.username)}</b>
+              <span title="${esc(a.email || "")}">${esc(a.email || "no email")}</span></div></div></td>
+      <td>${esc(a.organisation || "—")}</td>
+      <td><span class="badge ${a.role === "admin" ? "med" : "info"}">${esc(a.role)}</span></td>
+      <td class="mono">${a.endpoints || 0}</td>
+      <td class="mono ad-when">${when(a.created_at)}</td>
+      <td class="mono ad-when">${when(a.last_login)}</td>
+      <td class="ad-st"><span class="ad-dot" style="background:${colour};"></span>${label}
+          ${a.live_sessions > 1 ? `<span class="badge info">${a.live_sessions} sessions</span>` : ""}</td>
+    </tr>`;
+  }).join("") :
+    '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-dim);">No accounts match this filter.</td></tr>';
+}
+
+/* ---------- wiring ---------- */
+document.getElementById("rangeSwitch").addEventListener("click", e => {
+  const btn = e.target.closest("button[data-days]");
+  if(!btn) return;
+  [...e.currentTarget.children].forEach(b => b.classList.toggle("on", b === btn));
+  DAYS = parseInt(btn.dataset.days, 10);
+  load();
+});
+["search","fRole","fStatus"].forEach(id =>
+  document.getElementById(id).addEventListener("input", renderRows));
+
+guard().then(ok => { if(!ok) return; load(); setInterval(load, 60000); });
+</script>
+</body>
+</html>

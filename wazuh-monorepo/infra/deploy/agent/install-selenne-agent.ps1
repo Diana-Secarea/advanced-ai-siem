@@ -5,7 +5,11 @@
 #  Selenne platform, so this computer's security events are collected, scored by
 #  Selenne's ML engine and shown in your dashboard at https://__MANAGER__.
 #
-#  Run in an ADMINISTRATOR PowerShell:
+#  Easiest: right-click this file -> "Run with PowerShell". It asks Windows for
+#  administrator rights itself (the standard UAC prompt) — no need to open an
+#  elevated console first.
+#
+#  Or from any PowerShell:
 #      powershell -ExecutionPolicy Bypass -File .\install-selenne-agent.ps1
 #
 #  Enrolment details below are unique to your account — do not share this file.
@@ -29,11 +33,26 @@ function Die  { param($m) Write-Host "ERROR: $m" -ForegroundColor Red; Read-Host
 Say '== Selenne endpoint installer =='
 
 # 1. Must be elevated — the agent installs as a Windows service ---------------
+# Rather than telling the user to go and find an admin PowerShell, relaunch
+# ourselves elevated: Windows shows its standard UAC consent dialog, which is
+# the same prompt any app installer raises. Declining it throws, and we fall
+# back to the manual instruction.
 $admin = ([Security.Principal.WindowsPrincipal] `
           [Security.Principal.WindowsIdentity]::GetCurrent()
          ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $admin) {
-    Die 'Run this from an Administrator PowerShell (right-click PowerShell -> "Run as administrator").'
+    if (-not $PSCommandPath) {
+        Die 'Run this from an Administrator PowerShell (right-click PowerShell -> "Run as administrator").'
+    }
+    Say '  Requesting administrator rights — approve the Windows prompt...'
+    try {
+        Start-Process -FilePath 'powershell.exe' -Verb RunAs -ArgumentList @(
+            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$PSCommandPath`""
+        ) | Out-Null
+    } catch {
+        Die 'Administrator rights are required, and the prompt was dismissed. Right-click PowerShell -> "Run as administrator", then run this script again.'
+    }
+    exit 0
 }
 
 # 2. Already installed? Re-enrol instead of installing twice ------------------

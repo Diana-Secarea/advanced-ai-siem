@@ -14,7 +14,12 @@ services:
       - qdrant_storage:/qdrant/storage
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/readyz"]
+      # The qdrant image ships no curl or wget, so the obvious `curl -f /readyz`
+      # can never run — it fails with "executable file not found" and the
+      # container reports (unhealthy) forever while Qdrant is perfectly fine.
+      # bash IS present, so speak HTTP over /dev/tcp instead.
+      test: ["CMD", "bash", "-c",
+             "exec 3<>/dev/tcp/127.0.0.1/6333; printf 'GET /readyz HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3; grep -q '200 OK' <&3"]
       interval: 10s
       timeout: 5s
       retries: 5

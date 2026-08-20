@@ -481,12 +481,20 @@ footer a:hover { color: var(--text); }
       CVE agent and explained in plain language by a local LLM.
     </p>
     <div class="hero-ctas r3d" data-delay="3">
+      <!-- These point at sign-in until /api/auth/me confirms a session, then the
+           real URL is swapped in (see the collector-dl block at the bottom).
+           The download URL must never sit in the DOM while signed out: the
+           endpoint 401s, and "Save link as" / middle-click bypass any click
+           handler, saving {"error":"Authentication required"} as a .ps1. -->
       <a class="btn btn-primary collector-dl" id="dlWindows" data-plat="windows"
-         href="/api/download/agent/windows" download="install-selenne-agent.ps1">⬇ Collector for Windows</a>
+         href="login.html" data-dl="/api/download/agent/windows"
+         data-dlname="install-selenne-agent.ps1">⬇ Collector for Windows</a>
       <a class="btn btn-primary collector-dl" id="dlLinux" data-plat="linux"
-         href="/api/download/agent/linux" download="install-selenne-collector.sh">⬇ Collector for Linux</a>
+         href="login.html" data-dl="/api/download/agent/linux"
+         data-dlname="install-selenne-collector.sh">⬇ Collector for Linux</a>
       <a class="btn btn-primary collector-dl" id="dlMac" data-plat="macos"
-         href="/api/download/agent/macos" download="install-selenne-collector-macos.sh">⬇ Collector for macOS</a>
+         href="login.html" data-dl="/api/download/agent/macos"
+         data-dlname="install-selenne-collector-macos.sh">⬇ Collector for macOS</a>
       <a class="btn btn-ghost" href="#showcase">See it in action</a>
     </div>
     <div class="hero-dl-note r3d" data-delay="3" style="margin-top:8px;font-size:12px;color:var(--muted,#8b93a7);">
@@ -1018,25 +1026,34 @@ footer a:hover { color: var(--text); }
     });
   });
 
-  /* ---------- Windows agent download ----------
+  /* ---------- Collector downloads ----------
      The installer is rendered per-account and carries an enrolment key, so it
-     needs a session. Signed-out visitors go to the sign-in page instead of
-     downloading a 401 response as a file. */
-  Array.prototype.forEach.call(document.querySelectorAll(".collector-dl"), function (btn) {
-    btn.addEventListener("click", function (e) {
-      e.preventDefault();
-      var url = btn.getAttribute("href");
-      fetch("/api/auth/me", { credentials: "same-origin" })
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (d) {
-          if (d && d.user) {
-            window.location.href = url;
-          } else {
-            showToast("Sign in first — the collector is tied to your account.");
-            setTimeout(function () { window.location.href = "login.html"; }, 1400);
-          }
-        })
-        .catch(function () { window.location.href = "login.html"; });
+     needs a session. The buttons ship pointing at sign-in and only become real
+     download links once /api/auth/me confirms one — arming the DOM rather than
+     intercepting clicks, because "Save link as", middle-click and a click that
+     lands before this script runs all skip a click handler and would save the
+     401 body as install-selenne-agent.ps1. */
+  var collectors = Array.prototype.slice.call(document.querySelectorAll(".collector-dl"));
+
+  fetch("/api/auth/me", { credentials: "same-origin" })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+      if (!d || !d.user) return;            // signed out: leave them on login.html
+      collectors.forEach(function (btn) {
+        btn.href = btn.getAttribute("data-dl");
+        btn.setAttribute("download", btn.getAttribute("data-dlname"));
+        btn.setAttribute("data-armed", "1");
+      });
+    })
+    .catch(function () { /* leave the safe sign-in target in place */ });
+
+  // Second line of defence: a click before the probe resolves still explains
+  // itself instead of silently navigating.
+  collectors.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      if (btn.getAttribute("data-armed") !== "1") {
+        showToast("Sign in first — the collector is tied to your account.");
+      }
     });
   });
 

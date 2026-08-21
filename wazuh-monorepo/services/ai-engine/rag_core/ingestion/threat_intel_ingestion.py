@@ -17,7 +17,7 @@ class ThreatIntelIngestion:
     
     def __init__(self, storage_path: str = None):
         if storage_path is None:
-            # Default to ai_threat_engine_starter/threat_intel
+            # Default to services/ai-engine/threat_intel
             import os
             base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             storage_path = os.path.join(base_path, "threat_intel")

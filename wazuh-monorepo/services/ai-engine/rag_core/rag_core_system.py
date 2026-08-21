@@ -42,7 +42,7 @@ class RAGCoreSystem:
         base_path: str = None
     ):
         if base_path is None:
-            # Default to ai_threat_engine_starter
+            # Default to services/ai-engine
             import os
             base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.base_path = Path(base_path)

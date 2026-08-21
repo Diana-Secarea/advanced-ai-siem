@@ -13,7 +13,7 @@ ground truth labels.  The output includes:
   6. Ensemble confusion matrix       → ensemble_confusion_matrix.png
 
 Usage:
-    cd ai_threat_engine_starter
+    cd wazuh-monorepo/services/ai-engine
     ./venv/bin/python3 autoencoders_approach/compare_models.py
     ./venv/bin/python3 autoencoders_approach/compare_models.py --plot
 """

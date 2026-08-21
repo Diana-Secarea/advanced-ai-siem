@@ -6,7 +6,7 @@ Produces the same report format as evaluate_isolation_forest.py so results
 are directly comparable.
 
 Usage:
-    cd ai_threat_engine_starter
+    cd wazuh-monorepo/services/ai-engine
     ./venv/bin/python3 autoencoders_approach/evaluate_autoencoder.py
     ./venv/bin/python3 autoencoders_approach/evaluate_autoencoder.py --plot
     ./venv/bin/python3 autoencoders_approach/evaluate_autoencoder.py \

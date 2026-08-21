@@ -132,43 +132,68 @@ The detectors extract **16 features** from each Wazuh alert:
 
 ## Project Structure
 
+> **All AI-SIEM code lives under [`wazuh-monorepo/`](wazuh-monorepo/).** Everything else at the
+> repository root is the upstream Wazuh fork (`src/`, `framework/`, `api/`, `ruleset/`, …).
+>
+> A dev checkout also carries local compatibility symlinks at the root — `backend/`,
+> `improved_UI/`, `frontend/`, `ai_threat_engine_starter/`, `threat_intel/`,
+> `wazuh-ai-infra/` — so older scripts and absolute paths keep resolving. They are
+> **deliberately not committed**, because GitHub does not follow symlinks and would show
+> them as dead one-line files rather than browsable folders. Recreate them if you want
+> them (see *Setup* below); the canonical paths are the ones in the tree here.
+
 ```
-wazuh/                                  # fork of the Wazuh source + AI components
-├── wazuh-monorepo/apps/backend/
-│   ├── server.py                       # Flask API: alerts, chat, vector-db, CVE-agent endpoints
-│   ├── start_server.sh                 # launches Docker (Qdrant+Postgres), Ollama, Flask
-│   └── .env                            # secrets (git-ignored)
-├── frontend/
-│   ├── index.html  alerts.html  chat.html
-│   ├── vectordb.html                   # Qdrant monitoring dashboard
-│   └── cve-agent.html                  # CVE ingestion agent dashboard
-└── wazuh-monorepo/services/ai-engine/
-    ├── ai_engine/
-    │   └── anomaly_detector.py         # Isolation Forest detector
-    ├── autoencoders_approach/
-    │   ├── autoencoder_detector.py     # Autoencoder detector
-    │   ├── ensemble_detector.py        # fixed-weight IF + AE ensemble (inference only)
-    │   ├── train_autoencoder.py  evaluate_autoencoder.py  compare_models.py
-    ├── scheduled_agent/                # ── Scheduled CVE ingestion agent ──
-    │   ├── agent.py                    # pipeline orchestrator
-    │   ├── fetchers.py  normalize.py  dedup.py  boosts.py  scorer.py
-    │   ├── store.py                    # PostgreSQL backbone (ledger, run log, indexing)
-    │   ├── review.py                   # human review-queue approve/reject
-    │   ├── queries.py                  # audit/analytics SQL CLI
-    │   ├── schema_additions.sql        # cve_decisions ledger + run columns + view
-    │   ├── run_agent.sh  README.md
-    ├── rag_core/
-    │   ├── database/                   # qdrant_store.py, postgres_client.py, schema.sql
-    │   ├── indexing/                   # qdrant_indexer.py, threat_intel_indexer.py
-    │   ├── evaluation/                 # retrieval metrics + visualizations
-    │   └── agent/                      # SOC agent workflow
-    ├── train_isolation_forest.py  evaluate_isolation_forest.py
-    ├── monitor_alerts.py               # real-time ensemble scoring daemon
-    ├── collect_training_data.py  collect_daily.sh
-    ├── docker-compose.yml              # Qdrant + PostgreSQL
-    ├── data/                           # training data, models (.pkl), eval reports
-    ├── threat_intel/                   # source corpora (MITRE, Sigma, KEV, YARA, …)
-    └── docs/                           # ETH thesis chapters (.docx)
+wazuh/                                      # fork of the Wazuh source + AI components
+└── wazuh-monorepo/
+    ├── apps/
+    │   ├── backend/                        # Flask API  (legacy path: backend/)
+    │   │   ├── server.py                   # alerts, chat, vector-db, CVE-agent endpoints
+    │   │   ├── start_server.sh             # launches Docker (Qdrant+Postgres), Ollama, Flask
+    │   │   ├── wsgi.py                     # waitress WSGI entrypoint
+    │   │   └── .env                        # secrets (git-ignored)
+    │   ├── frontend/                       # production UI  (legacy path: improved_UI/)
+    │   │   ├── index.html  alerts.html  chat.html
+    │   │   ├── vectordb.html               # Qdrant monitoring dashboard
+    │   │   ├── cve-agent.html              # CVE ingestion agent dashboard
+    │   │   ├── reactor.html                # reactor / SOAR control panel
+    │   │   └── landing.html                # public landing page
+    │   └── frontend-legacy/                # superseded UI, served at /legacy/
+    │                                       #   (legacy path: frontend/)
+    ├── services/
+    │   ├── ai-engine/                      # (legacy path: ai_threat_engine_starter/)
+    │   │   ├── ai_engine/
+    │   │   │   └── anomaly_detector.py     # Isolation Forest detector
+    │   │   ├── autoencoders_approach/
+    │   │   │   ├── autoencoder_detector.py # Autoencoder detector
+    │   │   │   ├── ensemble_detector.py    # IF + AE + UEBA ensemble (inference only)
+    │   │   │   ├── train_autoencoder.py  evaluate_autoencoder.py  compare_models.py
+    │   │   ├── scheduled_agent/            # ── Scheduled CVE ingestion agent ──
+    │   │   │   ├── agent.py                # pipeline orchestrator
+    │   │   │   ├── fetchers.py  normalize.py  dedup.py  boosts.py  scorer.py
+    │   │   │   ├── store.py                # PostgreSQL backbone (ledger, run log, indexing)
+    │   │   │   ├── review.py               # human review-queue approve/reject
+    │   │   │   ├── queries.py              # audit/analytics SQL CLI
+    │   │   │   ├── schema_additions.sql    # cve_decisions ledger + run columns + view
+    │   │   │   ├── run_agent.sh  README.md
+    │   │   ├── rag_core/
+    │   │   │   ├── database/               # qdrant_store.py, postgres_client.py, schema.sql
+    │   │   │   ├── indexing/               # qdrant_indexer.py, threat_intel_indexer.py
+    │   │   │   ├── evaluation/             # retrieval metrics + visualizations
+    │   │   │   └── agent/                  # SOC agent workflow
+    │   │   ├── train_isolation_forest.py  evaluate_isolation_forest.py
+    │   │   ├── monitor_alerts.py           # real-time ensemble scoring daemon
+    │   │   ├── collect_training_data.py  collect_daily.sh
+    │   │   ├── data/                       # training data, models (.pkl), eval reports
+    │   │   ├── threat_intel/               # source corpora (MITRE, Sigma, KEV, YARA, …)
+    │   │   └── docs/                       # ETH thesis chapters (.docx)
+    │   └── threat_intel/                   # ingestion scaffold — drop-in corpora dirs
+    │                                       #   (legacy path: threat_intel/)
+    └── infra/                              # (legacy path: wazuh-ai-infra/)
+        ├── docker-compose.yml              # Qdrant + PostgreSQL
+        ├── deploy/                         # systemd units, nginx sample, DEPLOYMENT.md
+        ├── registry/                       # dev / staging / prod model registries
+        ├── grafana/  prometheus/  jenkins/ # observability + CI
+        └── scripts/
 ```
 
 ---
@@ -185,6 +210,15 @@ wazuh/                                  # fork of the Wazuh source + AI componen
 ### Setup
 
 ```bash
+# 0. (optional) Recreate the local compatibility symlinks — only needed if you run
+#    older scripts that still reference the pre-monorepo paths. Not committed.
+ln -sfn wazuh-monorepo/services/ai-engine     ai_threat_engine_starter
+ln -sfn wazuh-monorepo/apps/backend           backend
+ln -sfn wazuh-monorepo/apps/frontend-legacy   frontend
+ln -sfn wazuh-monorepo/apps/frontend          improved_UI
+ln -sfn wazuh-monorepo/services/threat_intel  threat_intel
+ln -sfn wazuh-monorepo/infra                  wazuh-ai-infra
+
 cd wazuh-monorepo/services/ai-engine
 
 # 1. Python environment

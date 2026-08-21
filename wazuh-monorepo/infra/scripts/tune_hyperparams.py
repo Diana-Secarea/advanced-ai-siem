@@ -11,9 +11,9 @@ NOT tuned on purpose: the stacking meta-model (logistic regression has no
 meaningful knobs here) and UEBA (weights are domain knowledge, not fitted).
 
 Usage:
-    ./venv/bin/python3 ../wazuh-ai-infra/scripts/tune_hyperparams.py           # report only
-    ./venv/bin/python3 ../wazuh-ai-infra/scripts/tune_hyperparams.py --apply   # write best params
-                                                                               # to tuned_params.json
+    ./venv/bin/python3 ../../infra/scripts/tune_hyperparams.py           # report only
+    ./venv/bin/python3 ../../infra/scripts/tune_hyperparams.py --apply   # write best params
+                                                                         # to tuned_params.json
 Training scripts read tuned_params.json (if present) via --apply mode of the
 Jenkins pipeline; without it they keep their built-in defaults.
 """

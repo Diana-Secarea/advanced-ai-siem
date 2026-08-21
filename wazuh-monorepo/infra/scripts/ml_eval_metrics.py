@@ -5,7 +5,7 @@ test set and write the results as JSON — the single source of truth consumed
 by push_metrics.py (→ Prometheus/Grafana) and the Flask /metrics endpoint.
 
 Usage:
-    ./venv/bin/python3 ../wazuh-ai-infra/scripts/ml_eval_metrics.py \
+    ./venv/bin/python3 ../../infra/scripts/ml_eval_metrics.py \
         [--test-file data/test/all_test_alerts.json] \
         [--out data/eval/ml_metrics.json]
 """

@@ -23,7 +23,7 @@ from pathlib import Path
 
 KEV_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
 
-# ai_threat_engine_starter/ (4 levels up from this file)
+# services/ai-engine/ (4 levels up from this file)
 BASE_DIR = Path(__file__).resolve().parents[3]
 STORAGE_DIR = BASE_DIR / "threat_intel" / "cisa_kev"
 

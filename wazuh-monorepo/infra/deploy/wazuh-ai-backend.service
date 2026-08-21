@@ -11,9 +11,12 @@
 
 [Unit]
 Description=Wazuh AI Threat Engine — backend (waitress)
-After=network-online.target docker.service
-Wants=network-online.target
-# Qdrant + Postgres run as docker containers; Ollama as its own service.
+After=network-online.target docker.service ollama.service
+Wants=network-online.target ollama.service
+# Qdrant + Postgres run as docker containers; Ollama as its own service
+# (infra/deploy/ollama.service). Wants, not Requires: chat degrades to a 503
+# without Ollama, but alert scoring and the whole UI still work — the backend
+# should come up regardless.
 
 [Service]
 Type=simple

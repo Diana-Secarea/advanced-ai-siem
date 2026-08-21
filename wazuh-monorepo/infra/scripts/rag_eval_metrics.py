@@ -6,7 +6,7 @@ Runs the same 82-query benchmark as rag_core/evaluation/run_eval2.py
 (hybrid dense+BM25 RRF, k=5) but emits machine-readable metrics.
 
 Usage:
-    ./venv/bin/python3 ../wazuh-ai-infra/scripts/rag_eval_metrics.py \
+    ./venv/bin/python3 ../../infra/scripts/rag_eval_metrics.py \
         [--out data/eval/rag_metrics.json]
 """
 import argparse

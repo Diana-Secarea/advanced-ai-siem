@@ -4,7 +4,7 @@
 # monitor_model_health.py reports PSI drift).
 #
 # Suggested cron (1st of each month, 03:00):
-#   0 3 1 * * cd /home/sek/wazuh/ai_threat_engine_starter && ./retrain_all.sh >> data/eval/retrain.log 2>&1
+#   0 3 1 * * cd /home/sek/wazuh/wazuh-monorepo/services/ai-engine && ./retrain_all.sh >> data/eval/retrain.log 2>&1
 #
 # Note: the running backend keeps the OLD models in memory — restart it
 # after this script finishes to pick up the new pkls.
@@ -38,7 +38,7 @@ echo "--- 7/7 sync model copies + eval + drift reference ---"
 if [ -d /var/ossec/ai_models ]; then
     cp /var/ossec/ai_models/*.pkl data/ai_models/ 2>/dev/null || true
 fi
-$PY ../../infra/scripts/ml_eval_metrics.py || $PY ../wazuh-ai-infra/scripts/ml_eval_metrics.py || true
+$PY ../../infra/scripts/ml_eval_metrics.py || true
 $PY monitor_model_health.py --save-reference
 
 echo "=== done $(date -Is) — restart the backend to load the new models ==="

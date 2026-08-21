@@ -48,7 +48,7 @@ class PostgresRAGDatabase:
         self.user = user
         self.password = password
         
-        # Default to ai_threat_engine_starter/threat_intel
+        # Default to services/ai-engine/threat_intel
         if json_data_path is None:
             import os
             base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

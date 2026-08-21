@@ -1,0 +1,32 @@
+# Loads the Selenne chat model into memory once Ollama is up, so the first
+# question of the day answers at normal speed instead of waiting for a cold load.
+#
+# Install:
+#   sudo cp ollama-warmup.sh /usr/local/bin/selenne-ollama-warmup.sh
+#   sudo chmod 755 /usr/local/bin/selenne-ollama-warmup.sh
+#   sudo cp ollama-warmup.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now ollama-warmup
+#
+# Check:  journalctl -u ollama-warmup -n 20
+
+[Unit]
+Description=Selenne — preload the Ollama model into memory
+Requires=ollama.service
+After=ollama.service
+
+[Service]
+Type=oneshot
+# Stay "active (exited)" after success so systemd does not re-run it, and so
+# `systemctl status` shows whether the model was ever loaded this boot.
+RemainAfterExit=yes
+Environment="OLLAMA_URL=http://127.0.0.1:11434"
+Environment="OLLAMA_MODEL=llama3.2"
+ExecStart=/usr/local/bin/selenne-ollama-warmup.sh
+# A failed warm-up must not block the rest of the boot: the model simply loads
+# on first use instead.
+SuccessExitStatus=0 1
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target

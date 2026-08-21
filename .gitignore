@@ -188,12 +188,25 @@ wazuh.tgz
 src/*.log
 src/result-*.txt
 
+# Node dependencies — restore with `npm install` (package.json + lock are tracked)
+node_modules/
+
+# ── Local compatibility symlinks into wazuh-monorepo/ ──
+# These exist so old absolute paths and scripts keep resolving on a dev box.
+# They are deliberately NOT committed: GitHub does not follow symlinks, so on
+# the website they render as dead one-line files instead of browsable folders.
+# The canonical tree is wazuh-monorepo/{apps,services,infra}.
+/ai_threat_engine_starter
+/backend
+/frontend
+/improved_UI
+/threat_intel
+/wazuh-ai-infra
+
 # Tool files
 tools/repository_bumper_*
-backend/incidents.jsonl
-backend/users.db
-backend/alert_session.jsonl
-# monorepo paths (moved from backend/)
+# Backend runtime state (the old backend/… duplicates of these are gone —
+# the whole /backend symlink is ignored above)
 wazuh-monorepo/apps/backend/incidents.jsonl
 wazuh-monorepo/apps/backend/users.db
 wazuh-monorepo/apps/backend/alert_session.jsonl

@@ -7,7 +7,7 @@ are excluded, so the baselines describe only normal user/host/network
 behaviour. Deviations from those baselines then score high at detection time.
 
 Usage:
-    cd ai_threat_engine_starter
+    cd wazuh-monorepo/services/ai-engine
     ./venv/bin/python3 train_ueba.py
 """
 import json

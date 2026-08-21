@@ -13,7 +13,7 @@ CI/CD + monitoring for both engines:
 ## 1. Start the stack
 
 ```bash
-cd wazuh-ai-infra
+cd wazuh-monorepo/infra
 docker compose up -d
 ```
 

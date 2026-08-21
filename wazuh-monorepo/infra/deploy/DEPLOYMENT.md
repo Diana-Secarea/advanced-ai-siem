@@ -83,7 +83,10 @@ venv/bin/pip install -r requirements.lock
 
 # 2. Data services
 cd ../../infra && docker compose up -d          # (or just Qdrant+Postgres compose)
-#    Ollama:  ollama serve &   +   ollama pull llama3.2
+#    Ollama: install as a SERVICE, never `ollama serve &` — see "Keeping Ollama up"
+curl -fsSL https://ollama.com/install.sh | sh   # creates + enables ollama.service
+sudo systemctl edit ollama                      # add the drop-in from that section
+sudo ollama pull llama3.2
 
 # 3. Secrets + service
 sudo mkdir -p /etc/wazuh-ai
@@ -152,6 +155,93 @@ Rollback is `git checkout <previous-sha> && sudo systemctl restart
 selenne-backend`; `users.db` is untouched by either direction, though the new
 `last_login` column only starts filling in from the first sign-in after the
 upgrade (existing accounts read "never signed in" until then).
+
+## Keeping Ollama up (Hetzner)
+
+Two separate things, often confused:
+
+| | What it costs idle | What it buys |
+|---|---|---|
+| **The daemon** (`ollama.service`) — must always run | ~50–100 MB RSS, no CPU | a RAG query has something to talk to; without it chat 503s |
+| **The model in memory** (`OLLAMA_KEEP_ALIVE`) | ~2 GB for `llama3.2` | no cold load on the next query |
+
+Customers never download a model. One Ollama on the Selenne host answers for
+every account; the endpoint package only ships logs. So the daemon stays up
+permanently (it is nearly free), and `OLLAMA_KEEP_ALIVE` decides whether the
+weights are held while nobody is asking — that is the "activate on RAG query"
+knob. `30m` means the first question after a quiet spell loads the model and
+everything for the next half hour is instant.
+
+`ollama serve &` is a shell job: it dies with the SSH session and never comes
+back after a reboot. Run it under systemd instead — the official installer
+already ships a unit with `Restart=always` and a dedicated `ollama` user.
+
+```bash
+# 1. Install (creates + enables /etc/systemd/system/ollama.service)
+curl -fsSL https://ollama.com/install.sh | sh
+
+# 2. Selenne's settings as a drop-in — survives Ollama upgrades
+sudo systemctl edit ollama
+```
+```ini
+[Service]
+Environment="OLLAMA_KEEP_ALIVE=30m"         # load on query, free when idle (-1 = never unload)
+Environment="OLLAMA_HOST=127.0.0.1:11434"   # loopback only — 11434 is unauthenticated
+Environment="OLLAMA_MAX_LOADED_MODELS=1"    # RAM is the budget on a CPU box
+Environment="OLLAMA_NUM_PARALLEL=1"         # raise to 2–4 once several accounts query at once
+OOMScoreAdjust=-100
+Restart=always
+RestartSec=3
+```
+```bash
+sudo systemctl restart ollama
+sudo ollama pull llama3.2
+```
+
+Set the same value in `/etc/wazuh-ai/backend.env` — the app re-pins after every
+chat call, because the `/v1` API resets the timer to 5 minutes:
+
+```bash
+echo 'OLLAMA_KEEP_ALIVE=30m' | sudo tee -a /etc/wazuh-ai/backend.env
+sudo systemctl restart wazuh-ai-backend
+```
+
+**Optional — preload at boot.** Only if you chose `-1` and want the very first
+query of the day to be fast too. Skip it on a memory-tight host: it defeats the
+point of an idle timeout.
+
+```bash
+sudo cp infra/deploy/ollama-warmup.sh /usr/local/bin/selenne-ollama-warmup.sh
+sudo chmod 755 /usr/local/bin/selenne-ollama-warmup.sh
+sudo cp infra/deploy/ollama-warmup.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now ollama-warmup
+```
+
+Verify, including across a reboot:
+
+```bash
+systemctl is-enabled ollama                   # enabled
+curl -s localhost:11434/api/ps                # loaded models + their expiry
+sudo reboot   # then: curl -s https://selenne.app/ready
+```
+
+`infra/deploy/ollama.service` is a complete unit for hosts where Ollama was
+installed some other way (manual binary, arm64 tarball) — don't copy it over a
+unit the installer created; use the drop-in above.
+
+**Sizing.** Hetzner Cloud has no GPU instances — CPU only. Verify the current
+lineup before buying, but the shape of the decision:
+
+| Host | Fits | Reality |
+|---|---|---|
+| CPX41 / CCX23 (8 vCPU, 16–32 GB) | `llama3.2` (3B, ~2 GB resident) | works; token generation is fine, but **prompt** processing is the slow part — a long RAG context can take 10–30 s before the first token |
+| Dedicated GEX-series (RTX Ada GPU) | 3B–13B comfortably | the only way to keep the ~2.5 s first-token experience; setup fee + higher monthly |
+
+If you stay on CPU: keep `OLLAMA_MAX_LOADED_MODELS=1`, skip `llava:7b` (vision
+attachments would evict the chat model on every image), keep the swap file from
+`bootstrap-server.sh` but leave `vm.swappiness=10` — a swapped-out model is
+worse than a cold load. Trimming retrieved context (`k`, chunk size) buys more
+first-token latency on CPU than any Ollama flag.
 
 ## Health & monitoring
 

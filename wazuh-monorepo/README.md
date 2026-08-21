@@ -64,8 +64,10 @@ wazuh-monorepo/
     └── environments/      dev / staging / production .env profiles
 ```
 
-**Compatibility symlinks** at the repo root still resolve, so old paths in
-`ossec.conf`, cron entries and notes keep working:
+**Compatibility symlinks** at the repo root make old paths in `ossec.conf`,
+cron entries and notes keep working. They are local-only and gitignored — a
+fresh clone has just `wazuh-monorepo/`, and you recreate them if you want them
+(`ln -s wazuh-monorepo/apps/backend backend`):
 
 | Old path | Now |
 |---|---|
@@ -214,6 +216,7 @@ All of it lives in `apps/backend/.env` (gitignored; template in
 | `TRUST_PROXY` | `0` | `1` behind a reverse proxy (honours X-Forwarded-For) |
 | `ALLOWED_ORIGINS` | — | CORS allowlist |
 | `OLLAMA_MODEL` / `VISION_MODEL` | `llama3.2` / `llava:7b` | local inference models |
+| `OLLAMA_KEEP_ALIVE` | `24h` | how long weights stay in memory after a query — `-1` never unloads, `30m` frees them when idle |
 | `ALERTS_DIR`, `ALERTS_LOG`, `ARCHIVES_JSON` | `/var/ossec/logs/…` | what the backend tails |
 | `WAZUH_REG_PASSWORD`, `SELENNE_MANAGER_HOST` | — | endpoint enrolment (§5) |
 | `REACTOR_ENABLED` | `0` | arm the reactive daemon (§9) |
@@ -295,8 +298,8 @@ Arming anything destructive is deliberate and reversible — read
 | Collector download returns 503 | `WAZUH_REG_PASSWORD` unset | §5 |
 | Collector download returns 401 | not signed in — the routes are behind auth | sign in first |
 | `wazuh_qdrant` shows `(unhealthy)` but Qdrant works | container still running the old curl-based healthcheck (the image has no curl) | `docker compose -f services/ai-engine/docker-compose.yml up -d --force-recreate qdrant` |
-| Chat hangs or 503s | Ollama not running / model not pulled | `ollama serve &` then `ollama pull llama3.2` |
-| Chat is slow on the first message only | model cold-loading into VRAM | expected; startup pins it for 24 h |
+| Chat hangs or 503s | Ollama not running / model not pulled | dev: `ollama serve &` then `ollama pull llama3.2` · server: `systemctl status ollama` (see DEPLOYMENT.md "Keeping Ollama up") |
+| Chat is slow on the first message only | model cold-loading into memory | expected; it then stays resident for `OLLAMA_KEEP_ALIVE` |
 | Scores unchanged after retraining | old models still in memory | restart the backend |
 | Evaluation looks better than reality | eval reading a stale copy of the model | confirm the `.pkl` in `data/ai_models/` is the one just written |
 | Windows installer opens "choose an app" | a `.ps1` was downloaded, not the `.cmd` | use the zip package — Windows never executes `.ps1` on double-click |

@@ -15,7 +15,7 @@ Round 1: train on labelled-clean alerts, drop top 10% highest reconstruction
 Round 2: retrain on the purified clean set, calibrate threshold.
 
 Usage:
-    cd ai_threat_engine_starter
+    cd wazuh-monorepo/services/ai-engine
     ./venv/bin/python3 autoencoders_approach/train_autoencoder.py
 """
 import json

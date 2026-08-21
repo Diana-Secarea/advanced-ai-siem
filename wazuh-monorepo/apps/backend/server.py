@@ -263,11 +263,11 @@ def auth_me():
 
 @app.route("/api/auth/users", methods=["GET"])
 def auth_users():
-    """List accounts (admin only) — the store itself is backend/users.db."""
+    """List accounts (admin only) — the store itself is apps/backend/users.db."""
     user = getattr(request, "auth_user", None)
     if AUTH_ENABLED and (not user or user.get("role") != "admin"):
         return jsonify({"error": "Admin only"}), 403
-    return jsonify({"users": _auth.list_users(), "store": "backend/users.db"})
+    return jsonify({"users": _auth.list_users(), "store": "apps/backend/users.db"})
 
 
 @app.route("/api/admin/accounts", methods=["GET"])
@@ -785,6 +785,13 @@ def _store_session_history(username, session_id, history):
         _persist_user_chats(username)
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2")
+# How long the model stays resident after a request. This is the whole
+# "always hot vs. load on demand" decision: "-1" never unloads (fastest, holds
+# the weights in RAM/VRAM forever), "30m" keeps it warm for a working session
+# and frees the memory when nobody is asking, "0" unloads immediately (every
+# query pays a cold load). Nobody downloads a model — one Ollama serves every
+# account from this host.
+OLLAMA_KEEP_ALIVE = os.environ.get("OLLAMA_KEEP_ALIVE", "24h")
 
 # --- Wazuh Alert Store ---
 # Stateful across restarts: every alert seen while the server runs is appended
@@ -1386,7 +1393,7 @@ def _search_knowledge_base(query: str, top_k: int = 5) -> list:
 
 
 def _pin_ollama_model():
-    """Load the model into VRAM and pin it for 24h via the native API.
+    """Load the model and hold it for OLLAMA_KEEP_ALIVE via the native API.
 
     The OpenAI-compatible /v1 endpoint ignores keep_alive and resets the
     unload timer to the server default (5 min) on every request, so we
@@ -1397,7 +1404,8 @@ def _pin_ollama_model():
     try:
         requests.post(
             f"{OLLAMA_URL}/api/generate",
-            json={"model": OLLAMA_MODEL, "prompt": "", "keep_alive": "24h"},
+            json={"model": OLLAMA_MODEL, "prompt": "",
+                  "keep_alive": OLLAMA_KEEP_ALIVE},
             timeout=60,
         )
     except Exception as e:
@@ -4834,8 +4842,8 @@ def reactor_test():
     return jsonify({"status": "ok", "incident": inc})
 
 
-# The UI served at / is the improved_UI (Selenne). The legacy
-# frontend/ stays reachable under /legacy/ as a fallback during the switch.
+# The UI served at / is apps/frontend (Selenne, formerly improved_UI). The
+# superseded UI in apps/frontend-legacy stays reachable under /legacy/.
 UI_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
 LEGACY_UI_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend-legacy")
 

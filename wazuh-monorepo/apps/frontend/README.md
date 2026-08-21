@@ -50,7 +50,7 @@ a *service that runs and reacts*, not just a dashboard.
 ## Run it
 
 ```bash
-cd backend && ./start_server.sh     # Flask serves this UI at :5000
+cd wazuh-monorepo/apps/backend && ./start_server.sh   # Flask serves this UI at :5000
 ```
 
 Needs the Docker stack (Qdrant, Postgres) and Ollama for the RAG/chat and

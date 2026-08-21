@@ -1,0 +1,63 @@
+# systemd unit for Ollama — the local LLM runtime Selenne talks to.
+#
+# The official installer (curl -fsSL https://ollama.com/install.sh | sh) already
+# drops a unit at /etc/systemd/system/ollama.service. If you used it, do NOT
+# overwrite that file — put only the [Service] block's Environment lines in a
+# drop-in instead, so an Ollama upgrade cannot revert your settings:
+#
+#   sudo systemctl edit ollama          # opens a drop-in
+#   sudo systemctl restart ollama
+#
+# Install this file only when Ollama was installed some other way (manual
+# binary, arm64 tarball):
+#   sudo useradd -r -s /bin/false -m -d /usr/share/ollama ollama
+#   sudo cp ollama.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now ollama
+#
+# Verify:  systemctl is-active ollama && curl -s localhost:11434/api/tags
+
+[Unit]
+Description=Ollama — local LLM runtime for Selenne
+Documentation=https://github.com/ollama/ollama
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+ExecStart=/usr/local/bin/ollama serve
+User=ollama
+Group=ollama
+# Always, not on-failure: a clean exit (OOM kill, upgrade, manual stop of the
+# child) must still come back, and the machine must come up serving after a
+# reboot without anyone logging in.
+Restart=always
+RestartSec=3
+
+# How long the weights stay resident after a request — the only "always hot vs
+# load on demand" knob there is. The daemon itself always runs (that is what
+# makes a RAG query able to trigger a load at all); this decides whether the
+# memory is held while nobody is asking.
+#   -1   never unload — fastest for everyone, holds ~2 GB (llama3.2) forever
+#   30m  warm for a working session, then freed — good on a CPU-only host
+#   5m   Ollama's default
+# Keep it in sync with OLLAMA_KEEP_ALIVE in the backend env: the app re-pins
+# after every chat call, because the /v1 API resets this timer to 5m.
+Environment="OLLAMA_KEEP_ALIVE=30m"
+# Loopback only. An exposed 11434 is an unauthenticated inference endpoint that
+# anyone can use to run your GPU/CPU and read whatever context is sent.
+Environment="OLLAMA_HOST=127.0.0.1:11434"
+# One model resident at a time — on a CPU-only host, RAM is the budget. Raise
+# to 2 only if you keep the vision model (llava) hot as well and have the room.
+Environment="OLLAMA_MAX_LOADED_MODELS=1"
+Environment="OLLAMA_NUM_PARALLEL=1"
+Environment="OLLAMA_MODELS=/usr/share/ollama/.ollama/models"
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+# A resident model is a large anonymous mapping; under memory pressure the
+# kernel should reach for something else before killing inference.
+OOMScoreAdjust=-100
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

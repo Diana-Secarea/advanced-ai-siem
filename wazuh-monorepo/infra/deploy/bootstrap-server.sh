@@ -80,7 +80,35 @@ https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_C
 fi
 usermod -aG docker "$DEPLOY_USER"
 
-echo "== [7/7] Automatic security updates + fail2ban =="
+echo "== [7/8] Ollama (local LLM runtime, as a service) =="
+# The official installer creates and enables ollama.service (Restart=always,
+# dedicated 'ollama' user), so Ollama survives logout and reboot. Selenne's
+# settings go in a drop-in, which an Ollama upgrade cannot revert.
+if ! command -v ollama &>/dev/null; then
+    curl -fsSL https://ollama.com/install.sh | sh
+fi
+install -d -m 755 /etc/systemd/system/ollama.service.d
+cat > /etc/systemd/system/ollama.service.d/10-selenne.conf <<'EOF'
+[Service]
+# The daemon always runs so a RAG query can load the model on demand; this
+# decides how long the weights then stay resident. 30m = warm for a working
+# session, freed when idle. Use -1 to never unload (GPU / roomy host).
+Environment="OLLAMA_KEEP_ALIVE=30m"
+# Loopback only: an exposed 11434 is an unauthenticated inference endpoint.
+Environment="OLLAMA_HOST=127.0.0.1:11434"
+Environment="OLLAMA_MAX_LOADED_MODELS=1"
+Environment="OLLAMA_NUM_PARALLEL=1"
+OOMScoreAdjust=-100
+Restart=always
+RestartSec=3
+EOF
+systemctl daemon-reload
+systemctl enable --now ollama
+# Pull now so the first deploy is not also the first (slow) model download.
+sudo -u ollama env HOME=/usr/share/ollama ollama pull "${OLLAMA_MODEL:-llama3.2}" || \
+    echo "  [WARN] pull failed — run 'ollama pull llama3.2' by hand later"
+
+echo "== [8/8] Automatic security updates + fail2ban =="
 cat > /etc/apt/apt.conf.d/20auto-upgrades <<EOF
 APT::Periodic::Update-Package-Lists "1";
 APT::Periodic::Unattended-Upgrade "1";
@@ -96,6 +124,7 @@ systemctl enable --now fail2ban
 echo
 echo "Bootstrap done. Next steps (as $DEPLOY_USER):"
 echo "  1. git clone the monorepo into /home/$DEPLOY_USER/"
-echo "  2. follow infra/deploy/DEPLOYMENT.md (venv, compose, backend.env, systemd)"
+echo "  2. follow infra/deploy/DEPLOYMENT.md (venv, compose, backend.env, systemd,"
+echo "     plus ollama-warmup.service so the model is resident from boot)"
 echo "  3. certbot --nginx -d selenne.app -d www.selenne.app"
 echo "  4. set AUTH_COOKIE_SECURE=1 + ALLOWED_ORIGINS=https://selenne.app in backend.env"

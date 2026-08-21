@@ -67,7 +67,7 @@ that made it.
 ## Setup & run
 
 ```bash
-cd ai_threat_engine_starter
+cd wazuh-monorepo/services/ai-engine
 # containers (Postgres + Qdrant) and Ollama must be running
 docker compose up -d
 
@@ -82,7 +82,7 @@ docker compose up -d
 Schedule daily at 02:00:
 
 ```cron
-0 2 * * * /home/sek/wazuh/ai_threat_engine_starter/scheduled_agent/run_agent.sh >> .../agent.log 2>&1
+0 2 * * * /home/sek/wazuh/wazuh-monorepo/services/ai-engine/scheduled_agent/run_agent.sh >> .../agent.log 2>&1
 ```
 
 Optional: set `NVD_API_KEY` to raise the NVD rate limit.

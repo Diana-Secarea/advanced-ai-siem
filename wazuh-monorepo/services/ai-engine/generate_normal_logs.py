@@ -563,7 +563,7 @@ def main():
     print(f"  Done!  {total} total alerts in combined file.")
     print()
     print("  Next step — retrain the model:")
-    print("    cd ai_threat_engine_starter")
+    print("    cd wazuh-monorepo/services/ai-engine")
     print("    ./venv/bin/python3 train_isolation_forest.py")
     print("=" * 52)
 

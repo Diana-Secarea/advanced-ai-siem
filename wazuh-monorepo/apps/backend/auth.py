@@ -16,6 +16,7 @@ ADMIN_PASSWORD env var, or is generated randomly and printed ONCE to stdout.
 Disable the whole gate with AUTH_ENABLED=0 (e.g. for local experiments).
 """
 
+import contextlib
 import datetime
 import hashlib
 import os
@@ -89,10 +90,23 @@ def _record_success(username, ip):
         _failed_logins.pop(f"{(username or '').strip().lower()}|{ip}", None)
 
 
+@contextlib.contextmanager
 def _conn():
+    """Open users.db, commit-or-rollback, then *close*.
+
+    `with sqlite3.connect(...) as conn` only ends the transaction — it does
+    NOT close the connection. Returning a bare connection here leaked one file
+    descriptor per call, and validate_token() runs on every authenticated
+    request: production hit the 1024-fd soft limit and every route began
+    failing with "unable to open database file" (really OSError 24).
+    """
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    return conn
+    try:
+        with conn:                      # commit on success, rollback on error
+            yield conn
+    finally:
+        conn.close()
 
 
 def _now():

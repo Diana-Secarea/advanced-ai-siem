@@ -188,6 +188,9 @@ wazuh.tgz
 src/*.log
 src/result-*.txt
 
+# WSL/Windows "downloaded from the internet" metadata — pure junk, one per file
+*:Zone.Identifier
+
 # Node dependencies — restore with `npm install` (package.json + lock are tracked)
 node_modules/
 

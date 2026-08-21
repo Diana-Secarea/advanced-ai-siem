@@ -1,316 +1,136 @@
-# AI-SIEM Threat Engine
+# Selenne — AI Threat Engine for Wazuh
 
-An AI-powered threat detection and intelligence engine built on top of [Wazuh](https://wazuh.com). It extends a traditional SIEM with **unsupervised machine-learning anomaly detection**, a **RAG-based threat-intelligence assistant**, and an **agentic ingestion layer** that continuously keeps the knowledge base current — enabling automated identification of sophisticated attacks that rule-based systems miss, and closing the threat-intelligence lifecycle without manual curation.
+**[selenne.app](https://selenne.app/)** · **[LinkedIn](https://www.linkedin.com/company/selenne)**
 
-> Developed as a bachelor thesis project. The goal is both a working prototype and a production-grade design; the repository reflects both, and the distinction is called out where it matters.
+Selenne turns a Wazuh SIEM into an AI analyst. Every alert is scored by an
+unsupervised ML ensemble, explained in plain language by a **local** LLM
+grounded in a threat-intelligence corpus, and optionally acted on by a headless
+reactor.
+
+**Nothing leaves the host.** No cloud LLM, no telemetry, no third-party
+inference API. The models run on your hardware, against your logs. That is a
+design constraint, not a configuration option — it is what makes the system
+deployable somewhere that cannot send security telemetry to a vendor.
+
+This repository is a **fork of the [Wazuh](https://wazuh.com) source**. The
+surrounding tree (`src/`, `framework/`, `api/`, `ruleset/`, …) is upstream Wazuh
+and is left unmodified. Everything Selenne adds lives in
+**[`wazuh-monorepo/`](wazuh-monorepo/)**.
+
+```
+Wazuh manager ──► alerts.json / archives.json
+                        │
+                        ▼
+     ┌─────────────── Flask backend (:5000) ───────────────┐
+     │  ensemble scoring   IF + Autoencoder + UEBA         │
+     │                     → LogReg stacker → verdict      │
+     │  raw-log scoring    novelty + content model         │
+     │  agentic RAG        Qdrant + Ollama (llama3.2)      │
+     │  reactor            webhook / Wazuh active response │
+     │  CVE agent          NVD + CISA-KEV → Postgres+Qdrant│
+     └──────────────────────┬──────────────────────────────┘
+                            ▼
+                Selenne UI (static HTML, served at /)
+```
 
 ---
 
-## Architecture
+## What it does
 
-The engine layers five components on top of a running Wazuh Manager:
-
-1. **Dual-Model Anomaly Detection** — an Isolation Forest and an Autoencoder, combined by a fixed-weight ensemble, score every alert for anomalous behavior (16 features).
-2. **Real-Time Alert Monitor** — a daemon that runs each incoming Wazuh alert through the ensemble and flags anomalies.
-3. **RAG Threat-Intelligence Assistant** — hybrid (dense + sparse) retrieval over a Qdrant vector store plus a local LLM (Ollama), answering natural-language security questions with source attribution.
-4. **Scheduled CVE Ingestion Agent** — a scheduled agentic workflow that fetches new CVEs (NVD, CISA-KEV), scores their relevance to *this* environment, and continuously enriches the RAG knowledge base. Every decision is recorded in PostgreSQL.
-5. **Web Dashboard** — a Flask-served UI: alert dashboard, threat-intel chat, vector-DB monitor, and the CVE-agent control/visibility page.
-
-### Data architecture
-
-Two stores play complementary roles:
-
-| Store | Role |
+| | |
 |---|---|
-| **Qdrant** | Low-latency hybrid (dense + sparse + RRF) semantic retrieval for the RAG assistant. Holds **only verified intelligence**. |
-| **PostgreSQL** | The **audit & analytics backbone**: the CVE-decision ledger, ingestion run log, human-review queue, fetch cursors, and structured threat-intel records (with full JSONB). |
+| **Anomaly detection** | Three one-class detectors — Isolation Forest, Autoencoder, UEBA — blended by a logistic-regression stacker that *learns* the weights instead of assuming them. |
+| **Raw-log scoring** | Scores every collected log, not just Wazuh alerts. A novelty model asks "is this new?", a separately trained content model asks "is this hostile?" — so an unfamiliar but benign log is labelled `NEW`, not `THREAT`. |
+| **Agentic RAG chat** | Query gate → multi-query rewrite → CRAG grading → corrective retry, over a Qdrant corpus of MITRE ATT&CK, Sigma, YARA, CISA-KEV, CIS and vendor advisories. Fails open: if grading breaks, plain retrieval still answers. |
+| **Reactor** | Headless daemon that tails alerts, scores them, and reacts — ledger, webhook, or Wazuh active response. Ships disarmed; arming anything destructive is deliberate and reversible. |
+| **CVE agent** | Scheduled workflow: fetch NVD + CISA-KEV → dedup → boost by local evidence → LLM-score for relevance to *this* deployment → index, queue for review, or drop with an audit trail. |
+| **Endpoint collectors** | One-command installers for Windows, Linux and macOS that enrol a machine against the manager. |
 
 ---
 
-## Capabilities
+## Detection approach
 
-### Unsupervised anomaly detection (dual model)
+The detectors are **one-class**: trained on clean traffic only, so they describe
+what normal looks like rather than memorising a fixed catalogue of attacks. The
+stacker is the only supervised component, and it learns how much to trust each
+detector rather than using hand-tuned weights.
 
-Two complementary detectors, both over the **same 16 features**, are combined at inference by a fixed-weight ensemble:
+Latest recorded evaluation (`services/ai-engine/data/eval/ml_metrics.json`,
+run 2026-07-18) on a held-out set of **182 alerts containing 11 attacks**:
 
-- **Isolation Forest** — tree-based isolation; genuinely unsupervised.
-- **Autoencoder** — neural reconstruction error; self-supervised one-class classification.
+| Model | Precision | Recall | F1 | FPR |
+|---|---|---|---|---|
+| Isolation Forest | 1.000 | 0.727 | 0.842 | 0.000 |
+| Autoencoder | 0.526 | 0.909 | 0.667 | 0.053 |
+| UEBA | 1.000 | 0.818 | 0.900 | 0.000 |
+| **Stacked ensemble** | **1.000** | **1.000** | **1.000** | **0.000** |
 
-Using both raises adversarial robustness: an attacker must simultaneously evade tree isolation *and* the neural manifold. Alerts are scored on a 0–100 scale; scores above the calibrated threshold are flagged. The score-based threshold (not the model's raw `predict()`) is used so the decision boundary is interpretable and tunable.
-
-### Real-time alert scoring
-
-`monitor_alerts.py` watches for new Wazuh alerts and runs each through the ensemble in real time, surfacing anomalies so analysts focus on genuinely suspicious events instead of sifting noise.
-
-### RAG threat-intelligence chat
-
-A chat interface backed by **Qdrant hybrid retrieval** (dense embeddings + BM25 sparse, fused with Reciprocal Rank Fusion) over threat-intelligence episodes sourced from MITRE ATT&CK, Sigma rules, YARA rules, CISA KEV, vendor advisories, MITRE Groups/Software/D3FEND, CIS controls, and AlienVault OTX. Answers are generated by a local Ollama LLM (`llama3.2`) with source tags. Users can also upload their own documents into the knowledge base.
-
-### Scheduled CVE ingestion agent
-
-A scheduled agentic workflow (`scheduled_agent/`) that **closes the threat-intelligence lifecycle**:
-
-```
-fetch  →  dedup  →  boost  →  score  →  act  →  log
-```
-
-- **Fetch** new CVEs from **NVD** (incremental, publication-date cursor) and **CISA-KEV**.
-- **Dedup** against intelligence already in the knowledge base.
-- **Boost** relevance using environment evidence: a matching **Wazuh rule** (+3) or recent **alert history** touching the affected software (+2). This read-only feedback loop prioritizes vulnerabilities the environment actually shows.
-- **Score** 0–10 with the local LLM against the concrete **deployment profile** (Linux / OpenSSH / web / file-integrity), measuring *relevance*, not raw CVSS.
-- **Act** on the final score:
-
-  | Final score | Decision | Effect |
-  |---|---|---|
-  | ≥ 7 | `indexed` | indexed into Qdrant + `threat_intel`; immediately queryable in chat |
-  | 4–6 | `queued` | quarantined in PostgreSQL, **withheld from RAG** until a human approves it |
-  | 0–3 | `dropped` | audit-logged with the model's reasoning; never indexed |
-
-- **Log** every per-CVE decision and a per-run rollup to PostgreSQL.
-
-It is an **agentic scheduled workflow**, not an autonomous agent: control flow is fixed and the only reasoning step is the bounded relevance score — chosen for reproducibility and auditability. See `wazuh-monorepo/services/ai-engine/scheduled_agent/README.md` for full details, and `wazuh-monorepo/services/ai-engine/docs/Scheduled_CVE_Agent_ETH.docx` for the thesis chapter.
-
-### Web dashboard
-
-| Page | Purpose |
-|---|---|
-| `/` (`index.html`) | Home / navigation |
-| `/alerts.html` | Alert dashboard — scored alerts, charts, per-alert investigation, benign/suspicious-group tuning |
-| `/chat.html` | RAG threat-intel chat |
-| `/vectordb.html` | Live Qdrant monitoring (collections, embeddings, sources) |
-| `/cve-agent.html` | **CVE agent control & visibility** — run on demand, live console, review queue (approve/reject), recently-indexed list with clickable CVE detail, last-run status |
-
-### Attack-simulation coverage
-
-Validated against 14 categories of simulated attacks: SSH brute force, privilege escalation (su/sudo/SUID), file-integrity violations, malware (reverse shells, base64 payloads), network recon (port scans, lateral movement, DNS recon), account manipulation (UID-0 backdoors, hidden users), reverse shell & C2 (HTTP beaconing, DNS tunneling), log tampering, persistence (cron/systemd backdoors), web attacks (SQLi, XSS, traversal), rootkit simulation, cryptomining simulation, data exfiltration (DNS/HTTP exfil), and firewall manipulation.
+> Read that honestly: 11 attacks is a small positive class, and a perfect score
+> on it is evidence the blend works, not proof of a solved problem. The
+> individual detectors are the informative rows — each misses cases the others
+> catch, which is precisely why the stacker earns its place. Reproduce with
+> `venv/bin/python evaluate_isolation_forest.py --plot` and
+> `bash infra/scripts/run_ml_pipeline.sh`.
 
 ---
 
-## Model Performance
+## Repository layout
 
-Latest full evaluation (16 features):
+```
+wazuh/                     ← this repo: a Wazuh source fork
+├── src/ framework/ api/ ruleset/ …      upstream Wazuh, unmodified
+└── wazuh-monorepo/        ← everything Selenne
+    ├── apps/backend/          Flask API + reactor + agents
+    ├── apps/frontend/         the Selenne UI
+    ├── apps/frontend-legacy/  superseded UI, served at /legacy/
+    ├── services/ai-engine/    detectors, training, RAG, CVE agent
+    ├── services/threat_intel/ drop-in corpora
+    └── infra/                 Docker, deploy units, Jenkins, Grafana
+```
 
-| Metric | Value |
-|---|---|
-| Score separation (attack avg 92.4 vs clean avg 17.3) | 75.1 points |
-| Anomaly threshold | 50/100 (90th percentile of clean) |
-| Precision | 83.4% |
-| Recall | 95.9% |
-| F1 | 89.2% |
-| False-positive rate | 8.0% |
-
-100% detection on: SSH brute force, WordPress failed logins, new users/groups, promiscuous mode, process execution at unusual time, CIS failures, web attacks (SQLi/XSS), C2, DNS exfil, reverse shell, malware download, and rootkit. The main residual miss is single `PAM: User login failed` events, which are statistically indistinguishable from benign login typos.
+Full breakdown, including the compatibility symlinks that let pre-monorepo
+paths keep resolving on a dev box, is in
+**[`wazuh-monorepo/README.md` §1](wazuh-monorepo/README.md)**.
 
 ---
 
-## Feature Extraction
+## Getting started
 
-The detectors extract **16 features** from each Wazuh alert:
+Setup, daily operation, configuration, ports and troubleshooting all live in the
+monorepo README — kept there so there is one copy to keep correct:
 
-| # | Feature | Description |
-|---|---|---|
-| 0 | `word_count` | Words in the alert (capped at 60; CIS scans capped) |
-| 1 | `event_size` | Total size of the alert event |
-| 2 | `failed_count` | Failure keywords in `full_log` (CIS-transition aware) |
-| 3 | `hour` | Hour of day |
-| 4 | `off_hours` | Outside business hours |
-| 5 | `ip_count` | Unique IPs referenced (counts `data.srcip`) |
-| 6 | `port_count` | Ports referenced |
-| 7 | `process_count` | Processes referenced |
-| 8 | `rule_level` | Wazuh rule severity |
-| 9 | `rule_id` | Numeric Wazuh rule ID |
-| 10 | `suspicious_group_count` | Suspicious group indicators |
-| 11 | `data_field_count` | Populated data fields |
-| 12 | `is_external_srcip` | External source IP (Cloudflare/CDN excluded) |
-| 13 | `url_suspicious` | Suspicious URL pattern |
-| 14 | `unknown_user_flag` | Unknown user involved |
-| 15 | `privileged_account_change` | Privileged account/group change (rules 5901–5904/5104, adduser/groupmod) |
+- **[Prerequisites & first-time setup](wazuh-monorepo/README.md)** — §2–§3
+- **[Daily run](wazuh-monorepo/README.md)** — §4
+- **[Enrolling endpoints](wazuh-monorepo/README.md)** — §5
+- **[Configuration reference](wazuh-monorepo/README.md)** — §6
+- **[Production deployment](wazuh-monorepo/infra/deploy/DEPLOYMENT.md)** — nginx, TLS, systemd, hardening checklist
 
-> `mitre_count` was deliberately **removed**: Wazuh attaches MITRE tags to benign events (e.g. a successful SSH login), which diverged training data from production and caused false highs.
+Requires a running Wazuh manager, Python 3.10+, Docker (Qdrant + PostgreSQL),
+and Ollama with a local model.
 
 ---
 
-## Project Structure
-
-> **All AI-SIEM code lives under [`wazuh-monorepo/`](wazuh-monorepo/).** Everything else at the
-> repository root is the upstream Wazuh fork (`src/`, `framework/`, `api/`, `ruleset/`, …).
->
-> A dev checkout also carries local compatibility symlinks at the root — `backend/`,
-> `improved_UI/`, `frontend/`, `ai_threat_engine_starter/`, `threat_intel/`,
-> `wazuh-ai-infra/` — so older scripts and absolute paths keep resolving. They are
-> **deliberately not committed**, because GitHub does not follow symlinks and would show
-> them as dead one-line files rather than browsable folders. Recreate them if you want
-> them (see *Setup* below); the canonical paths are the ones in the tree here.
-
-```
-wazuh/                                      # fork of the Wazuh source + AI components
-└── wazuh-monorepo/
-    ├── apps/
-    │   ├── backend/                        # Flask API  (legacy path: backend/)
-    │   │   ├── server.py                   # alerts, chat, vector-db, CVE-agent endpoints
-    │   │   ├── start_server.sh             # launches Docker (Qdrant+Postgres), Ollama, Flask
-    │   │   ├── wsgi.py                     # waitress WSGI entrypoint
-    │   │   └── .env                        # secrets (git-ignored)
-    │   ├── frontend/                       # production UI  (legacy path: improved_UI/)
-    │   │   ├── index.html  alerts.html  chat.html
-    │   │   ├── vectordb.html               # Qdrant monitoring dashboard
-    │   │   ├── cve-agent.html              # CVE ingestion agent dashboard
-    │   │   ├── reactor.html                # reactor / SOAR control panel
-    │   │   └── landing.html                # public landing page
-    │   └── frontend-legacy/                # superseded UI, served at /legacy/
-    │                                       #   (legacy path: frontend/)
-    ├── services/
-    │   ├── ai-engine/                      # (legacy path: ai_threat_engine_starter/)
-    │   │   ├── ai_engine/
-    │   │   │   └── anomaly_detector.py     # Isolation Forest detector
-    │   │   ├── autoencoders_approach/
-    │   │   │   ├── autoencoder_detector.py # Autoencoder detector
-    │   │   │   ├── ensemble_detector.py    # IF + AE + UEBA ensemble (inference only)
-    │   │   │   ├── train_autoencoder.py  evaluate_autoencoder.py  compare_models.py
-    │   │   ├── scheduled_agent/            # ── Scheduled CVE ingestion agent ──
-    │   │   │   ├── agent.py                # pipeline orchestrator
-    │   │   │   ├── fetchers.py  normalize.py  dedup.py  boosts.py  scorer.py
-    │   │   │   ├── store.py                # PostgreSQL backbone (ledger, run log, indexing)
-    │   │   │   ├── review.py               # human review-queue approve/reject
-    │   │   │   ├── queries.py              # audit/analytics SQL CLI
-    │   │   │   ├── schema_additions.sql    # cve_decisions ledger + run columns + view
-    │   │   │   ├── run_agent.sh  README.md
-    │   │   ├── rag_core/
-    │   │   │   ├── database/               # qdrant_store.py, postgres_client.py, schema.sql
-    │   │   │   ├── indexing/               # qdrant_indexer.py, threat_intel_indexer.py
-    │   │   │   ├── evaluation/             # retrieval metrics + visualizations
-    │   │   │   └── agent/                  # SOC agent workflow
-    │   │   ├── train_isolation_forest.py  evaluate_isolation_forest.py
-    │   │   ├── monitor_alerts.py           # real-time ensemble scoring daemon
-    │   │   ├── collect_training_data.py  collect_daily.sh
-    │   │   ├── data/                       # training data, models (.pkl), eval reports
-    │   │   ├── threat_intel/               # source corpora (MITRE, Sigma, KEV, YARA, …)
-    │   │   └── docs/                       # ETH thesis chapters (.docx)
-    │   └── threat_intel/                   # ingestion scaffold — drop-in corpora dirs
-    │                                       #   (legacy path: threat_intel/)
-    └── infra/                              # (legacy path: wazuh-ai-infra/)
-        ├── docker-compose.yml              # Qdrant + PostgreSQL
-        ├── deploy/                         # systemd units, nginx sample, DEPLOYMENT.md
-        ├── registry/                       # dev / staging / prod model registries
-        ├── grafana/  prometheus/  jenkins/ # observability + CI
-        └── scripts/
-```
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- Wazuh Manager (v4.x) installed and running
-- Python 3.10+
-- Docker (for Qdrant + PostgreSQL)
-- Ollama with a local model (e.g. `llama3.2`)
-
-### Setup
-
-```bash
-# 0. (optional) Recreate the local compatibility symlinks — only needed if you run
-#    older scripts that still reference the pre-monorepo paths. Not committed.
-ln -sfn wazuh-monorepo/services/ai-engine     ai_threat_engine_starter
-ln -sfn wazuh-monorepo/apps/backend           backend
-ln -sfn wazuh-monorepo/apps/frontend-legacy   frontend
-ln -sfn wazuh-monorepo/apps/frontend          improved_UI
-ln -sfn wazuh-monorepo/services/threat_intel  threat_intel
-ln -sfn wazuh-monorepo/infra                  wazuh-ai-infra
-
-cd wazuh-monorepo/services/ai-engine
-
-# 1. Python environment
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt          # scikit-learn, numpy, joblib, flask, flask-cors,
-                                          # flask-limiter, qdrant-client, sentence-transformers,
-                                          # fastembed, psycopg2-binary, python-dotenv, requests …
-
-# 2. Configure secrets
-cp ../../apps/backend/.env.example ../../apps/backend/.env   # set PG_PASSWORD, etc. (never committed)
-
-# 3. Start datastores (Qdrant + PostgreSQL); schema is auto-applied
-docker compose up -d
-
-# 4. Build the threat-intelligence index (PostgreSQL + Qdrant)
-python -m rag_core.indexing.qdrant_indexer
-
-# 5. Train the anomaly models
-python train_isolation_forest.py
-python autoencoders_approach/train_autoencoder.py
-
-# 6. Start the API server + web dashboard (sudo for alert-log access)
-bash ../../apps/backend/start_server.sh
-```
-
-Open `http://localhost:5000`.
-
-### Usage
-
-```bash
-# Real-time alert monitor (runs the ensemble on every incoming alert)
-python monitor_alerts.py
-
-# Evaluate models
-python evaluate_isolation_forest.py
-python autoencoders_approach/evaluate_autoencoder.py
-python autoencoders_approach/compare_models.py
-
-# ── Scheduled CVE ingestion agent ──
-python -m scheduled_agent.agent --source all          # full run (writes to ledger + Qdrant)
-python -m scheduled_agent.agent --source nvd --dry-run # preview: score+print, no writes
-
-# Review queue
-python -m scheduled_agent.review list
-python -m scheduled_agent.review approve CVE-2024-12345
-python -m scheduled_agent.review reject  CVE-2024-12345
-
-# Audit / analytics queries
-python -m scheduled_agent.queries last-runs
-python -m scheduled_agent.queries decision-breakdown
-python -m scheduled_agent.queries queue
-python -m scheduled_agent.queries drops
-python -m scheduled_agent.queries boosted
-python -m scheduled_agent.queries indexed-over-time
-python -m scheduled_agent.queries cve CVE-2024-12345
-
-# Chat API
-curl -X POST http://localhost:5000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "What MITRE techniques relate to SSH brute force?"}'
-```
-
-### Scheduling the agent
-
-The agent is run on demand from the dashboard or scheduled via cron:
-
-```cron
-0 2 * * * /path/to/wazuh-monorepo/services/ai-engine/scheduled_agent/run_agent.sh >> agent.log 2>&1
-```
-
----
-
-## Tech Stack
+## Tech stack
 
 | Component | Technology |
 |---|---|
 | SIEM platform | Wazuh v4.x |
-| Anomaly detection | scikit-learn (Isolation Forest) + Autoencoder + ensemble |
-| Vector store / retrieval | Qdrant (hybrid dense + BM25 sparse, RRF) |
-| Relational store | PostgreSQL 17 (audit ledger, threat-intel records) |
+| Anomaly detection | scikit-learn — Isolation Forest, Autoencoder, UEBA, LogReg stacker |
+| Vector store | Qdrant (hybrid dense + BM25 sparse, RRF) |
+| Relational store | PostgreSQL 17 — CVE decision ledger, threat-intel records |
 | Embeddings | `all-MiniLM-L6-v2` (dense) + `Qdrant/bm25` (sparse) |
-| Local LLM | Ollama (`llama3.2`) |
-| Threat-intel sources | NVD, CISA-KEV, MITRE ATT&CK/Groups/Software/D3FEND, Sigma, YARA, CIS, OTX |
-| API server | Flask (+ CORS, rate limiting) |
-| Frontend | HTML/JS (dark theme) |
-| Orchestration | Docker Compose, cron |
+| Local LLM | Ollama — `llama3.2`, `llava:7b` for vision |
+| Threat intel | NVD, CISA-KEV, MITRE ATT&CK / Groups / Software / D3FEND, Sigma, YARA, CIS, OTX |
+| API server | Flask + waitress, behind nginx |
+| Observability | Prometheus + Grafana, Jenkins pipelines |
 
 ---
 
-## Authors & License
+## Author & license
 
-**Diana Maria Secarea** — author and developer of the AI-SIEM Threat Engine. This project is her **bachelor thesis application**, and her **third full-on production freelance project**.
+**Diana Maria Secarea** — author and developer of Selenne. Built as her bachelor
+thesis application and her third production freelance project; now running as a
+live deployment at [selenne.app](https://selenne.app/).
 
-Built on top of Wazuh. Wazuh Copyright (C) 2015-2023 Wazuh Inc. (License GPLv2); based on the OSSEC project started by Daniel Cid.
+Built on top of Wazuh. Wazuh Copyright (C) 2015-2023 Wazuh Inc. (GPLv2); based
+on the OSSEC project started by Daniel Cid.

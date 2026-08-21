@@ -485,24 +485,25 @@ footer a:hover { color: var(--text); }
            real URL is swapped in (see the collector-dl block at the bottom).
            The download URL must never sit in the DOM while signed out: the
            endpoint 401s, and "Save link as" / middle-click bypass any click
-           handler, saving {"error":"Authentication required"} as a .ps1. -->
+           handler, saving {"error":"Authentication required"} as an installer. -->
       <a class="btn btn-primary collector-dl" id="dlWindows" data-plat="windows"
          href="login.html" data-dl="/api/download/agent/windows"
-         data-dlname="install-selenne-agent.ps1">⬇ Collector for Windows</a>
+         data-dlname="selenne-collector-windows.zip">⬇ Collector for Windows</a>
       <a class="btn btn-primary collector-dl" id="dlLinux" data-plat="linux"
          href="login.html" data-dl="/api/download/agent/linux"
-         data-dlname="install-selenne-collector.sh">⬇ Collector for Linux</a>
+         data-dlname="selenne-collector-linux.zip">⬇ Collector for Linux</a>
       <a class="btn btn-primary collector-dl" id="dlMac" data-plat="macos"
          href="login.html" data-dl="/api/download/agent/macos"
-         data-dlname="install-selenne-collector-macos.sh">⬇ Collector for macOS</a>
+         data-dlname="selenne-collector-macos.zip">⬇ Collector for macOS</a>
       <a class="btn btn-ghost" href="#showcase">See it in action</a>
     </div>
     <div class="hero-dl-note r3d" data-delay="3" style="margin-top:8px;font-size:12px;color:var(--muted,#8b93a7);">
-      Sign in, download, run once — the collector installs as a background service and starts
-      shipping logs immediately. <b>13 MB. Nothing is analysed on your machine</b>; detection and
-      ML scoring run here.
+      Sign in, download, unzip, run once — the collector installs as a background service and
+      starts shipping logs immediately. <b>13 MB. Nothing is analysed on your machine</b>;
+      detection and ML scoring run here.
       <br>
-      <b>Windows:</b> right-click → “Run with PowerShell” (it raises the UAC prompt itself)
+      <b>Windows:</b> double-click <code style="font-size:11px;">install-selenne-agent.cmd</code>
+      (it raises the UAC prompt itself)
       &nbsp;·&nbsp;
       <code style="font-size:11px;">sudo bash install-selenne-collector.sh</code>
       &nbsp;·&nbsp;
@@ -1032,7 +1033,7 @@ footer a:hover { color: var(--text); }
      download links once /api/auth/me confirms one — arming the DOM rather than
      intercepting clicks, because "Save link as", middle-click and a click that
      lands before this script runs all skip a click handler and would save the
-     401 body as install-selenne-agent.ps1. */
+     401 body as install-selenne-agent.cmd. */
   var collectors = Array.prototype.slice.call(document.querySelectorAll(".collector-dl"));
 
   fetch("/api/auth/me", { credentials: "same-origin" })

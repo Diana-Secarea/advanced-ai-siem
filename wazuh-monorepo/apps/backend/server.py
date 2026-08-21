@@ -6,10 +6,12 @@ Run with sudo: sudo python3 server.py
 """
 import os
 import re
+import io
 import sys
 import time
 import uuid
 import json
+import zipfile
 import glob as glob_mod
 import socket
 import threading
@@ -4878,18 +4880,53 @@ def download_linux():
 # these routes stay behind the auth gate.
 _AGENT_DIR = os.path.join(os.path.dirname(__file__), "..", "..",
                           "infra", "deploy", "agent")
+_BRAND_DIR = os.path.join(_AGENT_DIR, "brand")
 _COLLECTORS = {
-    # platform: (template file, download name, line ending)
-    "windows": ("install-selenne-agent.ps1", "install-selenne-agent.ps1", "\r\n"),
-    "linux":   ("install-selenne-collector.sh", "install-selenne-collector.sh", "\n"),
-    "macos":   ("install-selenne-collector-macos.sh",
-                "install-selenne-collector-macos.sh", "\n"),
+    # Windows ships as .cmd, not .ps1: Explorer refuses to *run* a .ps1 on
+    # double-click (it offers "choose an app" instead), while .cmd is always
+    # bound to the command processor. The template is a batch/PowerShell hybrid,
+    # so the identical bytes still work when saved as .ps1 — see the .ps1 route
+    # below for callers whose policy blocks .cmd downloads. CRLF is mandatory
+    # here: cmd.exe mis-parses a batch file with bare LF line endings.
+    "windows": {
+        "template": "install-selenne-agent.cmd",
+        "script_name": "install-selenne-agent.cmd",
+        "newline": "\r\n",
+        "readme": "README-windows.txt",
+        "zip_name": "selenne-collector-windows.zip",
+        # selenne.ico is not decoration: the installer copies it to the agent
+        # directory and points the Start Menu entry at it.
+        "assets": ("selenne.ico", "selenne-logo.png"),
+        "executable": False,
+    },
+    "linux": {
+        "template": "install-selenne-collector.sh",
+        "script_name": "install-selenne-collector.sh",
+        "newline": "\n",
+        "readme": "README-linux.txt",
+        "zip_name": "selenne-collector-linux.zip",
+        "assets": ("selenne-logo.png",),
+        "executable": True,
+    },
+    "macos": {
+        "template": "install-selenne-collector-macos.sh",
+        "script_name": "install-selenne-collector-macos.sh",
+        "newline": "\n",
+        "readme": "README-macos.txt",
+        "zip_name": "selenne-collector-macos.zip",
+        "assets": ("selenne-logo.png",),
+        "executable": True,
+    },
 }
 WAZUH_AGENT_VERSION = os.environ.get("WAZUH_AGENT_VERSION", "4.14.6")
 
 
-def _render_collector(platform):
-    """Render an enrolment script for the signed-in account, or an error tuple."""
+def _collector_text(platform, filename):
+    """Read a collector template and fill in this account's enrolment details.
+
+    Returns (text, None) or (None, error tuple). Shared by the bare-script and
+    the packaged download, so both carry identical enrolment values.
+    """
     username, _ = _current_username()
     if not username or username == "anonymous":
         return None, (jsonify({"error": "Sign in to download the collector"}), 401)
@@ -4899,13 +4936,12 @@ def _render_collector(platform):
         return None, (jsonify({"error": "Endpoint enrolment is not configured on "
                                         "this server (WAZUH_REG_PASSWORD unset)"}), 503)
 
-    template, download_name, newline = _COLLECTORS[platform]
     try:
-        with open(os.path.abspath(os.path.join(_AGENT_DIR, template)),
+        with open(os.path.abspath(os.path.join(_AGENT_DIR, filename)),
                   encoding="utf-8") as fh:
-            script = fh.read()
+            text = fh.read()
     except OSError as exc:
-        log.error("collector template unreadable (%s): %s", platform, exc)
+        log.error("collector template unreadable (%s/%s): %s", platform, filename, exc)
         return None, (jsonify({"error": "installer template unavailable"}), 500)
 
     manager = os.environ.get("SELENNE_MANAGER_HOST") or request.host.split(":")[0]
@@ -4914,39 +4950,138 @@ def _render_collector(platform):
                                ("__AGENT_GROUP__", "default"),
                                ("__OWNER__", username),
                                ("__AGENT_VERSION__", WAZUH_AGENT_VERSION)):
-        script = script.replace(placeholder, value)
+        text = text.replace(placeholder, value)
+    return text, None
 
+
+def _render_collector(platform, download_name=None):
+    """Serve the bare enrolment script, or an error tuple.
+
+    ``download_name`` overrides the filename offered to the browser; the script
+    body is unchanged (used to serve the Windows hybrid under a .ps1 name).
+    """
+    spec = _COLLECTORS[platform]
+    script, err = _collector_text(platform, spec["template"])
+    if err:
+        return None, err
+
+    username, _ = _current_username()
     log.info("[collector] %s installer downloaded by '%s'", platform, username)
-    resp = Response(script.replace("\n", newline),
+    resp = Response(script.replace("\n", spec["newline"]),
                     mimetype="text/plain; charset=utf-8")
-    resp.headers["Content-Disposition"] = f'attachment; filename="{download_name}"'
+    name = download_name or spec["script_name"]
+    resp.headers["Content-Disposition"] = f'attachment; filename="{name}"'
     resp.headers["Cache-Control"] = "no-store"
     return resp, None
 
 
+def _package_collector(platform):
+    """Serve the collector as a branded zip: installer + logo + README.
+
+    Built in memory per request — every copy is personalised with the caller's
+    enrolment credentials, so there is nothing cacheable to write to disk.
+    """
+    spec = _COLLECTORS[platform]
+    script, err = _collector_text(platform, spec["template"])
+    if err:
+        return None, err
+    readme, err = _collector_text(platform, os.path.join("readme", spec["readme"]))
+    if err:
+        return None, err
+
+    buf = io.BytesIO()
+    try:
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for name, text in ((spec["script_name"], script),
+                               ("README.txt", readme)):
+                info = zipfile.ZipInfo(name)
+                info.compress_type = zipfile.ZIP_DEFLATED
+                # 0644, or 0755 for the shell installers: zip carries the mode,
+                # so `unzip && sudo ./install...` works without a chmod first.
+                # 0o100000 is the regular-file bit unzip expects to see.
+                mode = 0o755 if (spec["executable"] and name == spec["script_name"]) \
+                    else 0o644
+                info.external_attr = (0o100000 | mode) << 16
+                zf.writestr(info, text.replace("\n", spec["newline"]))
+            for asset in spec["assets"]:
+                zf.write(os.path.abspath(os.path.join(_BRAND_DIR, asset)), asset)
+    except OSError as exc:
+        log.error("collector package failed (%s): %s", platform, exc)
+        return None, (jsonify({"error": "installer package unavailable"}), 500)
+
+    username, _ = _current_username()
+    log.info("[collector] %s package downloaded by '%s'", platform, username)
+    resp = Response(buf.getvalue(), mimetype="application/zip")
+    resp.headers["Content-Disposition"] = \
+        f'attachment; filename="{spec["zip_name"]}"'
+    resp.headers["Cache-Control"] = "no-store"
+    return resp, None
+
+
+# /api/download/agent/<platform> hands back the branded zip (installer + logo +
+# README) — that is what the UI links to. The /download/<script> paths still
+# serve the bare script for curl/Invoke-WebRequest installs and for anyone who
+# would rather not unzip anything.
 @app.route("/api/download/agent/windows")
-@app.route("/download/install-selenne-agent.ps1")
+@limiter.limit("20 per hour")
+def download_agent_windows_zip():
+    """Branded Windows collector package for the signed-in account."""
+    resp, err = _package_collector("windows")
+    return resp if resp is not None else err
+
+
+@app.route("/download/install-selenne-agent.cmd")
 @limiter.limit("20 per hour")
 def download_agent_windows():
-    """Windows endpoint collector, personalised for the signed-in account."""
+    """Bare Windows installer, personalised for the signed-in account.
+
+    Served as .cmd so the user can just double-click it.
+    """
     resp, err = _render_collector("windows")
     return resp if resp is not None else err
 
 
+@app.route("/api/download/agent/windows.ps1")
+@app.route("/download/install-selenne-agent.ps1")
+@limiter.limit("20 per hour")
+def download_agent_windows_ps1():
+    """Same Windows installer under a .ps1 name.
+
+    For environments that block .cmd downloads or mandate 'Run with PowerShell';
+    the hybrid script runs either way. Not linked from the UI.
+    """
+    resp, err = _render_collector("windows", "install-selenne-agent.ps1")
+    return resp if resp is not None else err
+
+
 @app.route("/api/download/agent/linux")
+@limiter.limit("20 per hour")
+def download_agent_linux_zip():
+    """Branded Linux collector package for the signed-in account."""
+    resp, err = _package_collector("linux")
+    return resp if resp is not None else err
+
+
 @app.route("/download/install-selenne-collector.sh")
 @limiter.limit("20 per hour")
 def download_agent_linux():
-    """Linux endpoint collector, personalised for the signed-in account."""
+    """Bare Linux installer, personalised for the signed-in account."""
     resp, err = _render_collector("linux")
     return resp if resp is not None else err
 
 
 @app.route("/api/download/agent/macos")
+@limiter.limit("20 per hour")
+def download_agent_macos_zip():
+    """Branded macOS collector package for the signed-in account."""
+    resp, err = _package_collector("macos")
+    return resp if resp is not None else err
+
+
 @app.route("/download/install-selenne-collector-macos.sh")
 @limiter.limit("20 per hour")
 def download_agent_macos():
-    """macOS endpoint collector (Apple Silicon + Intel), personalised per account."""
+    """Bare macOS installer (Apple Silicon + Intel), personalised per account."""
     resp, err = _render_collector("macos")
     return resp if resp is not None else err
 

@@ -54,6 +54,28 @@ models, Qdrant/Postgres containers, Ollama + the pulled model, and `/health` +
          visitor IP from `CF-Connecting-IP`.
       2. `TRUST_PROXY=1` in `backend.env` so the backend *reads* it.
 
+      `TRUST_PROXY=1` also makes `wsgi.py` pass `trusted_proxy` to waitress.
+      That is not optional: waitress defaults to `trusted_proxy=None` +
+      `clear_untrusted_proxy_headers=True`, so it **deletes every
+      X-Forwarded-\* header** before Flask sees it, and `ProxyFix` silently
+      reads nothing.
+
+      **Verify end to end — checking each layer separately is what hid this
+      for a month.** nginx can log the right IP while the backend still sees
+      `127.0.0.1`. From a machine that is *not* the origin box:
+
+      ```
+      curl -s -XPOST https://<domain>/api/auth/login \
+        -H 'Content-Type: application/json' \
+        -d '{"username":"probe-doesnotexist","password":"x"}'
+      grep probe-doesnotexist apps/backend/logs/backend.log   # on the host
+      ```
+
+      The logged address must be the caller's public IP. Use a username that
+      does not exist so no real account gets locked out — and never test the
+      lockout with two *different* usernames: the key is `username|ip`, so
+      differing usernames pass even when every IP is `127.0.0.1`.
+
       Do them in that order and confirm a real address shows up in
       `/var/log/nginx/access.log` before flipping `TRUST_PROXY`. Without both,
       every request looks like `127.0.0.1`: the per-(user, IP) login lockout

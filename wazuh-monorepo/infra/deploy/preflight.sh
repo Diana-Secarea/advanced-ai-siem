@@ -48,6 +48,20 @@ if [[ -f "$ENV_FILE" ]]; then
         && note "TRUST_PROXY=1 without a proxy in front — X-Forwarded-For is caller-controlled" \
         || ok "TRUST_PROXY=0 (direct exposure — correct without a proxy)";;
   esac
+
+  # The OTHER half of the pair: nginx must actually write the visitor IP.
+  # TRUST_PROXY=1 with no real_ip_header silently buckets by Cloudflare edge
+  # node instead of by visitor — checking only the backend half is what let
+  # the live host drift for weeks without anything looking wrong.
+  if [[ "${TRUST_PROXY:-0}" == "1" ]]; then
+    if ! cat /etc/nginx/sites-enabled/* /etc/nginx/conf.d/* >/dev/null 2>&1; then
+      note "cannot read /etc/nginx — re-run with sudo to check the nginx half"
+    elif grep -rq "^[[:space:]]*real_ip_header" /etc/nginx/sites-enabled/ /etc/nginx/conf.d/ 2>/dev/null; then
+      ok "nginx restores the real client IP (real_ip_header present)"
+    else
+      bad "TRUST_PROXY=1 but no real_ip_header in nginx — every visitor still shares one rate-limit/lockout counter (run ./cloudflare-realip.sh)"
+    fi
+  fi
 else
   note "no env file at $ENV_FILE (set ENV_FILE=… or copy infra/deploy/wazuh-ai-backend.env)"
 fi

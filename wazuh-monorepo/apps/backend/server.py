@@ -92,6 +92,7 @@ _AUTH_EXEMPT_PREFIXES = ("/assets/", "/legacy/assets/")
 _AUTH_EXEMPT_PATHS = {
     "/login.html", "/favicon.ico",
     "/landing.html",  # public marketing/pricing page
+    "/robots.txt",    # crawl policy — must be readable by search engines
     "/api/download/linux", "/download/selenne-linux.tar.gz",  # public app download
     "/api/billing/config", "/api/billing/checkout",  # Stripe checkout (public)
     "/api/auth/login", "/api/auth/register", "/api/auth/me",
@@ -5092,6 +5093,23 @@ def download_agent_macos():
     """Bare macOS installer (Apple Silicon + Intel), personalised per account."""
     resp, err = _render_collector("macos")
     return resp if resp is not None else err
+
+
+@app.route("/robots.txt")
+def robots_txt():
+    """Crawl policy for the public landing page.
+
+    Kept in _AUTH_EXEMPT_PATHS: behind the auth gate this redirects to
+    /login.html, so crawlers never read it and landing.html goes unindexed.
+    The console itself is authenticated, but saying so explicitly stops
+    crawlers burning budget on pages that only ever 302."""
+    return Response(
+        "User-agent: *\n"
+        "Allow: /landing.html\n"
+        "Disallow: /api/\n"
+        "Disallow: /legacy/\n"
+        "Disallow: /login.html\n",
+        mimetype="text/plain")
 
 
 @app.route("/")

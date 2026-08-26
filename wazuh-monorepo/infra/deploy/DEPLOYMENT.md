@@ -48,12 +48,20 @@ models, Qdrant/Postgres containers, Ollama + the pulled model, and `/health` +
       HTTPS is live. Nginx must set `proxy_buffering off` on the chat route so
       SSE streams token-by-token.
 - [ ] **CORS** — `ALLOWED_ORIGINS=https://selenne.app` (no wildcard).
-- [ ] **Real client IPs** — `TRUST_PROXY=1` in `backend.env` **and** nginx
-      restoring `CF-Connecting-IP` (both are in the samples). Without the pair,
+- [ ] **Real client IPs** — two halves, and neither works alone:
+      1. `sudo ./cloudflare-realip.sh` — generates
+         `/etc/nginx/conf.d/cloudflare-realip.conf` so nginx *writes* the
+         visitor IP from `CF-Connecting-IP`.
+      2. `TRUST_PROXY=1` in `backend.env` so the backend *reads* it.
+
+      Do them in that order and confirm a real address shows up in
+      `/var/log/nginx/access.log` before flipping `TRUST_PROXY`. Without both,
       every request looks like `127.0.0.1`: the per-(user, IP) login lockout
-      and the rate limiter collapse into one shared bucket, so a single
-      attacker can lock out every account. With `TRUST_PROXY=1` but no proxy
-      in front, the opposite hole opens — clients could spoof their own IP.
+      and the rate limiter collapse into one shared counter, so a single
+      attacker can lock out every account. With `TRUST_PROXY=1` but nothing
+      rewriting the header, the opposite hole opens — clients spoof their own
+      IP. `preflight.sh` now checks both halves; it only checked the backend
+      one until 2026-08-26, which is how the live host drifted unnoticed.
 - [ ] **Dependencies pinned** — install from `services/ai-engine/requirements.lock`
       (exact versions) for a reproducible environment.
 

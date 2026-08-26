@@ -19,6 +19,7 @@ Disable the whole gate with AUTH_ENABLED=0 (e.g. for local experiments).
 import contextlib
 import datetime
 import hashlib
+import logging
 import os
 import secrets
 import sqlite3
@@ -26,6 +27,11 @@ import threading
 import time
 
 from werkzeug.security import check_password_hash, generate_password_hash
+
+# Propagates to the root logger configured by logging_setup. Never print():
+# under systemd stdout is a block-buffered pipe, so security events would sit
+# in a buffer instead of reaching journald. Logging writes to stderr, unbuffered.
+log = logging.getLogger("auth")
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "users.db")
 SESSION_TTL_HOURS = int(os.environ.get("AUTH_SESSION_TTL_HOURS", "72"))
@@ -128,7 +134,7 @@ def _restrict_db_permissions():
             if os.path.exists(path) and (os.stat(path).st_mode & 0o077):
                 os.chmod(path, 0o600)
         except OSError as exc:                      # e.g. NFS, foreign owner
-            print(f"[auth] could not restrict {path}: {exc}")
+            log.warning("Could not restrict %s: %s", path, exc)
 
 
 def init_db():
@@ -168,10 +174,10 @@ def init_db():
             )
             if os.environ.get("ADMIN_PASSWORD"):
                 # Already in the operator's env file — don't copy it into the logs.
-                print("[auth] Created default account 'admin' (password from ADMIN_PASSWORD env)")
+                log.info("Created default account 'admin' (password from ADMIN_PASSWORD env)")
             else:
-                print(f"[auth] Created default account  admin / {password}  "
-                      f"(GENERATED — SAVE IT NOW, it is not shown again)")
+                log.warning("Created default account  admin / %s  "
+                            "(GENERATED — SAVE IT NOW, it is not shown again)", password)
     _restrict_db_permissions()
 
 
@@ -211,10 +217,11 @@ def login(username, password, ip="?"):
         if row is None:
             check_password_hash(_DUMMY_HASH, password or "")  # burn equal time
             _record_failure(username, ip)
+            log.warning("Failed login for '%s' from %s (no such user)", username, ip)
             return None, None
         if not check_password_hash(row["password_hash"], password or ""):
             _record_failure(username, ip)
-            print(f"[auth] Failed login for '{username}' from {ip}")
+            log.warning("Failed login for '%s' from %s (bad password)", username, ip)
             return None, None
         token = secrets.token_urlsafe(32)
         conn.execute(
@@ -256,7 +263,7 @@ def change_password(username, current_password, new_password, keep_token=None):
                          (username, _token_digest(keep_token)))
         else:
             conn.execute("DELETE FROM sessions WHERE username = ?", (username,))
-    print(f"[auth] Password changed for '{username}' — other sessions revoked")
+    log.info("Password changed for '%s' — other sessions revoked", username)
     return True, None
 
 

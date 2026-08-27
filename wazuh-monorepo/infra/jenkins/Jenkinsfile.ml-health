@@ -1,0 +1,155 @@
+// ML Engine — daily model HEALTH check
+//
+// Jenkins job type: Pipeline → "Pipeline script from SCM" → this file.
+// Runs on the host agent (label 'wazuh-host' = the WSL box, where Jenkins,
+// Prometheus and the Pushgateway live).
+//
+// This is NOT Jenkinsfile.ml-retrain's evaluation stage. That scores the models
+// against their own held-out test set and answers "did training work?". This
+// scores them against a LIVE alert stream and answers "is this model still
+// calibrated for the host it is judging?".
+//
+// Why it exists: on 2026-08-27 selenne-prod was running models trained on the
+// WSL dev box. Offline F1 was 85.7%, the deployment checklist's "all four
+// models found" check passed, and meanwhile 83% of live alerts came back
+// CRITICAL, the autoencoder sat at its ceiling on 88% of traffic, and a
+// successful SSH login scored 100/100. Nothing in CI compared the model to
+// reality.
+//
+// ---------------------------------------------------------------------------
+// WHICH HOST DOES IT MEASURE?
+//
+// Leaving REMOTE_HOST empty measures the JENKINS host itself — which is the
+// machine the models were trained on, so it will almost always pass and tell
+// you nothing about production. To actually watch prod, set REMOTE_HOST (and
+// REMOTE_SSH_CRED) in the job configuration; the pipeline then copies that
+// host's alerts.json into the workspace and scores it with the deployed
+// models. The address is deliberately NOT in this file — this repo is public.
+// ---------------------------------------------------------------------------
+
+pipeline {
+    agent { label 'wazuh-host' }
+
+    parameters {
+        string(name: 'REMOTE_HOST', defaultValue: '',
+               description: 'user@host to pull alerts.json from (blank = score the Jenkins host, which is usually NOT what you want). Set this in the job config, never in the repo.')
+        string(name: 'REMOTE_SSH_CRED', defaultValue: 'selenne-prod-ssh',
+               description: 'Jenkins credential ID (SSH private key) for REMOTE_HOST')
+        string(name: 'ALERT_BUDGET', defaultValue: '50',
+               description: 'Alerts/day the operator expects to triage. The firing-rate check fails at 10x this.')
+        string(name: 'MIN_LABEL', defaultValue: 'HIGH',
+               description: 'Label at/above which the reactor fires (match REACTOR_MIN_LABEL)')
+        booleanParam(name: 'FAIL_BUILD', defaultValue: false,
+                     description: 'Mark the build FAILURE instead of UNSTABLE when a check fails')
+    }
+
+    triggers {
+        cron('H 23 * * *')                // daily ~23:00 — alerts.json rotates at
+                                          // midnight, so run late to score a
+                                          // nearly-complete day
+    }
+
+    environment {
+        PUSHGATEWAY  = 'http://localhost:9091'
+        LOCAL_ALERTS = '/var/ossec/logs/alerts/alerts.json'
+        FETCHED      = "${env.WORKSPACE}/target_alerts.json"
+    }
+
+    options {
+        timeout(time: 30, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '60'))   // ~2 months of daily runs
+        disableConcurrentBuilds()
+    }
+
+    stages {
+        stage('Sanity') {
+            steps {
+                sh '''
+                    test -x wazuh-monorepo/services/ai-engine/venv/bin/python3 \
+                        || { echo "project venv missing on agent"; exit 1; }
+                '''
+            }
+        }
+
+        stage('Fetch target alerts') {
+            steps {
+                script {
+                    if (params.REMOTE_HOST?.trim()) {
+                        sshagent(credentials: [params.REMOTE_SSH_CRED]) {
+                            sh """
+                                set -e
+                                scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+                                    ${params.REMOTE_HOST}:${LOCAL_ALERTS} ${FETCHED}
+                                echo "fetched \$(wc -l < ${FETCHED}) alerts from the target host"
+                            """
+                        }
+                        env.ALERTS_JSON = env.FETCHED
+                    } else {
+                        echo 'REMOTE_HOST is blank — scoring the Jenkins host. ' +
+                             'This measures the machine the models were trained on ' +
+                             'and is not a meaningful production signal.'
+                        env.ALERTS_JSON = env.LOCAL_ALERTS
+                        sh 'test -r "$LOCAL_ALERTS" || { echo "cannot read $LOCAL_ALERTS"; exit 1; }'
+                    }
+                }
+            }
+        }
+
+        stage('Health check + push') {
+            steps {
+                script {
+                    def rc = sh(returnStatus: true, script: """
+                        export PUSHGATEWAY=${PUSHGATEWAY}
+                        export ALERTS_JSON=${env.ALERTS_JSON}
+                        export ALERT_BUDGET=${params.ALERT_BUDGET}
+                        export MIN_LABEL=${params.MIN_LABEL}
+                        bash wazuh-monorepo/infra/scripts/run_model_health.sh
+                    """)
+                    // rc 1 = a check failed, rc 2 = could not run at all.
+                    if (rc == 2) {
+                        error('model_health.py could not run — see log')
+                    } else if (rc != 0) {
+                        if (params.FAIL_BUILD) {
+                            error('MODEL HEALTH FAILED — see the report above')
+                        }
+                        // UNSTABLE, not FAILURE: a miscalibrated model is a real
+                        // problem but not a broken build, and amber keeps the
+                        // daily trend graph readable.
+                        unstable('MODEL HEALTH FAILED — the ensemble is not calibrated for this host')
+                    }
+                }
+            }
+        }
+
+        stage('Report') {
+            steps {
+                sh '''
+                    wazuh-monorepo/services/ai-engine/venv/bin/python3 - <<'PYEOF'
+import json
+d = json.load(open("wazuh-monorepo/services/ai-engine/data/eval/model_health.json"))
+if d.get("status") == "inconclusive":
+    print(f"INCONCLUSIVE — only {d['n_alerts']} alerts in the window; nothing scored.")
+    raise SystemExit(0)
+print(f"scored {d['n_alerts']} live alerts over {d['span_days']}d")
+for name, c in d["checks"].items():
+    print(f"  {'PASS' if c['ok'] else 'FAIL'}  {name:15} {c['detail']}")
+if d["failed_checks"]:
+    print()
+    print("Failed: " + ", ".join(d["failed_checks"]))
+    print("A saturated or collapsed model is judging traffic it was never")
+    print("fitted on. Retrain the baseline on THAT host's clean data — do not")
+    print("just move the thresholds, and do not arm REACTOR_BLOCK_IP until")
+    print("this passes.")
+PYEOF
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'wazuh-monorepo/services/ai-engine/data/eval/model_health.json',
+                             allowEmptyArchive: true
+        }
+    }
+}

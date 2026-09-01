@@ -1,0 +1,65 @@
+{
+  "timestamp": 1788264250,
+  "status": "fail",
+  "n_alerts": 56,
+  "n_unscorable": 0,
+  "span_days": 0.1,
+  "stacking_active": true,
+  "components": {
+    "if": true,
+    "ae": true,
+    "ueba": true
+  },
+  "saturation": {
+    "if": 0.0,
+    "ae": 0.0357,
+    "ueba": 0.0
+  },
+  "label_share": {
+    "HIGH": 0.0179,
+    "NORMAL": 0.9821
+  },
+  "score_stdev": 12.29,
+  "projected_alerts_per_day": 10.0,
+  "model_age_days": {
+    "anomaly_detector": 45.9,
+    "autoencoder_model": 45.4,
+    "ueba_model": 45.9,
+    "stacking_meta": 45.4
+  },
+  "checks": {
+    "saturation": {
+      "ok": true,
+      "value": 0.0357,
+      "threshold": 0.2,
+      "detail": "ae pinned at >=99 on 3.6% of alerts"
+    },
+    "label_collapse": {
+      "ok": false,
+      "value": 0.9821,
+      "threshold": 0.5,
+      "detail": "98.2% of alerts labelled NORMAL"
+    },
+    "score_spread": {
+      "ok": true,
+      "value": 12.29,
+      "threshold": 5.0,
+      "detail": "combined_score stdev 12.29"
+    },
+    "firing_rate": {
+      "ok": true,
+      "value": 10.0,
+      "threshold": 250.0,
+      "detail": "~10.0/day at >=HIGH vs budget 50.0/day"
+    },
+    "model_age": {
+      "ok": true,
+      "value": 45.9,
+      "threshold": 180.0,
+      "detail": "oldest model 45.9d"
+    }
+  },
+  "failed_checks": [
+    "label_collapse"
+  ]
+}

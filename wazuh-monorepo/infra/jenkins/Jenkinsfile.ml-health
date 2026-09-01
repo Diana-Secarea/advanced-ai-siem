@@ -64,10 +64,31 @@ pipeline {
     stages {
         stage('Sanity') {
             steps {
-                sh '''
-                    test -x wazuh-monorepo/services/ai-engine/venv/bin/python3 \
-                        || { echo "project venv missing on agent"; exit 1; }
-                '''
+                // The venv is gitignored, so it is NEVER in the SCM checkout —
+                // the workspace has the code and the tracked models, but the
+                // interpreter lives on the agent. Point AI_ENGINE_VENV (Manage
+                // Jenkins -> System -> Global properties) at the project venv;
+                // the in-workspace path is only a fallback for agents that
+                // happen to build inside a working tree.
+                script {
+                    def candidates = [
+                        env.AI_ENGINE_VENV ? env.AI_ENGINE_VENV.trim() + '/bin/python3' : null,
+                        env.WORKSPACE + '/wazuh-monorepo/services/ai-engine/venv/bin/python3',
+                    ].findAll { it }
+
+                    def found = candidates.find { c ->
+                        sh(returnStatus: true, script: "test -x '" + c + "'") == 0
+                    }
+
+                    if (!found) {
+                        error('No usable project venv on this agent. Tried:\n' +
+                              candidates.collect { '  - ' + it }.join('\n') +
+                              '\nSet AI_ENGINE_VENV in Manage Jenkins -> System -> Global ' +
+                              'properties to the directory containing bin/python3.')
+                    }
+                    env.AI_ENGINE_PY = found
+                    echo "using python: ${found}"
+                }
             }
         }
 
@@ -101,6 +122,7 @@ pipeline {
                 script {
                     def rc = sh(returnStatus: true, script: """
                         export PUSHGATEWAY=${PUSHGATEWAY}
+                        export AI_ENGINE_PY=${env.AI_ENGINE_PY}
                         export ALERTS_JSON=${env.ALERTS_JSON}
                         export ALERT_BUDGET=${params.ALERT_BUDGET}
                         export MIN_LABEL=${params.MIN_LABEL}

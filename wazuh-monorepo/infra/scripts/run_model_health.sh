@@ -11,7 +11,17 @@ set -uo pipefail          # NOT -e: we need the health exit code, not an abort
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 STARTER="$REPO_DIR/services/ai-engine"
-PY="$STARTER/venv/bin/python3"
+# The venv is gitignored, so a Jenkins SCM checkout never contains one: the
+# workspace holds the code and the (tracked) models, but the interpreter has to
+# come from the host. AI_ENGINE_PY lets the caller point at it; falling back to
+# the in-tree venv keeps manual runs working unchanged.
+PY="${AI_ENGINE_PY:-$STARTER/venv/bin/python3}"
+if [ ! -x "$PY" ]; then
+    echo "[fatal] no usable python at '$PY'" >&2
+    echo "        set AI_ENGINE_PY to the project venv's python3, or create" >&2
+    echo "        the venv at $STARTER/venv" >&2
+    exit 2
+fi
 PUSHGATEWAY="${PUSHGATEWAY:-http://localhost:9091}"
 ALERTS="${ALERTS_JSON:-/var/ossec/logs/alerts/alerts.json}"
 OUT="$STARTER/data/eval/model_health.json"

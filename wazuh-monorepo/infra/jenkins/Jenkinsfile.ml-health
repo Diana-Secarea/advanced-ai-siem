@@ -31,8 +31,8 @@ pipeline {
     agent { label 'wazuh-host' }
 
     parameters {
-        string(name: 'REMOTE_HOST', defaultValue: '',
-               description: 'user@host to pull alerts.json from (blank = score the Jenkins host, which is usually NOT what you want). Set this in the job config, never in the repo.')
+        string(name: 'REMOTE_HOST', defaultValue: (env.SELENNE_REMOTE_HOST ?: '').trim(),
+               description: 'user@host to pull alerts.json from (blank = score the Jenkins host, which is usually NOT what you want). Default comes from the SELENNE_REMOTE_HOST global env var (Manage Jenkins -> System -> Global properties) so that SCHEDULED runs inherit it — a value typed into the job config is overwritten from this file on every build, and cron builds always use defaults. Never put the address in this repo; it is public.')
         string(name: 'REMOTE_SSH_CRED', defaultValue: 'selenne-prod-ssh',
                description: 'Jenkins credential ID (SSH private key) for REMOTE_HOST')
         string(name: 'ALERT_BUDGET', defaultValue: '50',
@@ -74,12 +74,13 @@ pipeline {
         stage('Fetch target alerts') {
             steps {
                 script {
-                    if (params.REMOTE_HOST?.trim()) {
+                    def target = params.REMOTE_HOST?.trim()
+                    if (target) {
                         sshagent(credentials: [params.REMOTE_SSH_CRED]) {
                             sh """
                                 set -e
                                 scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
-                                    ${params.REMOTE_HOST}:${LOCAL_ALERTS} ${FETCHED}
+                                    ${target}:${LOCAL_ALERTS} ${FETCHED}
                                 echo "fetched \$(wc -l < ${FETCHED}) alerts from the target host"
                             """
                         }
@@ -150,6 +151,61 @@ PYEOF
         always {
             archiveArtifacts artifacts: 'wazuh-monorepo/services/ai-engine/data/eval/model_health.json',
                              allowEmptyArchive: true
+        }
+
+        // Mail on bad news and on recovery only — not on every green nightly,
+        // which would be 365 ignorable mails a year and would train the
+        // operator to filter exactly the thing this job exists to surface.
+        //
+        // Recipients come from $DEFAULT_RECIPIENTS (Manage Jenkins -> System ->
+        // Extended E-mail Notification), never from this file: the repo is
+        // public and an address in it is an address in the scrapers.
+        unstable {
+            emailext(
+                to: '$DEFAULT_RECIPIENTS',
+                subject: '[Selenne] MODEL HEALTH FAILED - build #$BUILD_NUMBER',
+                attachmentsPattern: 'wazuh-monorepo/services/ai-engine/data/eval/model_health.json',
+                mimeType: 'text/plain',
+                body: '''The daily model-health check FAILED.
+
+The ensemble is not calibrated for the host it is judging. Retrain the
+baseline on that host's clean data - do not just move the thresholds, and
+do not arm REACTOR_BLOCK_IP until this passes.
+
+Report (model_health.json is attached):
+
+${BUILD_LOG, maxLines=80}
+
+Full console: ${BUILD_URL}console
+'''
+            )
+        }
+
+        failure {
+            emailext(
+                to: '$DEFAULT_RECIPIENTS',
+                subject: '[Selenne] model-health BUILD BROKE - #$BUILD_NUMBER',
+                mimeType: 'text/plain',
+                body: '''The model-health job did not complete - this is a broken build, not a
+failed health check, so the models were NOT measured tonight.
+
+${BUILD_LOG, maxLines=80}
+
+Full console: ${BUILD_URL}console
+'''
+            )
+        }
+
+        fixed {
+            emailext(
+                to: '$DEFAULT_RECIPIENTS',
+                subject: '[Selenne] model health RECOVERED - #$BUILD_NUMBER',
+                mimeType: 'text/plain',
+                body: '''Model health is passing again as of build ${BUILD_NUMBER}.
+
+${BUILD_LOG, maxLines=40}
+'''
+            )
         }
     }
 }

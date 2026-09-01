@@ -31,8 +31,8 @@ pipeline {
     agent { label 'wazuh-host' }
 
     parameters {
-        string(name: 'REMOTE_HOST', defaultValue: (env.SELENNE_REMOTE_HOST ?: '').trim(),
-               description: 'user@host to pull alerts.json from (blank = score the Jenkins host, which is usually NOT what you want). Default comes from the SELENNE_REMOTE_HOST global env var (Manage Jenkins -> System -> Global properties) so that SCHEDULED runs inherit it — a value typed into the job config is overwritten from this file on every build, and cron builds always use defaults. Never put the address in this repo; it is public.')
+        string(name: 'REMOTE_HOST', defaultValue: '',
+               description: 'user@host to pull alerts.json from. Leave BLANK: when empty the pipeline falls back to the SELENNE_REMOTE_HOST global env var (Manage Jenkins -> System -> Global properties), which is what scheduled runs use — they always take parameter defaults, and a declarative default cannot be an expression. Fill this in only to override the target for a single manual run. Never put the address in this repo; it is public.')
         string(name: 'REMOTE_SSH_CRED', defaultValue: 'selenne-prod-ssh',
                description: 'Jenkins credential ID (SSH private key) for REMOTE_HOST')
         string(name: 'ALERT_BUDGET', defaultValue: '50',
@@ -95,8 +95,12 @@ pipeline {
         stage('Fetch target alerts') {
             steps {
                 script {
-                    def target = params.REMOTE_HOST?.trim()
+                    // Parameter first (a manual override), then the global env
+                    // var. Scheduled builds land on the env var because their
+                    // parameter is always the empty default.
+                    def target = params.REMOTE_HOST?.trim() ?: env.SELENNE_REMOTE_HOST?.trim()
                     if (target) {
+                        echo "target host: ${target}"
                         sshagent(credentials: [params.REMOTE_SSH_CRED]) {
                             sh """
                                 set -e
@@ -107,7 +111,8 @@ pipeline {
                         }
                         env.ALERTS_JSON = env.FETCHED
                     } else {
-                        echo 'REMOTE_HOST is blank — scoring the Jenkins host. ' +
+                        echo 'No target host: REMOTE_HOST is blank and SELENNE_REMOTE_HOST ' +
+                             'is unset. Scoring the Jenkins host. ' +
                              'This measures the machine the models were trained on ' +
                              'and is not a meaningful production signal.'
                         env.ALERTS_JSON = env.LOCAL_ALERTS

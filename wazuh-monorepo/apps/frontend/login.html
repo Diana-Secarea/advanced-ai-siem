@@ -47,6 +47,10 @@
         <label>USERNAME</label>
         <input id="username" autocomplete="username" required>
       </div>
+      <div class="auth-field" id="emailField" hidden>
+        <label>EMAIL</label>
+        <input id="email" type="email" autocomplete="email" inputmode="email">
+      </div>
       <div class="auth-field">
         <label>PASSWORD</label>
         <input id="password" type="password" autocomplete="current-password" required minlength="8">
@@ -74,11 +78,12 @@ $("toggleLink").addEventListener("click", () => {
   registering = !registering;
   $("authTitle").textContent = registering ? "Create account" : "Sign in";
   $("authSub").textContent = registering
-    ? "Pick a username and a password of at least 8 characters."
+    ? "Pick a username, add your email, and a password of at least 8 characters."
     : "Analyst access to the AI Threat Engine.";
   $("authBtn").textContent = registering ? "▶ Create account" : "▶ Sign in";
   $("toggleLine").firstChild.textContent = registering ? "Already registered? " : "No account yet? ";
   $("toggleLink").textContent = registering ? "Sign in" : "Create one";
+  $("emailField").hidden = !registering;   // email only asked at sign-up
   $("authMsg").textContent = "";
 });
 
@@ -87,19 +92,29 @@ $("authForm").addEventListener("submit", async (e) => {
   const msg = $("authMsg");
   msg.className = "auth-err";
   msg.textContent = "…";
-  const body = JSON.stringify({ username: $("username").value, password: $("password").value });
-  const opts = { method: "POST", headers: { "Content-Type": "application/json" }, body };
+  const creds = { username: $("username").value, password: $("password").value };
+  const opts = { method: "POST", headers: { "Content-Type": "application/json" } };
   try {
     if (registering) {
-      const r = await fetch("/api/auth/register", opts);
+      const regBody = { ...creds, email: $("email").value };
+      const r = await fetch("/api/auth/register",
+        { ...opts, body: JSON.stringify(regBody) });
       const d = await r.json();
       if (!r.ok) { msg.textContent = d.error || "Registration failed"; return; }
+      // If the server asked for email verification, don't auto-login — the
+      // account may be gated until the address is confirmed.
+      if (d.email_verification === "sent") {
+        msg.className = "auth-err auth-ok";
+        msg.textContent = d.message || "Account created — check your email to verify.";
+        return;
+      }
       msg.className = "auth-err auth-ok";
       msg.textContent = "Account created — signing you in…";
     }
-    const r = await fetch("/api/auth/login", opts);
+    const r = await fetch("/api/auth/login",
+      { ...opts, body: JSON.stringify(creds) });
     const d = await r.json();
-    if (!r.ok) { msg.textContent = d.error || "Login failed"; return; }
+    if (!r.ok) { msg.className = "auth-err"; msg.textContent = d.error || "Login failed"; return; }
     location.href = "/";
   } catch (err) {
     msg.textContent = "Backend unreachable — is the server running?";

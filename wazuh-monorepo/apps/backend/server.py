@@ -96,6 +96,7 @@ _AUTH_EXEMPT_PATHS = {
     "/api/download/linux", "/download/selenne-linux.tar.gz",  # public app download
     "/api/billing/config", "/api/billing/checkout",  # Stripe checkout (public)
     "/api/auth/login", "/api/auth/register", "/api/auth/me",
+    "/api/auth/verify-email",  # email-verification click-through (token-authed)
     "/metrics",   # Prometheus scrape — read-only counters, no alert content
     "/health", "/ready",  # liveness/readiness probes for monitoring & LB
 }
@@ -147,6 +148,8 @@ def auth_login():
 
     token, user = _auth.login(username, body.get("password"), ip=ip)
     if not token:
+        if isinstance(user, dict) and user.get("error") == "email_unverified":
+            return jsonify({"error": "Verify your email address before signing in."}), 403
         return jsonify({"error": "Invalid username or password"}), 401
     resp = jsonify({"status": "ok", "user": user})
     resp.set_cookie(
@@ -157,14 +160,65 @@ def auth_login():
     return resp
 
 
+def _verification_link(token):
+    """Absolute URL a user clicks to verify their email."""
+    base = os.environ.get("PUBLIC_BASE_URL", request.host_url.rstrip("/"))
+    return f"{base}/api/auth/verify-email?token={token}"
+
+
+def _deliver_verification(email, token):
+    """Send (or, without SMTP, log) the verification link.
+
+    A real deployment wires this to an email provider. In the PoC we log the
+    link to the security audit trail so an operator can complete the flow; the
+    token is single-use and short-lived, so this is acceptable for a demo but
+    should be replaced before production.
+    """
+    link = _verification_link(token)
+    log.info("[auth] Email verification link for %s : %s", email, link)
+    return link
+
+
 @app.route("/api/auth/register", methods=["POST"])
 @limiter.limit("5 per minute")
 def auth_register():
     body = request.get_json(silent=True) or {}
-    ok, err = _auth.create_user(body.get("username"), body.get("password"))
+    email = _scalar_str(body.get("email")) or ""
+    ok, err, verify_token = _auth.create_user(
+        body.get("username"), body.get("password"), email=email)
     if not ok:
         return jsonify({"error": err}), 400
-    return jsonify({"status": "ok"})
+    resp = {"status": "ok"}
+    if verify_token:
+        _deliver_verification(email, verify_token)
+        resp["email_verification"] = "sent"
+        resp["message"] = "Account created — check your email to verify your address."
+    return jsonify(resp)
+
+
+@app.route("/api/auth/verify-email", methods=["GET", "POST"])
+@limiter.limit("10 per minute")
+def auth_verify_email():
+    """Consume an email-verification token.
+
+    GET is the click-through from the emailed link (returns a tiny HTML page);
+    POST is for API clients (returns JSON).
+    """
+    token = request.args.get("token") or (request.get_json(silent=True) or {}).get("token") or ""
+    ok, err = _auth.verify_email(str(token)[:128])
+    if request.method == "POST":
+        return (jsonify({"status": "ok"}) if ok
+                else (jsonify({"error": err}), 400))
+    # Browser click-through — plain, dependency-free confirmation page.
+    body = ("<h2>✓ Email verified</h2><p>You can now sign in.</p>"
+            "<p><a href='/login.html'>Go to sign in</a></p>") if ok else (
+            f"<h2>Verification failed</h2><p>{err}</p>"
+            "<p><a href='/login.html'>Back to sign in</a></p>")
+    status = 200 if ok else 400
+    return (f"<!doctype html><meta charset='utf-8'><title>Email verification</title>"
+            f"<body style='font-family:system-ui;max-width:32rem;margin:4rem auto;"
+            f"color:#e8ecf8;background:#0b0f1a;padding:2rem;border-radius:12px'>{body}</body>",
+            status, {"Content-Type": "text/html; charset=utf-8"})
 
 
 @app.route("/api/auth/logout", methods=["POST"])
@@ -373,7 +427,14 @@ def profile():
     body = request.get_json(silent=True) or {}
     email = _scalar_str(body.get("email")) if "email" in body else None
     org = _scalar_str(body.get("organisation")) if "organisation" in body else None
-    return jsonify({"profile": _auth.update_profile(username, email=email, organisation=org)})
+    prof, err, verify_token = _auth.update_profile(username, email=email, organisation=org)
+    if err:
+        return jsonify({"error": err}), 400
+    resp = {"profile": prof}
+    if verify_token:
+        _deliver_verification(prof.get("email", ""), verify_token)
+        resp["email_verification"] = "sent"
+    return jsonify(resp)
 
 
 @app.route("/api/profile/avatar", methods=["POST"])
@@ -388,7 +449,8 @@ def profile_avatar():
         return jsonify({"error": "avatar must be a data:image/... URI"}), 400
     if len(avatar) > 400_000:   # ~300 KB of image
         return jsonify({"error": "Image too large — keep it under ~300 KB"}), 413
-    return jsonify({"profile": _auth.update_profile(username, avatar=avatar)})
+    prof, _err, _tok = _auth.update_profile(username, avatar=avatar)
+    return jsonify({"profile": prof})
 
 
 @app.route("/api/tickets", methods=["GET", "POST"])

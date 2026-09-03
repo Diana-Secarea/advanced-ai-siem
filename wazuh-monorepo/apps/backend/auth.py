@@ -28,6 +28,15 @@ import time
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
+import security  # registration/profile input hardening (stdlib-only)
+
+# How long an email-verification link stays valid.
+EMAIL_VERIFY_TTL_HOURS = int(os.environ.get("EMAIL_VERIFY_TTL_HOURS", "24"))
+# When 1, accounts with an unverified email cannot sign in. Default off so a
+# deployment without SMTP wired up still works; the token + endpoint exist
+# regardless so operators can turn the gate on once mail delivery is ready.
+EMAIL_VERIFY_REQUIRED = os.environ.get("EMAIL_VERIFY_REQUIRED", "0") == "1"
+
 # Propagates to the root logger configured by logging_setup. Never print():
 # under systemd stdout is a block-buffered pipe, so security events would sit
 # in a buffer instead of reaching journald. Logging writes to stderr, unbuffered.
@@ -159,7 +168,10 @@ def init_db():
         for col, decl in (("email", "TEXT DEFAULT ''"),
                           ("organisation", "TEXT DEFAULT ''"),
                           ("last_login", "TEXT DEFAULT ''"),
-                          ("avatar", "TEXT DEFAULT ''")):   # data-URI, capped by API
+                          ("avatar", "TEXT DEFAULT ''"),   # data-URI, capped by API
+                          ("email_verified", "INTEGER DEFAULT 0"),
+                          ("verify_token", "TEXT DEFAULT ''"),   # sha-256 digest
+                          ("verify_expires", "TEXT DEFAULT ''")):
             try:
                 conn.execute(f"ALTER TABLE users ADD COLUMN {col} {decl}")
             except sqlite3.OperationalError:
@@ -181,25 +193,94 @@ def init_db():
     _restrict_db_permissions()
 
 
-def create_user(username, password, role="analyst"):
-    """Returns (ok, error_message)."""
-    username = (username or "").strip().lower()
-    if not username or not username.replace("_", "").replace("-", "").isalnum():
-        return False, "Username must be alphanumeric (plus - and _)"
-    if len(username) > 40:
-        return False, "Username too long"
-    if len(password or "") < 8:
-        return False, "Password must be at least 8 characters"
+def create_user(username, password, role="analyst", email=""):
+    """Create an account. Returns (ok, error_message, verify_token).
+
+    Every field is screened at the trust boundary (see security.py): usernames
+    are ASCII alnum + -/_, non-reserved, emoji/injection/SQL-shape free; the
+    password clears length + common-password checks; the email (optional unless
+    EMAIL_VERIFY_REQUIRED) must be a well-formed ASCII address.
+
+    ``verify_token`` is the raw, single-use email-verification token when an
+    email was supplied (only its SHA-256 digest is stored) — the caller turns
+    it into a link. It is None when no email was given.
+    """
+    ok, username, err = security.validate_username(username)
+    if not ok:
+        return False, err, None
+
+    ok, err = security.validate_password(password, username=username)
+    if not ok:
+        return False, err, None
+
+    ok, email, err = security.validate_email(email, required=EMAIL_VERIFY_REQUIRED)
+    if not ok:
+        return False, err, None
+
+    verify_token = None
+    verify_digest = ""
+    verify_expires = ""
+    if email:
+        verify_token = secrets.token_urlsafe(32)
+        verify_digest = _token_digest(verify_token)
+        verify_expires = _iso(_now() + datetime.timedelta(hours=EMAIL_VERIFY_TTL_HOURS))
+
     try:
         with _db_lock, _conn() as conn:
             conn.execute(
-                "INSERT INTO users (username, password_hash, role, created_at) "
-                "VALUES (?, ?, ?, ?)",
-                (username, generate_password_hash(password), role, _iso(_now())),
+                "INSERT INTO users (username, password_hash, role, created_at, "
+                "email, email_verified, verify_token, verify_expires) "
+                "VALUES (?, ?, ?, ?, ?, 0, ?, ?)",
+                (username, generate_password_hash(password), role, _iso(_now()),
+                 email, verify_digest, verify_expires),
             )
-        return True, None
+        return True, None, verify_token
     except sqlite3.IntegrityError:
-        return False, "Username already exists"
+        return False, "Username already exists", None
+
+
+def verify_email(token):
+    """Consume an email-verification token. Returns (ok, error_message).
+
+    The token is matched by digest, must be unexpired, and is cleared on use so
+    a link cannot be replayed.
+    """
+    if not token or len(token) > 128:
+        return False, "Invalid verification link"
+    digest = _token_digest(token)
+    with _db_lock, _conn() as conn:
+        row = conn.execute(
+            "SELECT username, verify_expires, email_verified FROM users "
+            "WHERE verify_token = ?", (digest,)).fetchone()
+        if row is None:
+            return False, "Invalid or already-used verification link"
+        if row["verify_expires"] and row["verify_expires"] < _iso(_now()):
+            return False, "Verification link has expired — request a new one"
+        conn.execute(
+            "UPDATE users SET email_verified = 1, verify_token = '', verify_expires = '' "
+            "WHERE username = ?", (row["username"],))
+    log.info("Email verified for '%s'", row["username"])
+    return True, None
+
+
+def issue_email_verification(username):
+    """(Re)issue a verification token for an account. Returns (token, email).
+
+    Returns (None, None) if the account has no email or is already verified.
+    """
+    username = (username or "").strip().lower()
+    token = secrets.token_urlsafe(32)
+    with _db_lock, _conn() as conn:
+        row = conn.execute(
+            "SELECT email, email_verified FROM users WHERE username = ?",
+            (username,)).fetchone()
+        if row is None or not row["email"] or row["email_verified"]:
+            return None, None
+        conn.execute(
+            "UPDATE users SET verify_token = ?, verify_expires = ? WHERE username = ?",
+            (_token_digest(token), _iso(_now() + datetime.timedelta(hours=EMAIL_VERIFY_TTL_HOURS)),
+             username))
+    return token, row["email"]
 
 
 def login(username, password, ip="?"):
@@ -211,7 +292,8 @@ def login(username, password, ip="?"):
     username = (username or "").strip().lower()
     with _db_lock, _conn() as conn:
         row = conn.execute(
-            "SELECT username, password_hash, role FROM users WHERE username = ?",
+            "SELECT username, password_hash, role, email, email_verified "
+            "FROM users WHERE username = ?",
             (username,),
         ).fetchone()
         if row is None:
@@ -223,6 +305,12 @@ def login(username, password, ip="?"):
             _record_failure(username, ip)
             log.warning("Failed login for '%s' from %s (bad password)", username, ip)
             return None, None
+        # Email-verification gate: only bites accounts that HAVE an email set,
+        # so the seeded admin and legacy accounts are unaffected. The password
+        # was already correct, so this is not a credential-enumeration vector.
+        if EMAIL_VERIFY_REQUIRED and row["email"] and not row["email_verified"]:
+            log.warning("Blocked login for '%s' from %s (email unverified)", username, ip)
+            return None, {"error": "email_unverified"}
         token = secrets.token_urlsafe(32)
         conn.execute(
             "INSERT INTO sessions (token, username, created_at, expires_at) VALUES (?, ?, ?, ?)",
@@ -349,22 +437,49 @@ def signup_series(days=30):
 def get_profile(username):
     with _db_lock, _conn() as conn:
         row = conn.execute(
-            "SELECT username, role, created_at, email, organisation, avatar "
-            "FROM users WHERE username = ?", (username,)).fetchone()
+            "SELECT username, role, created_at, email, organisation, avatar, "
+            "email_verified FROM users WHERE username = ?", (username,)).fetchone()
     return dict(row) if row else None
 
 
 def update_profile(username, email=None, organisation=None, avatar=None):
-    """Update profile fields; None leaves a field untouched. Returns profile."""
+    """Update profile fields; None leaves a field untouched.
+
+    Returns (profile, error, verify_token). ``error`` is a message when a
+    screened field was rejected (nothing is written in that case).
+    ``verify_token`` is a fresh email-verification token when the email changed
+    to a new address (only its digest is stored), else None.
+    """
+    verify_token = None
     sets, params = [], []
+
     if email is not None:
-        sets.append("email = ?"); params.append(email.strip()[:120])
+        ok, clean_email, err = security.validate_email(email, required=False)
+        if not ok:
+            return get_profile(username), err, None
+        current = get_profile(username) or {}
+        sets.append("email = ?"); params.append(clean_email)
+        if clean_email and clean_email != (current.get("email") or ""):
+            # New address → must be re-verified. Stamp a fresh single-use token.
+            verify_token = secrets.token_urlsafe(32)
+            sets.append("email_verified = 0")
+            sets.append("verify_token = ?"); params.append(_token_digest(verify_token))
+            sets.append("verify_expires = ?")
+            params.append(_iso(_now() + datetime.timedelta(hours=EMAIL_VERIFY_TTL_HOURS)))
+        elif not clean_email:
+            sets.append("email_verified = 0")
+
     if organisation is not None:
-        sets.append("organisation = ?"); params.append(organisation.strip()[:120])
+        ok, clean_org, err = security.validate_organisation(organisation)
+        if not ok:
+            return get_profile(username), err, None
+        sets.append("organisation = ?"); params.append(clean_org)
+
     if avatar is not None:
         sets.append("avatar = ?"); params.append(avatar)
+
     if sets:
         params.append(username)
         with _db_lock, _conn() as conn:
             conn.execute(f"UPDATE users SET {', '.join(sets)} WHERE username = ?", params)
-    return get_profile(username)
+    return get_profile(username), None, verify_token

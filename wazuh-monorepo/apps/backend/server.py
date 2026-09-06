@@ -979,6 +979,24 @@ OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2")
 # account from this host.
 OLLAMA_KEEP_ALIVE = os.environ.get("OLLAMA_KEEP_ALIVE", "24h")
 
+# --- Agentic RAG latency controls -------------------------------------------
+# The agentic pipeline (gate → rewrite → grade → corrective retry) issues up to
+# five *extra* small Ollama completions before the answer even begins to stream.
+# Every stage fails open, so a slow or unreachable helper should degrade to plain
+# retrieval FAST rather than blocking. Before this hotfix each helper inherited a
+# 30 s timeout; under load those stacked well past nginx's 60 s default
+# proxy_read_timeout on /api/chat and returned 504 Gateway Timeout.
+#
+#   AGENTIC_LLM_TIMEOUT   per-helper-call ceiling (seconds). Kept small: a helper
+#                         that can't answer in a few seconds is not worth waiting
+#                         for when the safe fallback is "just retrieve".
+#   RAG_AGENTIC_BUDGET_S  wall-clock budget for the WHOLE pre-generation agentic
+#                         phase. Once spent, remaining stages are skipped and the
+#                         request proceeds with what it has, guaranteeing the
+#                         answer starts before the proxy gives up.
+AGENTIC_LLM_TIMEOUT  = int(os.environ.get("AGENTIC_LLM_TIMEOUT", "8"))
+RAG_AGENTIC_BUDGET_S = float(os.environ.get("RAG_AGENTIC_BUDGET_S", "12"))
+
 # --- Wazuh Alert Store ---
 # Stateful across restarts: every alert seen while the server runs is appended
 # to ALERT_SESSION_FILE and reloaded on the next start, so dashboard counts
@@ -1603,8 +1621,15 @@ def _pin_ollama_async():
 
 
 def _call_ollama(messages: list, temperature: float = 0.3,
-                 max_tokens: int = 1024, timeout: int = 120) -> str:
-    """Call Ollama's OpenAI-compatible chat completions API (blocking)."""
+                 max_tokens: int = 1024, timeout: int = 120,
+                 pin: bool = True) -> str:
+    """Call Ollama's OpenAI-compatible chat completions API (blocking).
+
+    pin=False skips the fire-and-forget keep-alive re-pin. The agentic helper
+    stages make several back-to-back calls; re-pinning after each one just
+    spawns extra threads and HTTP requests that pile more load onto the same
+    single Ollama instance. Pinning once (after the main generation) is enough.
+    """
     import requests
 
     url = f"{OLLAMA_URL}/v1/chat/completions"
@@ -1619,7 +1644,8 @@ def _call_ollama(messages: list, temperature: float = 0.3,
         resp = requests.post(url, json=payload, timeout=timeout)
         resp.raise_for_status()
         data = resp.json()
-        _pin_ollama_async()  # /v1 reset the unload timer to 5 min — re-pin
+        if pin:
+            _pin_ollama_async()  # /v1 reset the unload timer to 5 min — re-pin
         return data["choices"][0]["message"]["content"]
     except requests.exceptions.ConnectionError:
         return "Error: Cannot connect to Ollama. Make sure `ollama serve` is running."
@@ -1675,8 +1701,13 @@ def _stream_ollama(messages: list):
 
 
 def _agentic_llm(messages: list, max_tokens: int = 64) -> str:
-    """Small deterministic completion used by the agentic RAG helper stages."""
-    return _call_ollama(messages, temperature=0.0, max_tokens=max_tokens, timeout=30)
+    """Small deterministic completion used by the agentic RAG helper stages.
+
+    Short timeout + no re-pin: every caller fails open to plain retrieval, so a
+    helper that stalls must give up quickly instead of dragging the whole
+    request past the proxy timeout. See AGENTIC_LLM_TIMEOUT."""
+    return _call_ollama(messages, temperature=0.0, max_tokens=max_tokens,
+                        timeout=AGENTIC_LLM_TIMEOUT, pin=False)
 
 
 def _multi_query_alerts(queries: list, top_k: int = 10) -> list:
@@ -1720,10 +1751,22 @@ def _build_rag_context(user_message: str, history: list, inj_flagged: bool) -> t
     """
     rag_meta = {"gate": "retrieve", "queries": [user_message],
                 "chunks_retrieved": None, "chunks_kept": None,
-                "corrective_retry": False, "low_confidence": False}
+                "corrective_retry": False, "low_confidence": False,
+                "budget_exceeded": False}
+
+    # Wall-clock budget for the agentic helper stages. Each stage is optional and
+    # fails open, so once the budget is spent we stop spending LLM round-trips on
+    # retrieval refinement and go answer the question with what we have. This is
+    # the backstop that keeps total request time under the proxy timeout even
+    # when Ollama is slow enough that individual helper timeouts don't trip.
+    _agentic_deadline = time.time() + RAG_AGENTIC_BUDGET_S
+
+    def _budget_left():
+        return time.time() < _agentic_deadline
 
     # --- Stage 1: retrieval gate ---
-    if not inj_flagged and _agentic_rag.gate_skip(_agentic_llm, user_message, history):
+    if not inj_flagged and _budget_left() and \
+            _agentic_rag.gate_skip(_agentic_llm, user_message, history):
         with _metric_lock:
             _metric_counters["rag_gate_skips"] += 1
         rag_meta["gate"] = "skip"
@@ -1744,7 +1787,7 @@ def _build_rag_context(user_message: str, history: list, inj_flagged: bool) -> t
     # therefore feed only (a) the keyword alert search, where synonym expansion
     # genuinely widens exact-term matching, and (b) the corrective retry below.
     queries = [user_message]
-    if not inj_flagged:
+    if not inj_flagged and _budget_left():
         queries = _agentic_rag.rewrite_queries(_agentic_llm, user_message, history)
         if len(queries) > 1:
             with _metric_lock:
@@ -1781,12 +1824,12 @@ def _build_rag_context(user_message: str, history: list, inj_flagged: bool) -> t
         low_confidence = False
 
         # --- Stage 3: chunk grading, with one corrective re-retrieve ---
-        if ti_results and not inj_flagged:
+        if ti_results and not inj_flagged and _budget_left():
             rag_meta["chunks_retrieved"] = len(ti_results)
             chunk_texts = [f"({r.get('episode_type', '')}) {r.get('summary', '')[:400]}"
                            for r in ti_results]
             kept, graded = _agentic_rag.grade_chunks(_agentic_llm, user_message, chunk_texts)
-            if graded and not kept:
+            if graded and not kept and _budget_left():
                 rag_meta["corrective_retry"] = True
                 retry_queries = _agentic_rag.rewrite_queries(
                     _agentic_llm, user_message, history,
@@ -1843,6 +1886,9 @@ def _build_rag_context(user_message: str, history: list, inj_flagged: bool) -> t
         alert_block = "No matching Wazuh alerts found."
 
     n_total = len(_visible_alerts())
+
+    if not _budget_left():
+        rag_meta["budget_exceeded"] = True
 
     augmented = (
         f"=== Threat Intelligence Context ===\n{_guardrails.wrap_context(ti_block)}\n\n"

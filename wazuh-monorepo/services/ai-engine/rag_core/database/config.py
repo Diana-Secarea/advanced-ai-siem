@@ -16,6 +16,10 @@ PG_DSN = f"host={PG_HOST} port={PG_PORT} dbname={PG_DB} user={PG_USER} password=
 # Qdrant
 QDRANT_HOST = os.environ.get("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.environ.get("QDRANT_PORT", "6333"))
+# Per-operation timeout (seconds). Without it qdrant-client uses a long default,
+# so a hung/overloaded Qdrant would block a chat request thread indefinitely
+# instead of failing fast and letting the pipeline degrade gracefully.
+QDRANT_TIMEOUT = int(os.environ.get("QDRANT_TIMEOUT", "5"))
 
 # Collection names
 COLLECTION_THREAT_INTEL    = "wazuh_threat_intel"

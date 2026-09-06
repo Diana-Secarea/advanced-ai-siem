@@ -26,6 +26,9 @@ from qdrant_client.models import (
     SparseIndexParams,
     SparseVector,
     PointStruct,
+    Prefetch,
+    FusionQuery,
+    Fusion,
     Filter,
     FieldCondition,
     MatchValue,
@@ -36,6 +39,7 @@ from qdrant_client.models import (
 from rag_core.database.config import (
     QDRANT_HOST,
     QDRANT_PORT,
+    QDRANT_TIMEOUT,
     COLLECTION_THREAT_INTEL,
     COLLECTION_ALERT_EPISODES,
     EMBEDDING_MODEL,
@@ -113,7 +117,8 @@ class QdrantStore:
     """
 
     def __init__(self):
-        self.client   = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+        self.client   = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT,
+                                     timeout=QDRANT_TIMEOUT)
         self.embedder = SentenceTransformer(EMBEDDING_MODEL)
         self.sparse_embedder = SparseTextEmbedding(model_name=SPARSE_MODEL)
         self._ensure_collections()
@@ -372,13 +377,37 @@ class QdrantStore:
 
         f = self._build_filter(filter_source_type, filter_tags, filter_episode_type)
 
-        # --- Step 2: fetch candidates from each retriever independently ---
-        dense_hits  = self._fetch_dense(dense_vec,  PREFETCH_LIMIT, collection, f)
-        sparse_hits = self._fetch_sparse(sparse_vec, PREFETCH_LIMIT, collection, f)
+        # --- Steps 2+3: prefer ONE native hybrid query (server-side RRF) ---
+        # Qdrant (>=1.10) fuses the dense and sparse prefetches with RRF in a
+        # single round-trip, halving the network latency of the old two-query +
+        # client-side fusion path and offloading the merge onto the DB. Qdrant's
+        # RRF uses the same 1/(k+rank) formula, so the [0,1] normalization below
+        # (max_rrf = 2/(rrf_k+1)) stays valid. Fall back to the two-query path if
+        # the server rejects the fused query for any reason (fail open).
+        top = None
+        try:
+            response = self.client.query_points(
+                collection_name=collection,
+                prefetch=[
+                    Prefetch(query=dense_vec,  using=DENSE_VEC,
+                             limit=PREFETCH_LIMIT, filter=f),
+                    Prefetch(query=sparse_vec, using=SPARSE_VEC,
+                             limit=PREFETCH_LIMIT, filter=f),
+                ],
+                query=FusionQuery(fusion=Fusion.RRF),
+                limit=top_k,
+                with_payload=True,
+            )
+            top = [(hit.id, hit.score, hit.payload) for hit in response.points]
+        except Exception as e:
+            print(f"[qdrant] native fusion failed, using client-side RRF: {e}")
 
-        # --- Step 3: fuse with RRF, slice top-k ---
-        fused = rrf_fusion([dense_hits, sparse_hits], k=rrf_k)
-        top   = fused[:top_k]
+        if top is None:
+            # --- Fallback: fetch each retriever independently, fuse in Python ---
+            dense_hits  = self._fetch_dense(dense_vec,  PREFETCH_LIMIT, collection, f)
+            sparse_hits = self._fetch_sparse(sparse_vec, PREFETCH_LIMIT, collection, f)
+            fused = rrf_fusion([dense_hits, sparse_hits], k=rrf_k)
+            top   = fused[:top_k]
 
         # Raw RRF scores live on a tiny scale: a document ranked #1 in BOTH
         # lists gets 2/(k+1) ≈ 0.0328 (k=60). Downstream consumers (severity

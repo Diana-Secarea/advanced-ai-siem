@@ -154,7 +154,7 @@ def _require_auth():
     # this, probing for an installer that carries the enrolment password is
     # invisible to the console except as an anonymous 401 in the access log.
     if path.startswith(_COLLECTOR_PATH_PREFIXES):
-        logging_setup.audit("collector_download_denied",
+        logging_setup.audit("collector_download_denied", level="warning",
                             platform=_collector_platform_from_path(path),
                             path=path, reason="unauthenticated",
                             outcome="denied", src_ip=get_remote_address(),
@@ -255,7 +255,8 @@ def auth_verify():
     # gets a page rather than a JSON blob; scripted callers still get JSON.
     wants_html = "text/html" in (request.accept_mimetypes.best or "")
     if err:
-        logging_setup.audit("email_verify_failed", outcome="denied", reason=err,
+        logging_setup.audit("email_verify_failed", level="warning",
+                            outcome="denied", reason=err,
                             src_ip=get_remote_address())
         if wants_html:
             return redirect("/login.html?verify=failed&reason="
@@ -5125,7 +5126,8 @@ def _collector_text(platform, filename):
     if not username or username == "anonymous":
         # Audited, not just refused: a run of these is someone probing for an
         # installer that carries the enrolment password.
-        logging_setup.audit("collector_download_denied", platform=platform,
+        logging_setup.audit("collector_download_denied", level="warning",
+                            platform=platform,
                             reason="unauthenticated", outcome="denied",
                             src_ip=get_remote_address(),
                             user_agent=request.user_agent.string or "-")
@@ -5136,7 +5138,8 @@ def _collector_text(platform, filename):
     # not be reachable from an address nobody has confirmed: without this, a
     # throwaway signup is enough to obtain the shared enrolment secret.
     if not _auth.is_email_verified(username):
-        logging_setup.audit("collector_download_denied", platform=platform,
+        logging_setup.audit("collector_download_denied", level="warning",
+                            platform=platform,
                             reason="email_unverified", outcome="denied",
                             username=username, src_ip=get_remote_address())
         return None, (jsonify({
@@ -5145,7 +5148,8 @@ def _collector_text(platform, filename):
 
     reg_password = os.environ.get("WAZUH_REG_PASSWORD", "")
     if not reg_password:
-        logging_setup.audit("collector_download_denied", platform=platform,
+        logging_setup.audit("collector_download_denied", level="warning",
+                            platform=platform,
                             reason="enrolment_unconfigured", outcome="denied",
                             username=username, src_ip=get_remote_address())
         return None, (jsonify({"error": "Endpoint enrolment is not configured on "

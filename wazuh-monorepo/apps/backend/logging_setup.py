@@ -75,10 +75,12 @@ def setup_logging():
         return
     level = getattr(logging, os.environ.get("LOG_LEVEL", "INFO").upper(), logging.INFO)
     log_dir = Path(os.environ.get("LOG_DIR", Path(__file__).parent / "logs"))
+    _log_dir_error = None
     try:
         log_dir.mkdir(parents=True, exist_ok=True)
-    except OSError:
+    except OSError as exc:
         log_dir = None  # read-only fs — console logging still works
+        _log_dir_error = exc
 
     fmt = logging.Formatter(
         "%(asctime)s %(levelname)-7s [%(name)s] %(message)s",
@@ -143,20 +145,42 @@ def setup_logging():
         "Logging initialized (level=%s, dir=%s)",
         logging.getLevelName(level), log_dir or "console-only")
 
+    if log_dir is None:
+        # No writable log dir means the collector-facing files were never
+        # created, so audit() and access() silently revert to prose on the
+        # console and NOTHING reaches the Wazuh collector. That is a blind spot
+        # in the security audit trail, not a cosmetic downgrade — say so loudly,
+        # the same way an individual sink failure is reported below.
+        logging.getLogger("backend").warning(
+            "log dir %s is not writable (%s) — running console-only. Security "
+            "audit events will NOT be written as JSON and will NOT reach the "
+            "Wazuh collector; set LOG_DIR to a writable path.",
+            os.environ.get("LOG_DIR", Path(__file__).parent / "logs"),
+            _log_dir_error)
+
 
 def get_logger(name):
     return logging.getLogger(name)
 
 
-def audit(event, **fields):
+def audit(event, *, level="info", **fields):
     """Record one security-relevant event for the Wazuh collector.
 
     Writes a single JSON line to AUDIT_LOG. Never raises: an audit sink that
     can crash a request handler would be worse than the blind spot it fixes.
+
+    `level` sets the record's severity, surfaced as selenne.level in the JSON.
+    It defaults to "info"; pass "warning" (or higher) for denials and failures
+    so the field carries real signal and a JSON-stream consumer can filter on
+    it before the Wazuh rules run. `level` is keyword-only, so it never shadows
+    an audit field of the same name.
     """
+    lvl = getattr(logging, str(level).upper(), logging.INFO)
+    if not isinstance(lvl, int):
+        lvl = logging.INFO
     try:
-        logging.getLogger("audit").info(
-            event, extra={"audit": dict(fields, event=event)})
+        logging.getLogger("audit").log(
+            lvl, event, extra={"audit": dict(fields, event=event)})
     except Exception:            # noqa: BLE001 - deliberately swallowing
         logging.getLogger("backend").exception("audit sink failed for %s", event)
 

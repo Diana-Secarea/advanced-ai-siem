@@ -125,12 +125,18 @@ pipeline {
         stage('Health check + push') {
             steps {
                 script {
+                    // Every RHS is quoted: these are Groovy-interpolated into
+                    // the shell text, and FETCHED/AI_ENGINE_PY are paths under
+                    // $WORKSPACE — a Jenkins job name with a space yields a
+                    // workspace with a space, and an unquoted `export VAR=/a b/c`
+                    // splits on it (VAR is truncated to /a, `b/c` mis-parsed).
+                    // Same hazard the scp fetch above already guards against.
                     def rc = sh(returnStatus: true, script: """
-                        export PUSHGATEWAY=${PUSHGATEWAY}
-                        export AI_ENGINE_PY=${env.AI_ENGINE_PY}
-                        export ALERTS_JSON=${env.ALERTS_JSON}
-                        export ALERT_BUDGET=${params.ALERT_BUDGET}
-                        export MIN_LABEL=${params.MIN_LABEL}
+                        export PUSHGATEWAY="${PUSHGATEWAY}"
+                        export AI_ENGINE_PY="${env.AI_ENGINE_PY}"
+                        export ALERTS_JSON="${env.ALERTS_JSON}"
+                        export ALERT_BUDGET="${params.ALERT_BUDGET}"
+                        export MIN_LABEL="${params.MIN_LABEL}"
                         bash wazuh-monorepo/infra/scripts/run_model_health.sh
                     """)
                     // rc 1 = a check failed, rc 2 = could not run at all.

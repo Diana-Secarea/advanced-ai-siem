@@ -29,7 +29,7 @@ exit /b %SELENNE_RC%
 #
 #  Installs the Wazuh agent on this Windows machine and enrols it with the
 #  Selenne platform, so this computer's security events are collected, scored by
-#  Selenne's ML engine and shown in your dashboard at https://__MANAGER__.
+#  Selenne's ML engine and shown in your dashboard at https://__DASHBOARD__.
 #
 #  Easiest: double-click this file. It asks Windows for administrator rights
 #  itself (the standard UAC prompt) — no need to open an elevated console first.
@@ -48,7 +48,10 @@ $ErrorActionPreference = 'Stop'
 # accents in the messages below as '?'. Cosmetic only — never fail over it.
 try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch { }
 
+# Two hosts on purpose: agent traffic is raw TCP on 1514/1515, so $Manager must
+# be a DNS-only name pointing at the origin. $Dashboard is the https name to open.
 $Manager      = '__MANAGER__'
+$Dashboard    = '__DASHBOARD__'
 $RegPassword  = '__REG_PASSWORD__'
 $AgentGroup   = '__AGENT_GROUP__'
 $AgentVersion = '__AGENT_VERSION__'
@@ -166,7 +169,7 @@ if ($iconSrc -and (Test-Path $iconSrc)) {
         Copy-Item -LiteralPath $iconSrc -Destination $iconDst -Force
         $programs = Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs'
         @('[InternetShortcut]',
-          "URL=https://$Manager/",
+          "URL=https://$Dashboard/",
           "IconFile=$iconDst",
           'IconIndex=0') |
             Set-Content -LiteralPath (Join-Path $programs 'Selenne.url') -Encoding ASCII
@@ -183,7 +186,7 @@ $svc = Get-Service -Name WazuhSvc -ErrorAction SilentlyContinue
 if ($svc -and $svc.Status -eq 'Running') {
     Write-Host ''
     Say 'Done — this computer is now monitored by Selenne.'
-    Write-Host "  Events flow to https://$Manager — they appear in Live Alerts within a minute." -ForegroundColor Gray
+    Write-Host "  Events flow to https://$Dashboard — they appear in Live Alerts within a minute." -ForegroundColor Gray
     Write-Host "  Endpoint: $Machine   (account: $Owner)" -ForegroundColor Gray
     Write-Host "  Your dashboard is in the Start Menu under 'Selenne'." -ForegroundColor Gray
 } else {

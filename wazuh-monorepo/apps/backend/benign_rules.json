@@ -18,5 +18,10 @@
     "rule_id": "533",
     "rule_description": "Listened ports status (netstat) changed (new port opened or closed).",
     "added_at": "2026-07-08T13:53:01Z"
+  },
+  "100201": {
+    "rule_id": "100201",
+    "rule_description": "Selenne: collector downloaded by an authenticated user.",
+    "added_at": "2026-09-03T19:20:00Z"
   }
 }

@@ -1,6 +1,6 @@
 ===============================================================================
   SELENNE - endpoint collector for Windows
-  Account: __OWNER__          Dashboard: https://__MANAGER__
+  Account: __OWNER__          Dashboard: https://__DASHBOARD__
 ===============================================================================
 
 WHAT IS IN THIS PACKAGE
@@ -31,7 +31,7 @@ WHAT IT DOES
 ------------
   Installs the Wazuh agent (about 13 MB download, 47 MB on disk) and enrols it
   with your Selenne account. From then on the machine's security events are
-  shipped to https://__MANAGER__ and appear in Live Alerts within a minute.
+  shipped to https://__DASHBOARD__ and appear in Live Alerts within a minute.
 
   Nothing is analysed on this computer: no models, no Python, no scanning.
   Detection, ML scoring and the AI analyst all run on the Selenne server.

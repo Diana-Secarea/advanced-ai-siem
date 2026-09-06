@@ -25,7 +25,9 @@ from dotenv import load_dotenv
 # Load .env from the same directory as this file before anything else reads os.environ
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
-from flask import Flask, Response, send_from_directory, send_file, jsonify, request
+from flask import (Flask, Response, send_from_directory, send_file, jsonify,
+                   request, redirect)
+from urllib.parse import quote
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -75,6 +77,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import auth as _auth
 import logging_setup
 import tenancy as _tenancy
+import identity as _identity
+import mailer as _mailer
 
 logging_setup.setup_logging()
 log = logging_setup.get_logger("backend")
@@ -111,6 +115,28 @@ def _request_token():
     return None
 
 
+# Paths that hand out a personalised installer carrying the enrolment password.
+# Kept as a prefix tuple so the .ps1 alias and the bare-script routes are all
+# covered without listing every endpoint twice.
+_COLLECTOR_PATH_PREFIXES = ("/api/download/agent/", "/download/install-selenne")
+
+
+def _collector_platform_from_path(path):
+    """Best-effort platform for a collector URL, for the audit record.
+
+    The auth gate refuses before routing, so there is no view function to ask —
+    but an audit line saying only "a download was denied" is much weaker than
+    one naming the target, and the rules interpolate it into the alert.
+    """
+    if "macos" in path:
+        return "macos"
+    if "windows" in path or "selenne-agent" in path:   # .cmd/.ps1 are Windows
+        return "windows"
+    if "linux" in path or "selenne-collector" in path:
+        return "linux"
+    return "unknown"
+
+
 @app.before_request
 def _require_auth():
     if not AUTH_ENABLED or request.method == "OPTIONS":
@@ -122,6 +148,17 @@ def _require_auth():
     if user:
         request.auth_user = user
         return None
+    # A refused collector download is audited here rather than in the route:
+    # this gate answers first, so _collector_text() never runs and its own
+    # "unauthenticated" branch is unreachable while AUTH_ENABLED=1. Without
+    # this, probing for an installer that carries the enrolment password is
+    # invisible to the console except as an anonymous 401 in the access log.
+    if path.startswith(_COLLECTOR_PATH_PREFIXES):
+        logging_setup.audit("collector_download_denied",
+                            platform=_collector_platform_from_path(path),
+                            path=path, reason="unauthenticated",
+                            outcome="denied", src_ip=get_remote_address(),
+                            user_agent=request.user_agent.string or "-")
     # Browsers asking for pages get redirected to the login screen;
     # API calls get a clean 401 the frontend can react to.
     if path.startswith("/api/"):
@@ -157,14 +194,105 @@ def auth_login():
     return resp
 
 
+#: Shown for every registration that does not fail on the username, whether or
+#: not an account was created — see auth_register.
+_REGISTER_OK = ("Check your email to confirm the address and finish setting up "
+                "your account.")
+
+
 @app.route("/api/auth/register", methods=["POST"])
 @limiter.limit("5 per minute")
 def auth_register():
+    """Create an unverified account and mail a confirmation link.
+
+    Username collisions are reported plainly — a name is either free or it is
+    not, and the caller has to be told. An EMAIL collision is not reported:
+    answering "already registered" turns this endpoint into an oracle for
+    whether a given person has an account here, which for a security product is
+    itself the sensitive fact. That case returns the same body as success and
+    creates nothing.
+    """
     body = request.get_json(silent=True) or {}
-    ok, err = _auth.create_user(body.get("username"), body.get("password"))
+    ok, err = _auth.create_user(body.get("username"), body.get("password"),
+                                email=body.get("email"))
     if not ok:
+        if err == "That email is already registered":
+            logging_setup.audit("register_email_collision", outcome="suppressed",
+                                src_ip=get_remote_address())
+            return jsonify({"status": "ok", "message": _REGISTER_OK})
         return jsonify({"error": err}), 400
-    return jsonify({"status": "ok"})
+
+    username, _ = _identity.normalise_username(body.get("username"))
+    token, terr = _auth.issue_verification(username)
+    mail_status = "not attempted"
+    if token:
+        profile = _auth.get_profile(username) or {}
+        _, mail_status = _mailer.send_verification(
+            profile.get("email", ""), username, token)
+    else:
+        mail_status = f"token: {terr}"
+
+    logging_setup.audit("register", username=username, outcome="success",
+                        mail=mail_status, src_ip=get_remote_address(),
+                        user_agent=request.user_agent.string or "-")
+    log.info("[auth] registered '%s' (verification mail: %s)", username, mail_status)
+    resp = {"status": "ok", "message": _REGISTER_OK}
+    if not _mailer.is_configured():
+        # Without SMTP nobody could ever verify. Surfaced only to an operator
+        # running without mail configured, never the token itself.
+        resp["warning"] = ("Email is not configured on this server — an "
+                           "administrator must verify this account.")
+    return jsonify(resp)
+
+
+@app.route("/api/auth/verify", methods=["GET"])
+@limiter.limit("20 per hour")
+def auth_verify():
+    """Consume a verification link. Rate-limited because the token is a secret
+    presented without a session — the limit is what stops it being guessed."""
+    username, err = _auth.verify_email(request.args.get("token", ""))
+    # This URL is opened by a human clicking a link in an email, so a browser
+    # gets a page rather than a JSON blob; scripted callers still get JSON.
+    wants_html = "text/html" in (request.accept_mimetypes.best or "")
+    if err:
+        logging_setup.audit("email_verify_failed", outcome="denied", reason=err,
+                            src_ip=get_remote_address())
+        if wants_html:
+            return redirect("/login.html?verify=failed&reason="
+                            + quote(err, safe=""))
+        return jsonify({"error": err}), 400
+    logging_setup.audit("email_verify", username=username, outcome="success",
+                        src_ip=get_remote_address())
+    if wants_html:
+        return redirect("/login.html?verify=ok")
+    return jsonify({"status": "ok", "username": username,
+                    "message": "Email confirmed — you can download a collector now."})
+
+
+@app.route("/api/auth/verify/resend", methods=["POST"])
+@limiter.limit("5 per hour")
+def auth_verify_resend():
+    """Re-send the confirmation mail for the signed-in account.
+
+    Authenticated on purpose: an unauthenticated resend that takes an address
+    is both an enumeration oracle and a way to have this server mail a stranger
+    repeatedly. auth.issue_verification applies its own per-account cooldown on
+    top of this per-IP limit.
+    """
+    username, _ = _current_username()
+    if not username or username == "anonymous":
+        return jsonify({"error": "Authentication required"}), 401
+    token, err = _auth.issue_verification(username)
+    if err:
+        return jsonify({"error": err}), 400
+    profile = _auth.get_profile(username) or {}
+    ok, status = _mailer.send_verification(profile.get("email", ""), username, token)
+    logging_setup.audit("email_verify_resend", username=username,
+                        outcome="success" if ok else "failed", mail=status,
+                        src_ip=get_remote_address())
+    if not ok:
+        return jsonify({"error": "Could not send the email — try again later"}), 503
+    return jsonify({"status": "ok", "message": _REGISTER_OK})
 
 
 @app.route("/api/auth/logout", methods=["POST"])
@@ -373,7 +501,21 @@ def profile():
     body = request.get_json(silent=True) or {}
     email = _scalar_str(body.get("email")) if "email" in body else None
     org = _scalar_str(body.get("organisation")) if "organisation" in body else None
-    return jsonify({"profile": _auth.update_profile(username, email=email, organisation=org)})
+    profile, err = _auth.update_profile(username, email=email, organisation=org)
+    if err:
+        return jsonify({"error": err}), 400
+    out = {"profile": profile}
+    # A changed address is unverified again, so send the new one its own link
+    # rather than leaving the account silently unable to download.
+    if email is not None and not profile.get("email_verified"):
+        token, terr = _auth.issue_verification(username)
+        if token:
+            _mailer.send_verification(profile.get("email", ""), username, token)
+            out["message"] = ("Address updated — confirm the new one to keep "
+                              "downloading collectors.")
+        elif terr:
+            out["message"] = terr
+    return jsonify(out)
 
 
 @app.route("/api/profile/avatar", methods=["POST"])
@@ -388,7 +530,10 @@ def profile_avatar():
         return jsonify({"error": "avatar must be a data:image/... URI"}), 400
     if len(avatar) > 400_000:   # ~300 KB of image
         return jsonify({"error": "Image too large — keep it under ~300 KB"}), 413
-    return jsonify({"profile": _auth.update_profile(username, avatar=avatar)})
+    profile, err = _auth.update_profile(username, avatar=avatar)
+    if err:
+        return jsonify({"error": err}), 400
+    return jsonify({"profile": profile})
 
 
 @app.route("/api/tickets", methods=["GET", "POST"])
@@ -601,6 +746,46 @@ def _security_headers(resp):
     resp.headers.setdefault("X-XSS-Protection", "0")             # rely on CSP-era behavior
     if request.path.startswith("/api/"):
         resp.headers.setdefault("Cache-Control", "no-store")     # no auth'd data in caches
+    return resp
+
+
+@app.after_request
+def _access_log(resp):
+    """Write one Apache-combined line per request to ACCESS_LOG.
+
+    ossec.conf has watched /var/log/flask_access.log since the prototype, but
+    nothing ever wrote it: waitress emits no access log and setup_logging()
+    silences werkzeug. That left the console with no HTTP visibility at all —
+    no download record, no 401 storm, no 404 scan. Combined format is what the
+    existing <log_format>apache</log_format> entry already decodes, so this
+    revives that entry rather than adding a new one.
+
+    %u carries the authenticated username when there is one, which is what
+    turns "someone pulled an installer" into "who pulled it".
+    """
+    try:
+        user = getattr(request, "auth_user", None)
+        username = (user.get("username") if isinstance(user, dict) else user) or "-"
+        # content_length is None for streamed responses (SSE chat); reading it
+        # is safe, materialising the body to measure it would not be.
+        size = resp.content_length if resp.content_length is not None else 0
+        logging_setup.access(
+            '%s - %s [%s] "%s %s %s" %s %s "%s" "%s"' % (
+                get_remote_address() or "-",
+                username,
+                # astimezone() so %z emits a real offset — Apache's format
+                # requires it, and a naive datetime renders it empty.
+                datetime.datetime.now().astimezone()
+                        .strftime("%d/%b/%Y:%H:%M:%S %z"),
+                request.method,
+                request.full_path.rstrip("?") if request.query_string else request.path,
+                request.environ.get("SERVER_PROTOCOL", "HTTP/1.1"),
+                resp.status_code,
+                size,
+                request.referrer or "-",
+                request.user_agent.string or "-"))
+    except Exception:                      # noqa: BLE001 - logging must never 500
+        log.exception("access log write failed")
     return resp
 
 
@@ -4938,10 +5123,31 @@ def _collector_text(platform, filename):
     """
     username, _ = _current_username()
     if not username or username == "anonymous":
+        # Audited, not just refused: a run of these is someone probing for an
+        # installer that carries the enrolment password.
+        logging_setup.audit("collector_download_denied", platform=platform,
+                            reason="unauthenticated", outcome="denied",
+                            src_ip=get_remote_address(),
+                            user_agent=request.user_agent.string or "-")
         return None, (jsonify({"error": "Sign in to download the collector"}), 401)
+
+    # Verified email required. The installer carries the enrolment password and
+    # binds a new endpoint to this account, so it is the one action that must
+    # not be reachable from an address nobody has confirmed: without this, a
+    # throwaway signup is enough to obtain the shared enrolment secret.
+    if not _auth.is_email_verified(username):
+        logging_setup.audit("collector_download_denied", platform=platform,
+                            reason="email_unverified", outcome="denied",
+                            username=username, src_ip=get_remote_address())
+        return None, (jsonify({
+            "error": "Confirm your email address before downloading a collector",
+            "action": "verify_email"}), 403)
 
     reg_password = os.environ.get("WAZUH_REG_PASSWORD", "")
     if not reg_password:
+        logging_setup.audit("collector_download_denied", platform=platform,
+                            reason="enrolment_unconfigured", outcome="denied",
+                            username=username, src_ip=get_remote_address())
         return None, (jsonify({"error": "Endpoint enrolment is not configured on "
                                         "this server (WAZUH_REG_PASSWORD unset)"}), 503)
 
@@ -4953,8 +5159,17 @@ def _collector_text(platform, filename):
         log.error("collector template unreadable (%s/%s): %s", platform, filename, exc)
         return None, (jsonify({"error": "installer template unavailable"}), 500)
 
-    manager = os.environ.get("SELENNE_MANAGER_HOST") or request.host.split(":")[0]
+    # Two different hosts, deliberately. __MANAGER__ carries agent traffic —
+    # agent-auth on 1515 and the agent's <address> on 1514, both raw TCP — so it
+    # must be a DNS-only name that resolves straight to the origin; a
+    # Cloudflare-proxied name answers on 80/443 only and enrolment times out.
+    # __DASHBOARD__ is the branded https name the customer clicks. Collapsing
+    # them breaks one or the other.
+    host_fallback = request.host.split(":")[0]
+    manager = os.environ.get("SELENNE_MANAGER_HOST") or host_fallback
+    dashboard = os.environ.get("SELENNE_DASHBOARD_HOST") or host_fallback
     for placeholder, value in (("__MANAGER__", manager),
+                               ("__DASHBOARD__", dashboard),
                                ("__REG_PASSWORD__", reg_password),
                                ("__AGENT_GROUP__", "default"),
                                ("__OWNER__", username),
@@ -4976,9 +5191,13 @@ def _render_collector(platform, download_name=None):
 
     username, _ = _current_username()
     log.info("[collector] %s installer downloaded by '%s'", platform, username)
+    name = download_name or spec["script_name"]
+    logging_setup.audit("collector_download", platform=platform, kind="script",
+                        artifact=name, outcome="success", username=username,
+                        src_ip=get_remote_address(),
+                        user_agent=request.user_agent.string or "-")
     resp = Response(script.replace("\n", spec["newline"]),
                     mimetype="text/plain; charset=utf-8")
-    name = download_name or spec["script_name"]
     resp.headers["Content-Disposition"] = f'attachment; filename="{name}"'
     resp.headers["Cache-Control"] = "no-store"
     return resp, None
@@ -5020,7 +5239,13 @@ def _package_collector(platform):
 
     username, _ = _current_username()
     log.info("[collector] %s package downloaded by '%s'", platform, username)
-    resp = Response(buf.getvalue(), mimetype="application/zip")
+    payload = buf.getvalue()
+    logging_setup.audit("collector_download", platform=platform, kind="package",
+                        artifact=spec["zip_name"], bytes=len(payload),
+                        outcome="success", username=username,
+                        src_ip=get_remote_address(),
+                        user_agent=request.user_agent.string or "-")
+    resp = Response(payload, mimetype="application/zip")
     resp.headers["Content-Disposition"] = \
         f'attachment; filename="{spec["zip_name"]}"'
     resp.headers["Cache-Control"] = "no-store"

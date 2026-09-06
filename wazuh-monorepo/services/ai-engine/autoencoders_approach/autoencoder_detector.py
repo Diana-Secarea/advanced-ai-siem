@@ -19,6 +19,17 @@ from pathlib import Path
 from sklearn.neural_network import MLPRegressor
 from sklearn.preprocessing import StandardScaler
 
+try:
+    from feature_text import message_word_count
+except Exception:  # ai-engine root not on path when imported standalone
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    try:
+        from feature_text import message_word_count
+    except Exception:
+        def message_word_count(message, cap=60):
+            return min(len(str(message).split()), cap)
+
 
 def _load_user_benign_ids():
     rules_file = Path(__file__).resolve().parent.parent.parent.parent / "apps" / "backend" / "benign_rules.json"
@@ -160,8 +171,9 @@ class AutoencoderDetector:
         message = full_log if full_log else str(event.get('message', event.get('data', {})))
         message_lower = message.lower()
 
-        # 0: Word count (capped at 60)
-        features.append(min(len(message.split()), 60))
+        # 0: Word count (capped at 60) — JSON-aware, must stay identical to the
+        # IF extractor or the stacker combines two different notions of input.
+        features.append(message_word_count(message))
 
         # 1: Log size in bytes
         features.append(len(json.dumps(event)))

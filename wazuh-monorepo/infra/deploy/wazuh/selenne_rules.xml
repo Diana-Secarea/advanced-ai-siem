@@ -1,0 +1,67 @@
+<!--
+  Selenne backend audit rules — 100200-100299.
+
+  These turn the JSON lines the backend writes to AUDIT_LOG into real alerts.
+  Before this file existed, a collector download was logged only as a human
+  sentence in backend.log, which nothing in ossec.conf watched and no decoder
+  could parse into fields: the console showed nothing at all for an event that
+  hands out an installer carrying the enrolment password.
+
+  Install: copy to /var/ossec/etc/rules/ and restart the manager. Requires the
+  matching <localfile> entry from ossec-localfile.snippet.xml.
+-->
+<group name="selenne,">
+
+  <!-- Base: every audit line. level 0 = decode and classify only, never alert
+       on its own; the specific rules below inherit from it. -->
+  <rule id="100200" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="selenne.schema">\d+</field>
+    <description>Selenne backend audit event</description>
+  </rule>
+
+  <!-- A collector installer left the server. Not suspicious by itself, but it
+       is the moment an enrolment credential leaves the building, so it belongs
+       in the audit trail with the account attached. -->
+  <rule id="100201" level="5">
+    <if_sid>100200</if_sid>
+    <field name="selenne.event">^collector_download$</field>
+    <description>Selenne: $(selenne.platform) collector ($(selenne.kind)) downloaded by $(selenne.username) from $(selenne.src_ip)</description>
+    <group>selenne_collector,pci_dss_10.2.5,gdpr_IV_32.2,</group>
+  </rule>
+
+  <!-- Refused: unauthenticated, or the server has no WAZUH_REG_PASSWORD set.
+       The second reason is an outage, not an attack - it means every customer
+       download is returning 503 - so it is worth seeing immediately. -->
+  <rule id="100202" level="8">
+    <if_sid>100200</if_sid>
+    <field name="selenne.event">^collector_download_denied$</field>
+    <description>Selenne: collector download DENIED ($(selenne.reason)) for $(selenne.platform) from $(selenne.src_ip)</description>
+    <group>selenne_collector,access_denied,</group>
+  </rule>
+
+  <rule id="100203" level="12">
+    <if_sid>100202</if_sid>
+    <field name="selenne.reason">^enrolment_unconfigured$</field>
+    <description>Selenne: collector downloads are BROKEN - WAZUH_REG_PASSWORD is unset, every customer download returns 503</description>
+    <group>selenne_collector,service_availability,</group>
+  </rule>
+
+  <!-- Volume rules. One download is routine; six in five minutes from one
+       account is either a script or a shared credential. -->
+  <rule id="100210" level="10" frequency="6" timeframe="300">
+    <if_matched_sid>100201</if_matched_sid>
+    <same_field>selenne.username</same_field>
+    <description>Selenne: repeated collector downloads by $(selenne.username) - scripted pull or shared account</description>
+    <group>selenne_collector,</group>
+  </rule>
+
+  <!-- Probing for the installer endpoint without signing in. -->
+  <rule id="100211" level="12" frequency="10" timeframe="120">
+    <if_matched_sid>100202</if_matched_sid>
+    <same_srcip/>
+    <description>Selenne: repeated unauthenticated collector download attempts from $(selenne.src_ip)</description>
+    <group>selenne_collector,recon,</group>
+  </rule>
+
+</group>

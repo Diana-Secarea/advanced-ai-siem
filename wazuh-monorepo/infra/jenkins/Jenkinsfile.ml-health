@@ -105,8 +105,8 @@ pipeline {
                             sh """
                                 set -e
                                 scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
-                                    ${target}:${LOCAL_ALERTS} ${FETCHED}
-                                echo "fetched \$(wc -l < ${FETCHED}) alerts from the target host"
+                                    '${target}:${LOCAL_ALERTS}' '${FETCHED}'
+                                echo "fetched \$(wc -l < '${FETCHED}') alerts from the target host"
                             """
                         }
                         env.ALERTS_JSON = env.FETCHED
@@ -151,8 +151,11 @@ pipeline {
 
         stage('Report') {
             steps {
+                // AI_ENGINE_PY, not the in-workspace venv: the venv is
+                // gitignored, so an SCM checkout never contains one and this
+                // stage would die on the first build that ever reached it.
                 sh '''
-                    wazuh-monorepo/services/ai-engine/venv/bin/python3 - <<'PYEOF'
+                    "$AI_ENGINE_PY" - <<'PYEOF'
 import json
 d = json.load(open("wazuh-monorepo/services/ai-engine/data/eval/model_health.json"))
 if d.get("status") == "inconclusive":

@@ -2,7 +2,7 @@
 #
 # Install:
 #   sudo cp wazuh-ai-backend.service /etc/systemd/system/
-#   sudo cp wazuh-ai-backend.env    /etc/wazuh-ai/backend.env   # edit secrets first!
+#   sudo cp wazuh-ai-backend.env.example    /etc/wazuh-ai/backend.env   # edit secrets first!
 #   sudo systemctl daemon-reload
 #   sudo systemctl enable --now wazuh-ai-backend
 #

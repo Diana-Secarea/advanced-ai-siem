@@ -1,6 +1,6 @@
 ===============================================================================
   SELENNE - endpoint collector for macOS
-  Account: __OWNER__          Dashboard: https://__MANAGER__
+  Account: __OWNER__          Dashboard: https://__DASHBOARD__
 ===============================================================================
 
 WHAT IS IN THIS PACKAGE
@@ -25,7 +25,7 @@ INSTALL
 WHAT IT DOES
 ------------
   Installs the Wazuh agent (~13 MB) and enrols it with your Selenne account.
-  From then on this Mac's security events are shipped to https://__MANAGER__
+  From then on this Mac's security events are shipped to https://__DASHBOARD__
   and appear in Live Alerts within a minute.
 
   Nothing is analysed locally: no models, no scanning. Detection, ML scoring

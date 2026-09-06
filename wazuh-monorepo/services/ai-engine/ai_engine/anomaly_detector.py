@@ -24,6 +24,18 @@ except Exception:  # ai-engine root not on path when imported standalone
             return False
 
 
+try:
+    from feature_text import message_word_count
+except Exception:  # ai-engine root not on path when imported standalone
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    try:
+        from feature_text import message_word_count
+    except Exception:
+        def message_word_count(message, cap=60):
+            return min(len(str(message).split()), cap)
+
+
 def _load_user_benign_ids():
     """Read user-defined benign rule IDs from the UI-managed benign_rules.json."""
     rules_file = Path(__file__).resolve().parent.parent.parent.parent / "apps" / "backend" / "benign_rules.json"
@@ -240,7 +252,9 @@ class AnomalyDetector:
         # 0: Word count (message complexity) — capped at 60.
         # CIS/SCA compliance scan blobs can exceed 180 words; without capping,
         # a verbose but benign compliance report scores like a complex attack log.
-        features.append(min(len(message.split()), 60))
+        # JSON-aware: a compact structured full_log has no spaces to split on
+        # (see feature_text.message_word_count).
+        features.append(message_word_count(message))
 
         # 1: Log size in bytes
         features.append(len(json.dumps(event)))

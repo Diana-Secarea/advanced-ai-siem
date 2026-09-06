@@ -4,7 +4,7 @@
 #
 #  Installs the endpoint collector on this machine and enrols it with your
 #  Selenne account. The collector only reads logs and ships them to
-#  https://__MANAGER__ — all detection and ML scoring happens there, nothing
+#  https://__DASHBOARD__ — all detection and ML scoring happens there, nothing
 #  is analysed locally. ~13 MB download, runs as a background service.
 #
 #  Run:   sudo bash install-selenne-collector.sh
@@ -13,7 +13,10 @@
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
+# Two hosts on purpose: agent traffic is raw TCP on 1514/1515, so MANAGER must
+# be a DNS-only name pointing at the origin. DASHBOARD is the https name to open.
 MANAGER='__MANAGER__'
+DASHBOARD='__DASHBOARD__'
 REG_PASSWORD='__REG_PASSWORD__'
 OWNER='__OWNER__'
 AGENT_GROUP='__AGENT_GROUP__'
@@ -85,7 +88,7 @@ sleep 5
 if systemctl is-active --quiet wazuh-agent; then
     echo
     say "Done — this machine is now monitored by Selenne."
-    printf '  Events stream to https://%s and appear in Live Alerts within a minute.\n' "$MANAGER"
+    printf '  Events stream to https://%s and appear in Live Alerts within a minute.\n' "$DASHBOARD"
     printf '  Endpoint: %s   (account: %s)\n' "$MACHINE" "$OWNER"
 else
     warn "The service did not start. Check: journalctl -u wazuh-agent -n 30"

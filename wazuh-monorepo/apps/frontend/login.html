@@ -47,9 +47,13 @@
         <label>USERNAME</label>
         <input id="username" autocomplete="username" required>
       </div>
+      <div class="auth-field" id="emailField" hidden>
+        <label>EMAIL</label>
+        <input id="email" type="email" autocomplete="email" maxlength="254">
+      </div>
       <div class="auth-field">
         <label>PASSWORD</label>
-        <input id="password" type="password" autocomplete="current-password" required minlength="8">
+        <input id="password" type="password" autocomplete="current-password" required minlength="8" maxlength="128">
       </div>
       <div class="auth-err" id="authMsg"></div>
       <button class="btn btn-primary auth-btn" id="authBtn" type="submit">▶ Sign in</button>
@@ -67,6 +71,21 @@
 let registering = false;
 const $ = id => document.getElementById(id);
 
+// Result of clicking the link in the verification email.
+(() => {
+  const q = new URLSearchParams(location.search);
+  const v = q.get("verify");
+  if (!v) return;
+  const msg = $("authMsg");
+  if (v === "ok") {
+    msg.className = "auth-err auth-ok";
+    msg.textContent = "Email confirmed — sign in to download your collector.";
+  } else {
+    msg.className = "auth-err";
+    msg.textContent = q.get("reason") || "Verification failed.";
+  }
+})();
+
 // Already signed in? Straight to the dashboard.
 fetch("/api/auth/me").then(r => { if (r.ok) location.href = "/"; }).catch(()=>{});
 
@@ -74,9 +93,11 @@ $("toggleLink").addEventListener("click", () => {
   registering = !registering;
   $("authTitle").textContent = registering ? "Create account" : "Sign in";
   $("authSub").textContent = registering
-    ? "Pick a username and a password of at least 8 characters."
+    ? "Pick a username, confirm your email, and choose a password of at least 8 characters."
     : "Analyst access to the AI Threat Engine.";
   $("authBtn").textContent = registering ? "▶ Create account" : "▶ Sign in";
+  $("emailField").hidden = !registering;
+  $("email").required = registering;
   $("toggleLine").firstChild.textContent = registering ? "Already registered? " : "No account yet? ";
   $("toggleLink").textContent = registering ? "Sign in" : "Create one";
   $("authMsg").textContent = "";
@@ -87,15 +108,24 @@ $("authForm").addEventListener("submit", async (e) => {
   const msg = $("authMsg");
   msg.className = "auth-err";
   msg.textContent = "…";
-  const body = JSON.stringify({ username: $("username").value, password: $("password").value });
-  const opts = { method: "POST", headers: { "Content-Type": "application/json" }, body };
+  const creds = { username: $("username").value, password: $("password").value };
+  const opts = { method: "POST", headers: { "Content-Type": "application/json" },
+                 body: JSON.stringify(creds) };
   try {
     if (registering) {
-      const r = await fetch("/api/auth/register", opts);
+      const r = await fetch("/api/auth/register", {
+        ...opts,
+        body: JSON.stringify({ ...creds, email: $("email").value }),
+      });
       const d = await r.json();
       if (!r.ok) { msg.textContent = d.error || "Registration failed"; return; }
+      // Deliberately does NOT sign in: the account is unverified until the
+      // emailed link is opened, and collector downloads stay blocked till then.
       msg.className = "auth-err auth-ok";
-      msg.textContent = "Account created — signing you in…";
+      msg.textContent = d.warning
+        ? d.warning
+        : (d.message || "Check your email to confirm your address.");
+      return;
     }
     const r = await fetch("/api/auth/login", opts);
     const d = await r.json();

@@ -1,0 +1,33 @@
+<!--
+  Add inside <ossec_config> on the host that RUNS THE BACKEND, then restart the
+  manager/agent. Paths must match the backend's AUDIT_LOG and ACCESS_LOG.
+
+  Why two files rather than pointing at backend.log: backend.log is prose
+  ("2026-09-03T18:09:36 INFO [backend] ..."), which no decoder turns into
+  fields. These two are written in formats Wazuh already ships decoders for, so
+  events become rule-matchable instead of unsearchable text.
+
+  Production (systemd, LOG_DIR left at the repo default):
+      AUDIT_LOG=/var/log/wazuh-ai/selenne-audit.json
+      ACCESS_LOG=/var/log/flask_access.log
+  and make sure the unit's user can write them:
+      install -d -o <backend-user> -g <backend-user> /var/log/wazuh-ai
+-->
+
+  <!-- Structured security events: collector downloads, denials. Rules 100200+
+       in selenne_rules.xml key off selenne.event. -->
+  <localfile>
+    <log_format>json</log_format>
+    <location>/var/log/wazuh-ai/selenne-audit.json</location>
+  </localfile>
+
+  <!-- HTTP access log in Apache combined format. ossec.conf has had this entry
+       since the prototype, but nothing wrote the file: waitress emits no access
+       log and setup_logging() silences werkzeug, so it went stale in May 2026
+       and the console had no HTTP visibility whatsoever. The backend now writes
+       it. Stock Wazuh web rules (31100+) apply, so 404 scans and 401 storms
+       alert without any custom rule. -->
+  <localfile>
+    <log_format>apache</log_format>
+    <location>/var/log/flask_access.log</location>
+  </localfile>

@@ -3,7 +3,7 @@
 #  Selenne — macOS log collector
 #
 #  Installs the endpoint collector on this Mac and enrols it with your Selenne
-#  account. The collector only reads logs and ships them to https://__MANAGER__
+#  account. The collector only reads logs and ships them to https://__DASHBOARD__
 #  — all detection and ML scoring happens there, nothing is analysed locally.
 #  Works on both Apple Silicon and Intel Macs.
 #
@@ -13,7 +13,10 @@
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
+# Two hosts on purpose: agent traffic is raw TCP on 1514/1515, so MANAGER must
+# be a DNS-only name pointing at the origin. DASHBOARD is the https name to open.
 MANAGER='__MANAGER__'
+DASHBOARD='__DASHBOARD__'
 REG_PASSWORD='__REG_PASSWORD__'
 OWNER='__OWNER__'
 AGENT_GROUP='__AGENT_GROUP__'
@@ -80,7 +83,7 @@ sleep 5
 if "$OSSEC/bin/wazuh-control" status 2>/dev/null | grep -q "is running"; then
     echo
     say "Done — this Mac is now monitored by Selenne."
-    printf '  Events stream to https://%s and appear in Live Alerts within a minute.\n' "$MANAGER"
+    printf '  Events stream to https://%s and appear in Live Alerts within a minute.\n' "$DASHBOARD"
     printf '  Endpoint: %s   (account: %s)\n' "$MACHINE" "$OWNER"
     echo
     warn "macOS may ask you to grant Full Disk Access for complete log collection:"

@@ -28,6 +28,8 @@ import time
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
+import identity
+
 # Propagates to the root logger configured by logging_setup. Never print():
 # under systemd stdout is a block-buffered pipe, so security events would sit
 # in a buffer instead of reaching journald. Logging writes to stderr, unbuffered.
@@ -123,6 +125,19 @@ def _iso(dt):
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _parse_iso(text):
+    """Inverse of _iso; None for empty or malformed values.
+
+    The stored format is lexicographically sortable, which is why session
+    cleanup can compare it as a string. Verification needs the actual delta to
+    tell the caller how long to wait, so it parses instead.
+    """
+    try:
+        return datetime.datetime.strptime(text or "", "%Y-%m-%dT%H:%M:%SZ")
+    except (ValueError, TypeError):
+        return None
+
+
 def _restrict_db_permissions():
     """Keep the credential store owner-only (0600).
 
@@ -159,17 +174,30 @@ def init_db():
         for col, decl in (("email", "TEXT DEFAULT ''"),
                           ("organisation", "TEXT DEFAULT ''"),
                           ("last_login", "TEXT DEFAULT ''"),
-                          ("avatar", "TEXT DEFAULT ''")):   # data-URI, capped by API
+                          ("avatar", "TEXT DEFAULT ''"),      # data-URI, capped by API
+                          ("email_verified", "INTEGER DEFAULT 0"),
+                          ("verify_token_hash", "TEXT DEFAULT ''"),
+                          ("verify_expires_at", "TEXT DEFAULT ''"),
+                          ("verify_sent_at", "TEXT DEFAULT ''")):
             try:
                 conn.execute(f"ALTER TABLE users ADD COLUMN {col} {decl}")
             except sqlite3.OperationalError:
                 pass  # column already exists
+            else:
+                if col == "email_verified":
+                    # Accounts that predate verification are grandfathered in.
+                    # ALTER backfills the DEFAULT 0, which would otherwise lock
+                    # every existing operator out of the collector downloads.
+                    conn.execute("UPDATE users SET email_verified = 1")
         have_users = conn.execute("SELECT COUNT(*) c FROM users").fetchone()["c"]
         if not have_users:
             password = os.environ.get("ADMIN_PASSWORD") or secrets.token_urlsafe(12)
+            # email_verified = 1: the bootstrap admin has no address to confirm,
+            # and on a FRESH database the ALTER above ran against an empty table,
+            # so the grandfathering UPDATE could not reach this row.
             conn.execute(
-                "INSERT INTO users (username, password_hash, role, created_at) "
-                "VALUES (?, ?, 'admin', ?)",
+                "INSERT INTO users (username, password_hash, role, created_at, "
+                "email_verified) VALUES (?, ?, 'admin', ?, 1)",
                 ("admin", generate_password_hash(password), _iso(_now())),
             )
             if os.environ.get("ADMIN_PASSWORD"):
@@ -181,25 +209,129 @@ def init_db():
     _restrict_db_permissions()
 
 
-def create_user(username, password, role="analyst"):
-    """Returns (ok, error_message)."""
-    username = (username or "").strip().lower()
-    if not username or not username.replace("_", "").replace("-", "").isalnum():
-        return False, "Username must be alphanumeric (plus - and _)"
-    if len(username) > 40:
-        return False, "Username too long"
-    if len(password or "") < 8:
-        return False, "Password must be at least 8 characters"
+def create_user(username, password, role="analyst", email=None,
+                require_email=True):
+    """Returns (ok, error_message).
+
+    Validation lives in ``identity`` because the username is the tenant key,
+    not a display string — see that module for what the previous check let
+    through (Cyrillic look-alikes, the ``__`` separator, invisible characters).
+
+    ``require_email`` is only ever False for internal/admin provisioning; the
+    self-service registration route must leave it True.
+    """
+    username, err = identity.normalise_username(username)
+    if err:
+        return False, err
+    password, err = identity.check_password(password)
+    if err:
+        return False, err
+
+    if email is None and not require_email:
+        email = ""
+    else:
+        email, err = identity.normalise_email(email)
+        if err:
+            return False, err
+
     try:
         with _db_lock, _conn() as conn:
+            if email:
+                # One account per address. Checked explicitly rather than with a
+                # UNIQUE index so the pre-existing rows (empty email) stay legal.
+                taken = conn.execute(
+                    "SELECT 1 FROM users WHERE email = ? LIMIT 1", (email,)).fetchone()
+                if taken:
+                    return False, "That email is already registered"
             conn.execute(
-                "INSERT INTO users (username, password_hash, role, created_at) "
-                "VALUES (?, ?, ?, ?)",
-                (username, generate_password_hash(password), role, _iso(_now())),
+                "INSERT INTO users (username, password_hash, role, created_at, "
+                "email, email_verified) VALUES (?, ?, ?, ?, ?, 0)",
+                (username, generate_password_hash(password), role, _iso(_now()),
+                 email),
             )
         return True, None
     except sqlite3.IntegrityError:
         return False, "Username already exists"
+
+
+# --------------------------------------------------------------------------- #
+#  Email verification
+# --------------------------------------------------------------------------- #
+#: How long a verification link stays usable.
+VERIFY_TTL_HOURS = 24
+#: Minimum gap between verification emails for one account (anti mail-bombing).
+VERIFY_RESEND_SECONDS = 120
+
+
+def issue_verification(username):
+    """Mint a verification token. Returns (raw_token, error).
+
+    Only the SHA-256 digest is stored, the same way session tokens are: a
+    database read must not yield a working link.
+    """
+    username = identity.canonical_username(username)
+    if not username:
+        return None, "No such account"
+    now = _now()
+    with _db_lock, _conn() as conn:
+        row = conn.execute(
+            "SELECT email, email_verified, verify_sent_at FROM users WHERE username = ?",
+            (username,)).fetchone()
+        if row is None:
+            return None, "No such account"
+        if row["email_verified"]:
+            return None, "Email is already verified"
+        if not row["email"]:
+            return None, "No email address on this account"
+        last = _parse_iso(row["verify_sent_at"])
+        if last and (now - last).total_seconds() < VERIFY_RESEND_SECONDS:
+            wait = int(VERIFY_RESEND_SECONDS - (now - last).total_seconds())
+            return None, f"Please wait {wait}s before requesting another email"
+        token = secrets.token_urlsafe(32)
+        conn.execute(
+            "UPDATE users SET verify_token_hash = ?, verify_expires_at = ?, "
+            "verify_sent_at = ? WHERE username = ?",
+            (_token_digest(token),
+             _iso(now + datetime.timedelta(hours=VERIFY_TTL_HOURS)),
+             _iso(now), username))
+    return token, None
+
+
+def verify_email(raw_token):
+    """Consume a verification token. Returns (username, error).
+
+    Looked up by digest, so the comparison is an indexed equality on a hash
+    rather than a string compare against a secret.
+    """
+    if not isinstance(raw_token, str) or not (16 <= len(raw_token) <= 200):
+        return None, "Invalid verification link"
+    with _db_lock, _conn() as conn:
+        row = conn.execute(
+            "SELECT username, verify_expires_at FROM users "
+            "WHERE verify_token_hash = ? AND verify_token_hash != ''",
+            (_token_digest(raw_token),)).fetchone()
+        if row is None:
+            return None, "Invalid or already-used verification link"
+        expires = _parse_iso(row["verify_expires_at"])
+        if expires is None or _now() > expires:
+            return None, "This verification link has expired — request a new one"
+        conn.execute(
+            "UPDATE users SET email_verified = 1, verify_token_hash = '', "
+            "verify_expires_at = '' WHERE username = ?", (row["username"],))
+    log.info("Email verified for '%s'", row["username"])
+    return row["username"], None
+
+
+def is_email_verified(username):
+    """True when the account may use verified-only features. Fails closed."""
+    username = identity.canonical_username(username)
+    if not username:
+        return False
+    with _db_lock, _conn() as conn:
+        row = conn.execute(
+            "SELECT email_verified FROM users WHERE username = ?",
+            (username,)).fetchone()
+    return bool(row and row["email_verified"])
 
 
 def login(username, password, ip="?"):
@@ -292,7 +424,8 @@ def logout(token):
 def list_users():
     with _db_lock, _conn() as conn:
         rows = conn.execute(
-            "SELECT username, role, created_at, email, organisation FROM users ORDER BY created_at"
+            "SELECT username, role, created_at, email, organisation, email_verified "
+            "FROM users ORDER BY created_at"
         ).fetchall()
     return [dict(r) for r in rows]
 
@@ -349,22 +482,48 @@ def signup_series(days=30):
 def get_profile(username):
     with _db_lock, _conn() as conn:
         row = conn.execute(
-            "SELECT username, role, created_at, email, organisation, avatar "
-            "FROM users WHERE username = ?", (username,)).fetchone()
+            "SELECT username, role, created_at, email, organisation, avatar, "
+            "email_verified FROM users WHERE username = ?", (username,)).fetchone()
     return dict(row) if row else None
 
 
 def update_profile(username, email=None, organisation=None, avatar=None):
-    """Update profile fields; None leaves a field untouched. Returns profile."""
+    """Update profile fields; None leaves a field untouched.
+
+    Returns (profile, error). Changing the address RESETS verification: a
+    confirmed flag that survives an arbitrary change to the thing it confirmed
+    would let one throwaway confirmation bless every later address.
+    """
+    username = identity.canonical_username(username)
     sets, params = [], []
+    email_changed = False
     if email is not None:
-        sets.append("email = ?"); params.append(email.strip()[:120])
+        email, err = identity.normalise_email(email)
+        if err:
+            return None, err
+        with _db_lock, _conn() as conn:
+            current = conn.execute(
+                "SELECT email FROM users WHERE username = ?", (username,)).fetchone()
+            taken = conn.execute(
+                "SELECT 1 FROM users WHERE email = ? AND username != ? LIMIT 1",
+                (email, username)).fetchone()
+        if taken:
+            return None, "That email is already registered"
+        email_changed = not current or current["email"] != email
+        sets.append("email = ?"); params.append(email)
+        if email_changed:
+            sets.append("email_verified = 0")
+            sets.append("verify_token_hash = ''")
+            sets.append("verify_expires_at = ''")
     if organisation is not None:
-        sets.append("organisation = ?"); params.append(organisation.strip()[:120])
+        sets.append("organisation = ?")
+        params.append(identity.safe_text(organisation, cap=120))
     if avatar is not None:
         sets.append("avatar = ?"); params.append(avatar)
     if sets:
         params.append(username)
         with _db_lock, _conn() as conn:
             conn.execute(f"UPDATE users SET {', '.join(sets)} WHERE username = ?", params)
-    return get_profile(username)
+        if email_changed:
+            log.info("Email changed for '%s' — verification reset", username)
+    return get_profile(username), None

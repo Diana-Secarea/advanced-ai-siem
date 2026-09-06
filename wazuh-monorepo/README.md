@@ -192,10 +192,22 @@ sudo chown root:wazuh /var/ossec/etc/authd.pass && sudo chmod 640 /var/ossec/etc
 sudo sed -i 's|<use_password>no</use_password>|<use_password>yes</use_password>|' /var/ossec/etc/ossec.conf
 sudo /var/ossec/bin/wazuh-control restart
 
-printf 'WAZUH_REG_PASSWORD=%s\nSELENNE_MANAGER_HOST=<host-or-ip>\n' \
+printf 'WAZUH_REG_PASSWORD=%s\n' \
   "$(sudo cat /var/ossec/etc/authd.pass)" >> apps/backend/.env
 # restart the backend afterwards
 ```
+
+Then pin the two hosts, which must be different records:
+
+```bash
+SELENNE_MANAGER_HOST=agents.selenne.app    # DNS-only (grey cloud) → origin
+SELENNE_DASHBOARD_HOST=selenne.app         # the proxied name customers open
+```
+
+`agent-auth` (1515) and the agent's `<address>` (1514) are raw TCP, and
+Cloudflare's proxy forwards 80/443 only — point `SELENNE_MANAGER_HOST` at a
+proxied name and the dashboard keeps working while every enrolment times out.
+Unset, both fall back to the request's `Host` header, which the caller controls.
 
 Enrolled agents are named `<account>__<machine>`, which is how `tenancy.py`
 attributes each endpoint's alerts to the right account.
@@ -218,7 +230,11 @@ All of it lives in `apps/backend/.env` (gitignored; template in
 | `OLLAMA_MODEL` / `VISION_MODEL` | `llama3.2` / `llava:7b` | local inference models |
 | `OLLAMA_KEEP_ALIVE` | `24h` | how long weights stay in memory after a query — `-1` never unloads, `30m` frees them when idle |
 | `ALERTS_DIR`, `ALERTS_LOG`, `ARCHIVES_JSON` | `/var/ossec/logs/…` | what the backend tails |
-| `WAZUH_REG_PASSWORD`, `SELENNE_MANAGER_HOST` | — | endpoint enrolment (§5) |
+| `WAZUH_REG_PASSWORD` | — | enrolment password; must match the manager's `authd.pass` (§5) |
+| `SELENNE_MANAGER_HOST` | request `Host` | agent transport host — DNS-only, never proxied (§5) |
+| `SELENNE_DASHBOARD_HOST` | request `Host` | branded https host in installer text and shortcuts (§5) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | — | verification mail; without it no self-registered account can finish signup |
+| `SELENNE_PUBLIC_URL` | — | base URL for verification links (never the request `Host`) |
 | `REACTOR_ENABLED` | `0` | arm the reactive daemon (§9) |
 | `CVE_AGENT_AUTOSTART` | `0` | run the CVE agent on boot |
 | `STRIPE_SECRET_KEY`, `STRIPE_PRICE_*` | — | landing-page checkout; 503 until set |
@@ -296,6 +312,7 @@ Arming anything destructive is deliberate and reversible — read
 | New `/api/…` route returns an HTML 404 | backend not restarted | restart it — there is no auto-reload |
 | Alert stream frozen / stale timestamps | manager stopped; the backend only reads files | `sudo /var/ossec/bin/wazuh-control start` |
 | Collector download returns 503 | `WAZUH_REG_PASSWORD` unset | §5 |
+| Collector installs, then "Enrolment failed" / hangs on 1515 | `SELENNE_MANAGER_HOST` is a Cloudflare-proxied name, or 1514/1515 are firewalled | §5 |
 | Collector download returns 401 | not signed in — the routes are behind auth | sign in first |
 | `wazuh_qdrant` shows `(unhealthy)` but Qdrant works | container still running the old curl-based healthcheck (the image has no curl) | `docker compose -f services/ai-engine/docker-compose.yml up -d --force-recreate qdrant` |
 | Chat hangs or 503s | Ollama not running / model not pulled | dev: `ollama serve &` then `ollama pull llama3.2` · server: `systemctl status ollama` (see DEPLOYMENT.md "Keeping Ollama up") |

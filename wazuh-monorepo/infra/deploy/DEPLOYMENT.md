@@ -40,6 +40,33 @@ models, Qdrant/Postgres containers, Ollama + the pulled model, and `/health` +
 - [ ] **Secrets set** — `FLASK_SECRET_KEY`, `ADMIN_PASSWORD`, `PG_PASSWORD` are
       real values in `/etc/wazuh-ai/backend.env` (never committed). No secret
       is hardcoded in source (verified).
+- [ ] **Endpoint enrolment — three parts, and no two of them substitute for
+      each other.** See "Endpoint enrolment" below for the commands.
+      1. `WAZUH_REG_PASSWORD` set in `backend.env`. Unset, every
+         `/api/download/agent/*` returns 503 and nobody can install a collector.
+      2. The manager actually *demands* it — `<use_password>yes</use_password>`
+         in `ossec.conf`'s `<auth>` block plus a matching
+         `/var/ossec/etc/authd.pass`. With `use_password` left at `no`,
+         downloads look perfectly healthy while enrolment on 1515 accepts
+         anyone who can reach the port.
+      3. `SELENNE_MANAGER_HOST` is a **DNS-only (grey-cloud)** record, and
+         `SELENNE_DASHBOARD_HOST` is the proxied one. Agent traffic is raw TCP
+         on 1514/1515; Cloudflare's edge answers 80/443 only, so a proxied
+         manager name leaves the dashboard working perfectly while every
+         enrolment times out. Unset, both fall back to the caller's `Host`
+         header.
+- [ ] **Signup can complete** — `SMTP_HOST`/`SMTP_USER`/`SMTP_PASS` and
+      `SELENNE_PUBLIC_URL` are set. Registration is open to the internet and a
+      new account starts UNVERIFIED; it cannot download a collector until the
+      emailed link is opened, because the installer carries the shared
+      enrolment password. With no mail transport every signup dead-ends.
+- [ ] **Backend events reach the console** — run
+      `sudo env ENV_FILE=/etc/wazuh-ai/backend.env bash infra/deploy/wazuh/install-selenne-logging.sh`.
+      It installs `selenne_rules.xml`, adds the `<localfile>` entries for
+      `AUDIT_LOG`/`ACCESS_LOG` taken from that same env file, validates with
+      `wazuh-analysisd -t`, and refuses to restart the manager if the test
+      fails. Idempotent — re-run it after any Wazuh upgrade. A backend log
+      nothing collects is a blind spot, not an audit trail.
 - [ ] **Production server** — start via `wsgi.py` (waitress), not `server.py`
       (Flask dev server). `start_server.sh` now defaults to waitress.
 - [ ] **TLS + reverse proxy** — the app binds loopback only and every mutating
@@ -120,7 +147,7 @@ sudo ollama pull llama3.2
 
 # 3. Secrets + service
 sudo mkdir -p /etc/wazuh-ai
-sudo cp infra/deploy/wazuh-ai-backend.env /etc/wazuh-ai/backend.env
+sudo cp infra/deploy/wazuh-ai-backend.env.example /etc/wazuh-ai/backend.env
 sudoedit /etc/wazuh-ai/backend.env               # fill FLASK_SECRET_KEY, ADMIN_PASSWORD, PG_PASSWORD
 sudo cp infra/deploy/wazuh-ai-backend.service /etc/systemd/system/
 sudo systemctl daemon-reload
@@ -133,11 +160,72 @@ sudo certbot --nginx -d selenne.app -d www.selenne.app
 sudo nginx -t && sudo systemctl reload nginx
 
 # 5. Verify
+#    NOTE: sudo strips the environment, so `ENV_FILE=... sudo preflight.sh`
+#    silently checks the DEFAULT env file and can pass while the real one is
+#    broken. Always pass it through env:
+sudo env ENV_FILE=/etc/wazuh-ai/backend.env bash infra/deploy/preflight.sh
 curl http://127.0.0.1:5000/health      # {"status":"ok"}
 curl http://127.0.0.1:5000/ready       # {"status":"ready","checks":{...}}
 curl -sI https://selenne.app/          # 302 → /landing.html
 journalctl -u wazuh-ai-backend -f
 ```
+
+## Endpoint enrolment
+
+Three settings, on two machines. `preflight.sh` checks all three.
+
+**1. Give the manager a password and make it demand one.** Shipped as found,
+this box had `<use_password>no</use_password>` and no `authd.pass` at all —
+open enrolment, with nothing in the UI to suggest it.
+
+```bash
+# on the manager
+openssl rand -base64 24 | sudo tee /var/ossec/etc/authd.pass
+sudo chmod 640 /var/ossec/etc/authd.pass
+sudo chown root:wazuh /var/ossec/etc/authd.pass   # root:ossec on older builds
+
+# flip use_password inside the <auth> block, then
+sudo systemctl restart wazuh-manager
+sudo /var/ossec/bin/wazuh-control status | grep authd    # must be running
+```
+
+`purge` is `yes` in this `<auth>` block, so a re-enrolled endpoint replaces its
+old key rather than accumulating duplicates. Existing agents keep working —
+`use_password` gates new enrolments only.
+
+**2. Put the same string in the backend env**, so generated installers carry it:
+
+```bash
+sudo tee -a /etc/wazuh-ai/backend.env <<'EOF'
+WAZUH_REG_PASSWORD=<the string from authd.pass>
+SELENNE_MANAGER_HOST=agents.selenne.app
+SELENNE_DASHBOARD_HOST=selenne.app
+EOF
+sudo systemctl restart selenne-backend
+```
+
+**3. Add the DNS-only record.** In Cloudflare, `agents` → the origin IP with
+the proxy **off** (grey cloud). Keeping it a hostname rather than a bare IP is
+also what keeps the origin address out of this repo. Then open 1514/1515 to the
+internet on the origin firewall — those two ports only:
+
+```bash
+sudo ufw allow 1514/tcp comment 'wazuh agent events'
+sudo ufw allow 1515/tcp comment 'wazuh enrolment'
+```
+
+Verify from a machine that is not the manager — a proxied name fails here while
+the dashboard stays green, which is exactly the failure this split prevents:
+
+```bash
+getent ahostsv4 agents.selenne.app     # must NOT be 104.16-27.*/172.64-71.*/188.114.9[67].*
+nc -vz agents.selenne.app 1515
+```
+
+Then download a collector from the UI and confirm it enrols. The installer
+templates in `infra/deploy/agent/` keep the two hosts distinct: `__MANAGER__`
+goes to `agent-auth -m` and the agent's `<address>`, `__DASHBOARD__` to every
+`https://` the customer sees, including the Windows Start Menu shortcut.
 
 ## Updating the live selenne.app host
 

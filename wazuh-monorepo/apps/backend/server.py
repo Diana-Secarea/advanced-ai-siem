@@ -313,8 +313,12 @@ def auth_change_password():
     if not username or username == "anonymous":
         return jsonify({"error": "Sign in to change your password"}), 401
     body = request.get_json(silent=True) or {}
-    current = str(body.get("current_password") or "")[:200]
-    new = str(body.get("new_password") or "")[:200]
+    # Not truncated here: [:200] silently accepted a 200-char password that
+    # registration (PASSWORD_MAX = 128) would have refused, so the two paths
+    # enforced different policies. auth.change_password validates both via
+    # identity.check_password; the global body cap bounds the input size.
+    current = str(body.get("current_password") or "")
+    new = str(body.get("new_password") or "")
     token = _request_token()
 
     ip = get_remote_address()

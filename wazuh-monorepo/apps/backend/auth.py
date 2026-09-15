@@ -60,9 +60,19 @@ def _token_digest(token):
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+def _lockout_key(username, ip):
+    """Key the lockout map the same way the users table is looked up.
+
+    Must stay identical to the folding in login(): a key that folds differently
+    from the lookup would count failures under one spelling while the account
+    is found under another, so the lockout could never trip.
+    """
+    return f"{identity.canonical_username(username)}|{ip}"
+
+
 def lockout_remaining(username, ip):
     """Seconds until this (username, ip) may try again; 0 when not locked."""
-    key = f"{(username or '').strip().lower()}|{ip}"
+    key = _lockout_key(username, ip)
     with _failed_lock:
         entry = _failed_logins.get(key)
         if not entry:
@@ -72,7 +82,7 @@ def lockout_remaining(username, ip):
 
 
 def _record_failure(username, ip):
-    key = f"{(username or '').strip().lower()}|{ip}"
+    key = _lockout_key(username, ip)
     now = time.time()
     with _failed_lock:
         entry = _failed_logins.setdefault(key, {"count": 0, "locked_until": 0})
@@ -95,7 +105,7 @@ def record_failure(username, ip):
 
 def _record_success(username, ip):
     with _failed_lock:
-        _failed_logins.pop(f"{(username or '').strip().lower()}|{ip}", None)
+        _failed_logins.pop(_lockout_key(username, ip), None)
 
 
 @contextlib.contextmanager
@@ -340,7 +350,7 @@ def login(username, password, ip="?"):
     Constant-shape: a missing user still pays the PBKDF2 cost (anti user
     enumeration), and every failure feeds the per-(user, ip) lockout.
     """
-    username = (username or "").strip().lower()
+    username = identity.canonical_username(username)
     with _db_lock, _conn() as conn:
         row = conn.execute(
             "SELECT username, password_hash, role FROM users WHERE username = ?",
@@ -375,9 +385,18 @@ def change_password(username, current_password, new_password, keep_token=None):
     Returns (ok, error_message). Every other session of that user is dropped, so
     a stolen cookie stops working the moment the owner changes their password.
     """
-    username = (username or "").strip().lower()
-    if len(new_password or "") < 8:
-        return False, "New password must be at least 8 characters"
+    username = identity.canonical_username(username)
+    if not username:
+        return False, "Account not found"
+    # Same policy object as registration. The old inline "< 8" duplicated only
+    # the minimum, so PASSWORD_MAX — the bound that stops a huge body turning
+    # one request into a PBKDF2 workout — was enforced on signup but not here.
+    new_password, err = identity.check_password(new_password)
+    if err:
+        return False, err
+    if not isinstance(current_password, str) or len(current_password) > identity.PASSWORD_MAX:
+        # Never confirm that the length was the problem.
+        return False, "Current password is incorrect"
     if new_password == current_password:
         return False, "New password must differ from the current one"
     with _db_lock, _conn() as conn:

@@ -19,6 +19,7 @@ Usage:
     ./venv/bin/python3 autoencoders_approach/train_autoencoder.py
 """
 import json
+import os
 import shutil
 import sys
 from datetime import datetime
@@ -32,7 +33,9 @@ SCRIPT_DIR   = Path(__file__).parent
 STARTER_DIR  = SCRIPT_DIR.parent
 sys.path.insert(0, str(STARTER_DIR))
 
-from autoencoders_approach.autoencoder_detector import AutoencoderDetector
+from autoencoders_approach import autoencoder_detector
+from autoencoders_approach.autoencoder_detector import (
+    AutoencoderDetector, apply_variance_floor)
 from attack_labels import is_attack_alert as _is_attack_alert
 
 
@@ -111,60 +114,150 @@ def _fit_robust(X_scaled):
     return best
 
 
-def train(alerts_file, model_path, test_file=None):
-    """Train the autoencoder on clean alerts only (one-class + self-supervised trim)."""
+#: Train on EVERY alert and let reconstruction error decide what is normal,
+#: instead of asking is_attack_alert() which rows to keep.
+#:
+#: Why this is the better default: the label function is a hand-maintained list
+#: of Wazuh rule ids and description substrings. It is wrong in two directions.
+#: It misses any attack nobody has written a rule for — which is precisely the
+#: class of thing an anomaly detector is FOR — and it silently reclassifies
+#: whenever a Wazuh ruleset upgrade renumbers a rule or rewords a description.
+#: Worse, filtering on those signals is what defined the clean set as "the rows
+#: where the discriminative features are zero" and saturated the model.
+#:
+#: Empirical purification has neither problem. It asks the data which rows are
+#: hard to reconstruct and drops those, so it finds anomalous BEHAVIOUR rather
+#: than anomalous paperwork.
+AE_UNSUPERVISED = os.environ.get("AE_UNSUPERVISED", "1") != "0"
+
+#: Fraction dropped per purification round. Total retained is
+#: (1 - contamination) ** rounds, so 0.12 over 3 rounds keeps ~68%.
+AE_CONTAMINATION = float(os.environ.get("AE_CONTAMINATION", "0.12"))
+
+#: More rounds = a tighter notion of normal. Too many and the model collapses
+#: onto the single most common event shape and calls everything else an attack,
+#: so this stays small.
+AE_TRIM_ROUNDS = int(os.environ.get("AE_TRIM_ROUNDS", "3"))
+
+
+def _purify(detector, X_all, contamination, rounds):
+    """Iteratively fit and drop the worst-reconstructed rows.
+
+    Returns (kept_index_array, per_round_log). Each round refits the scaler on
+    the surviving rows, so the notion of "normal" tightens as contamination is
+    removed rather than staying anchored to the polluted first fit.
+    """
+    keep = np.arange(len(X_all))
+    log = []
+    for r in range(rounds):
+        Xr = X_all[keep]
+        detector.scaler.fit(Xr)
+        apply_variance_floor(detector.scaler)
+        Xs = detector.scaler.transform(Xr)
+        detector.model = _fit_robust(Xs)
+        errors = np.mean((Xs - detector.model.predict(Xs)) ** 2, axis=1)
+        cut = float(np.percentile(errors, 100.0 * (1.0 - contamination)))
+        survivors = errors <= cut
+        dropped = int((~survivors).sum())
+        log.append({"round": r + 1, "before": len(keep), "dropped": dropped,
+                    "cut": cut})
+        print(f"  Round {r + 1}/{rounds}: {len(keep)} rows -> dropped {dropped} "
+              f"(error > {cut:.4f}), {int(survivors.sum())} kept")
+        keep = keep[survivors]
+        if len(keep) < 50:
+            print("  Stopping early — too few rows left to keep trimming")
+            break
+    return keep, log
+
+
+def train(alerts_file, model_path, test_file=None, unsupervised=None,
+          contamination=None, rounds=None):
+    """Train the autoencoder on what the data says is normal.
+
+    unsupervised=True (the default) trains on EVERY alert and lets iterative
+    reconstruction-error trimming decide what normal is. unsupervised=False
+    keeps the historical behaviour of starting from the label-filtered set.
+
+    The labels are still used below to REPORT detection quality — measuring
+    against them is fine, training on them is what caused the saturation.
+    """
+    unsupervised  = AE_UNSUPERVISED if unsupervised is None else unsupervised
+    contamination = AE_CONTAMINATION if contamination is None else contamination
+    rounds        = AE_TRIM_ROUNDS if rounds is None else rounds
+
     print(f"Loading alerts from: {alerts_file}")
     alerts = load_alerts(alerts_file)
     if len(alerts) < 10:
         print("Not enough alerts. Exiting.")
         return False
 
-    # Label split: attacks are EXCLUDED from training (one-class learning),
-    # and kept only for the evaluation section below.
     clean_alerts  = [a for a in alerts if not is_attack_alert(a)]
     attack_alerts = [a for a in alerts if is_attack_alert(a)]
-
     print(f"Total alerts: {len(alerts)}")
-    print(f"  Clean: {len(clean_alerts)} | Attack (excluded from training): {len(attack_alerts)}")
-    print(f"  Training on {len(clean_alerts)} clean alerts (one-class + self-supervised trimming)")
-
-    if len(clean_alerts) < 10:
-        print("Not enough clean alerts to train. Exiting.")
-        return False
+    print(f"  Labelled clean: {len(clean_alerts)} | labelled attack: {len(attack_alerts)}")
 
     # Initialise detector (skip auto-load — we are about to overwrite)
     detector = AutoencoderDetector(model_path=model_path)
     detector.model = None
 
-    # Extract features from CLEAN alerts only
-    print("\nExtracting features from clean alerts...")
-    all_features = []
-    for alert in clean_alerts:
+    training_alerts = alerts if unsupervised else clean_alerts
+    if unsupervised:
+        print(f"  Mode: UNSUPERVISED — training on all {len(alerts)} alerts, "
+              f"purifying by reconstruction error "
+              f"({contamination:.0%} x {rounds} rounds)")
+    else:
+        print(f"  Mode: label-filtered — training on {len(clean_alerts)} clean alerts")
+    if len(training_alerts) < 10:
+        print("Not enough alerts to train. Exiting.")
+        return False
+
+    print("\nExtracting features...")
+    all_features, kept_alerts = [], []
+    for alert in training_alerts:
         try:
             all_features.append(detector.extract_features(alert)[0])
+            kept_alerts.append(alert)
         except Exception as e:
             print(f"Feature error: {e}")
     if len(all_features) < 10:
         print("Not enough valid features. Exiting.")
         return False
-    print(f"Extracted features from {len(all_features)} clean alerts")
+    print(f"Extracted features from {len(all_features)} alerts")
 
     X_all = np.array(all_features)
 
-    # ── Round 1: fit on the labelled-clean set, find residual contamination ──
-    print("\nRound 1/2: Training on labelled-clean alerts...")
-    X_scaled = detector.scaler.fit_transform(X_all)
-    detector.model = _fit_robust(X_scaled)
-    errors_r1 = np.mean((X_scaled - detector.model.predict(X_scaled)) ** 2, axis=1)
-    keep_mask = errors_r1 <= np.percentile(errors_r1, 90)
-    X_clean   = X_all[keep_mask]
-    print(f"  Iterations: {detector.model.n_iter_} | Kept {len(X_clean)}/{len(X_all)} "
-          f"(dropped 10% highest errors — self-supervised purge of mislabelled attacks)")
+    # ── Purify: fit, drop the worst-reconstructed rows, refit ──
+    print(f"\nPurifying ({rounds} rounds)...")
+    keep_idx, trim_log = _purify(detector, X_all, contamination, rounds)
+    X_clean = X_all[keep_idx]
 
-    # ── Round 2: retrain on the purified clean set ──
-    print("Round 2/2: Retraining on purified clean set...")
-    X_scaled = detector.scaler.fit_transform(X_clean)
+    # What did the trim actually throw away? With labels available this is
+    # measurable, and it is the number that says whether empirical purification
+    # is finding attacks or just discarding rare-but-benign events.
+    kept_set = set(keep_idx.tolist())
+    dropped_alerts = [a for i, a in enumerate(kept_alerts) if i not in kept_set]
+    if dropped_alerts:
+        dropped_attacks = sum(1 for a in dropped_alerts if is_attack_alert(a))
+        purity = dropped_attacks / len(dropped_alerts)
+        total_attacks = sum(1 for a in kept_alerts if is_attack_alert(a))
+        caught = dropped_attacks / total_attacks if total_attacks else 0.0
+        print(f"  Trim purity: {dropped_attacks}/{len(dropped_alerts)} dropped rows "
+              f"were labelled attacks ({purity:.1%})")
+        print(f"  Trim recall: removed {dropped_attacks}/{total_attacks} "
+              f"of the labelled attacks ({caught:.1%})")
+        detector.trim_purity = round(purity, 4)
+        detector.trim_recall = round(caught, 4)
+
+    # ── Final fit on the purified set ──
+    print("Final fit on the purified set...")
+    detector.scaler.fit(X_clean)
+    apply_variance_floor(detector.scaler)
+    # Recorded so load_model() can re-apply it and, just as importantly, so a
+    # model trained WITHOUT a floor is never rescaled behind the network's back.
+    detector.variance_floor = autoencoder_detector.UNIT_SCALE_FLOOR
+    X_scaled = detector.scaler.transform(X_clean)
     detector.model = _fit_robust(X_scaled)
+    detector.trained_unsupervised = bool(unsupervised)
     print(f"  Iterations: {detector.model.n_iter_} | Final training set: {len(X_clean)} alerts")
 
     # Calibrate reconstruction-error range from the purified clean training data

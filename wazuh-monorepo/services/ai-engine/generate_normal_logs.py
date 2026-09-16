@@ -469,6 +469,255 @@ def work_hour_ts(date: datetime) -> datetime:
     return date.replace(hour=hour, minute=minute, second=second, tzinfo=timezone.utc)
 
 
+# ── Edge-case benign activity ────────────────────────────────────────────────
+# Everything above this line is a host doing well: successful logins, clean
+# sudo, work-hours web traffic. That produced a training corpus in which the
+# features that discriminate had no variance at all — measured 2026-09-16 on
+# the clean subset, failed_count sd 0.088, off_hours 0.000, unknown_user 0.000.
+# A model fitted there learns "failures never happen", and then scores the
+# first real one at z ~ 37.
+#
+# These are the benign events that were missing. Every one is ordinary on a
+# working host, and every one carries a marker the old corpus never contained:
+#
+#   benign failures  -> failed_count   ("failure", "Failed", "error", "denied")
+#   maintenance      -> off_hours      (fires 02:00-06:00, see off_hours_ts)
+#   service accounts -> unknown_user   ("unknown user", "invalid user")
+#   remote ops       -> external_srcip (public, non-CDN source addresses)
+#
+# They must stay CLEAN under attack_labels.is_attack_alert(), so descriptions
+# avoid every ATTACK_KEYWORD, groups avoid every ATTACK_GROUP, and levels stay
+# below SEVERE_LEVEL. test_training_corpus.py asserts exactly that.
+EDGE_RULES = [
+    # ── Benign failures: a human mistyping, a service retrying ───────────────
+    {
+        "id": 5501, "level": 3,
+        "description": "PAM: Login session opened.",
+        "decoder": "pam",
+        # The single most common "failure" on any host with a person on it:
+        # sudo password mistyped once, then accepted.
+        "full_log_tpl": ("pam_unix(sudo:auth): authentication failure; logname={user} "
+                         "uid=1000 euid=0 tty=/dev/pts/0 ruser={user} rhost=  user={user}"),
+        "data": {"srcuser": USER},
+        "mitre": [],
+    },
+    {
+        "id": 5715, "level": 3,
+        "description": "sshd: authentication success.",
+        "decoder": "sshd",
+        # ssh offers each key in turn; every key before the right one logs
+        # "Failed publickey". A normal successful login emits these.
+        "full_log_tpl": ("sshd[{pid}]: Failed publickey for {user} from {ip} "
+                         "port {port} ssh2: RSA SHA256:aH9kLmQ2vX"),
+        "data": {"srcip": HOME_IP, "srcuser": USER},
+        "mitre": [],
+    },
+    {
+        "id": 1002, "level": 2,
+        "description": "Systemd unit failed to start.",
+        "decoder": "syslog",
+        "full_log_tpl": "systemd[1]: Failed to start {service}.",
+        "data": {},
+        "mitre": [],
+        "services": ["apt-daily.service", "man-db.service", "fwupd-refresh.service",
+                     "systemd-timesyncd.service", "snapd.seeded.service"],
+    },
+    {
+        "id": 1002, "level": 2,
+        "description": "Name resolution error.",
+        "decoder": "syslog",
+        "full_log_tpl": ("named[{pid}]: error (network unreachable) resolving "
+                         "'deb.debian.org/A/IN': 2001:4860:4860::8888#53"),
+        "data": {},
+        "mitre": [],
+    },
+    {
+        "id": 1002, "level": 2,
+        "description": "Package manager lock contention.",
+        "decoder": "syslog",
+        "full_log_tpl": ("apt[{pid}]: E: Could not get lock "
+                         "/var/lib/dpkg/lock-frontend - open (11: Resource temporarily unavailable)"),
+        "data": {},
+        "mitre": [],
+    },
+    {
+        "id": 1002, "level": 2,
+        "description": "DHCP lease renewal retry.",
+        "decoder": "syslog",
+        "full_log_tpl": ("NetworkManager[{pid}]: dhclient: DHCPDISCOVER on eth0 failed, "
+                         "will retry in 8 seconds"),
+        "data": {},
+        "mitre": [],
+    },
+    {
+        "id": 1002, "level": 2,
+        "description": "Certificate renewal deferred.",
+        "decoder": "syslog",
+        "full_log_tpl": ("certbot[{pid}]: renewal failed for selenne.app: "
+                         "not yet due for renewal, skipping"),
+        "data": {},
+        "mitre": [],
+    },
+    # ── Service / provisioning accounts: benign "unknown user" ───────────────
+    {
+        "id": 1002, "level": 2,
+        "description": "Systemd unit references a missing account.",
+        "decoder": "syslog",
+        "full_log_tpl": ("systemd[1]: /etc/systemd/system/{service}: references "
+                         "unknown user 'deploy', ignoring"),
+        "data": {},
+        "mitre": [],
+        "services": ["selenne-backend.service", "node-exporter.service", "backup.service"],
+    },
+    {
+        "id": 2502, "level": 3,
+        "description": "Crontab has been edited.",
+        "decoder": "cron",
+        "full_log_tpl": "crontab[{pid}]: unknown user: jenkins (job skipped)",
+        "data": {},
+        "mitre": [],
+    },
+    # ── Legitimate remote operations from public addresses ───────────────────
+    {
+        "id": 5715, "level": 3,
+        "description": "sshd: authentication success.",
+        "decoder": "sshd",
+        "full_log_tpl": ("Accepted publickey for {user} from {ip} port {port} "
+                         "ssh2: ED25519 SHA256:pQ7rTvWy"),
+        # Overridden per-alert with a real public address below.
+        "data": {"srcuser": USER},
+        "mitre": [],
+        "external": True,
+    },
+    {
+        "id": 31110, "level": 2,
+        "description": "Web request - API.",
+        "decoder": "web-accesslog",
+        "full_log_tpl": '{ip} - - [{ts_fmt}] "GET /api/v1/health HTTP/1.1" 200 47 "-" "Prometheus/2.51.0"',
+        "data": {},
+        "mitre": [],
+        "external": True,
+    },
+]
+
+# ── Off-hours maintenance ────────────────────────────────────────────────────
+# The `off_hours` feature flags hours 2-6. work_hour_ts() only ever emits
+# 08:00-22:00, so NO generated alert could be off-hours and the feature was
+# constant-zero across the whole clean set. These are the jobs that really do
+# run at 03:00 on every Linux host.
+MAINTENANCE_RULES = [
+    {
+        "id": 5501, "level": 3,
+        "description": "PAM: Login session opened.",
+        "decoder": "pam",
+        "full_log_tpl": "pam_unix(cron:session): session opened for user root by (uid=0)",
+        "data": {"srcuser": "root"},
+        "mitre": [],
+    },
+    {
+        "id": 5502, "level": 3,
+        "description": "PAM: Login session closed.",
+        "decoder": "pam",
+        "full_log_tpl": "pam_unix(cron:session): session closed for user root",
+        "data": {"srcuser": "root"},
+        "mitre": [],
+    },
+    {
+        "id": 2502, "level": 3,
+        "description": "Crontab has been edited.",
+        "decoder": "cron",
+        "full_log_tpl": "(root) CMD ({cmd})",
+        "data": {"srcuser": "root"},
+        "mitre": [],
+        "cmds": [
+            "/usr/sbin/logrotate /etc/logrotate.conf",
+            "/usr/bin/unattended-upgrade --download-only",
+            "/usr/bin/rsync -a --delete /home/sek/ /mnt/backup/",
+            "/usr/bin/certbot renew --quiet",
+            "test -x /usr/sbin/anacron || run-parts --report /etc/cron.daily",
+            "/usr/bin/find /var/log -type f -mtime +30 -delete",
+        ],
+    },
+    {
+        "id": 1002, "level": 2,
+        "description": "Log file rotated.",
+        "decoder": "syslog",
+        "full_log_tpl": "logrotate[{pid}]: rotating log /var/log/{service}, log->rotateCount is 4",
+        "data": {},
+        "mitre": [],
+        "services": ["syslog", "auth.log", "nginx/access.log", "selenne-audit.json"],
+    },
+    {
+        "id": 2903, "level": 3,
+        "description": "Dpkg (Debian Package) installed.",
+        "decoder": "dpkg",
+        "full_log_tpl": "status installed {service}:amd64 2.4.58-1ubuntu8.5",
+        "data": {},
+        "mitre": [],
+        "services": ["libssl3", "openssh-server", "tzdata", "python3.11-minimal"],
+    },
+    {
+        "id": 87701, "level": 3,
+        "description": "Docker: Container started.",
+        "decoder": "docker-listener",
+        "full_log_tpl": "docker: Container {container} started.",
+        "data": {},
+        "mitre": [],
+        "containers": ["wazuh_postgres_backup", "wazuh_qdrant_snapshot"],
+    },
+]
+
+#: How often each edge case fires relative to the others.
+EDGE_WEIGHTS = {
+    "benign_failure": 55,
+    "maintenance":    35,
+}
+
+#: Share of a generated day that is edge-case activity. Deliberately a
+#: MINORITY: these events must be present in the baseline, not dominate it —
+#: the model should learn that failures happen, not that they are the norm.
+EDGE_FRACTION = 0.18
+
+#: Public, non-CDN addresses for the legitimate-remote-operations cases. Kept
+#: out of Cloudflare ranges so _is_external_ip() actually counts them.
+OPS_EXTERNAL_IPS = [
+    "203.0.113.17", "198.51.100.42", "192.0.2.88",
+    "45.83.12.190", "116.203.77.4", "159.69.12.201",
+]
+
+
+def off_hours_ts(date: datetime) -> datetime:
+    """A timestamp inside the maintenance window (02:00-05:59).
+
+    Matches the `off_hours` feature, which flags 2 <= hour <= 6.
+    """
+    return date.replace(hour=random.randint(2, 5),
+                        minute=random.randint(0, 59),
+                        second=random.randint(0, 59),
+                        tzinfo=timezone.utc)
+
+
+def generate_edge_cases(date: datetime, n: int) -> list:
+    """Benign events carrying the markers the ordinary corpus never produced."""
+    alerts = []
+    pool = (["benign_failure"] * EDGE_WEIGHTS["benign_failure"]
+            + ["maintenance"] * EDGE_WEIGHTS["maintenance"])
+    for _ in range(n):
+        kind = random.choice(pool)
+        if kind == "maintenance":
+            rule_def = random.choice(MAINTENANCE_RULES)
+            alert = make_alert(rule_def, off_hours_ts(date))
+        else:
+            rule_def = random.choice(EDGE_RULES)
+            alert = make_alert(rule_def, work_hour_ts(date))
+            if rule_def.get("external"):
+                ip = random.choice(OPS_EXTERNAL_IPS)
+                alert.setdefault("data", {})["srcip"] = ip
+                alert["full_log"] = alert["full_log"].replace(HOME_IP, ip)
+        alerts.append(alert)
+    return alerts
+
+
 def generate_day(date: datetime, n_alerts: int) -> list:
     """Generate n_alerts normal alerts for a single day."""
     # Build weighted pool
@@ -477,15 +726,23 @@ def generate_day(date: datetime, n_alerts: int) -> list:
     for rid, weight in RULE_WEIGHTS.items():
         pool.extend([rid] * weight)
 
+    n_edge = int(n_alerts * EDGE_FRACTION)
+    n_ordinary = n_alerts - n_edge
+
     alerts = []
     # Cluster timestamps: morning login burst, midday work, afternoon work
-    timestamps = sorted(work_hour_ts(date) for _ in range(n_alerts))
+    timestamps = sorted(work_hour_ts(date) for _ in range(n_ordinary))
 
     for ts in timestamps:
         rid = random.choice(pool)
         rule_def = rule_by_id[rid]
         alerts.append(make_alert(rule_def, ts))
 
+    # The benign-but-abnormal-looking minority. Without these the clean set has
+    # zero variance on failed_count / off_hours / unknown_user, and the
+    # autoencoder saturates on the first real failure it ever sees.
+    alerts.extend(generate_edge_cases(date, n_edge))
+    alerts.sort(key=lambda a: a.get("timestamp", ""))
     return alerts
 
 

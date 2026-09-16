@@ -80,11 +80,17 @@ class EnsembleDetector:
         if_score   = if_result['anomaly_score']
         if_anomaly = if_result['is_anomaly']
 
-        ae_score = ae_anomaly = None
+        ae_score = ae_anomaly = ae_meta_score = None
         if self.ae_det is not None:
             ae_result  = self.ae_det.detect_anomaly(alert)
             ae_score   = ae_result['anomaly_score']
             ae_anomaly = ae_result['is_anomaly']
+            # The stacker was FITTED on the autoencoder's calibrated scale.
+            # The displayed/voted score is now a rank against recent traffic,
+            # which is a different distribution — feeding that to the meta
+            # model would silently invalidate its learned coefficients, so it
+            # keeps receiving the scale it was trained on until it is refitted.
+            ae_meta_score = ae_result.get('calibrated_score', ae_score)
 
         ueba_score = ueba_anomaly = None
         if self.ueba_det is not None:
@@ -93,7 +99,7 @@ class EnsembleDetector:
             ueba_anomaly = ueba_result['is_anomaly']
 
         # ---- Combined score: learned stacking, else legacy fixed weights ----
-        meta_prob = self._meta_probability(if_score, ae_score, ueba_score)
+        meta_prob = self._meta_probability(if_score, ae_meta_score, ueba_score)
         if meta_prob is not None:
             combined_score = int(round(meta_prob * 100))
         elif ae_score is not None:

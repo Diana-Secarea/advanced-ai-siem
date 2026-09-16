@@ -4,36 +4,109 @@ train_isolation_forest.py and evaluate_isolation_forest.py.
 
 Both scripts must classify alerts identically so that the model is
 evaluated against the same ground truth it was trained on.
+
+OUTCOME vs VERDICT
+------------------
+This module answers two different questions, and conflating them is what
+saturated the autoencoder.
+
+  * an OUTCOME is what happened — a login failed, a sudo was denied.
+  * a VERDICT is what it means — this was hostile.
+
+A single failed login is an outcome. It is the most ordinary event on a host
+with a human on it: people mistype passwords, keys get offered before the right
+one, sudo timestamps expire. Treating it as a verdict had a specific and
+measurable cost. `is_attack_alert()` decides what is EXCLUDED from one-class
+training, so labelling every failure an attack meant the clean training set was
+defined as "the set where failed_count is 0". Measured 2026-09-16 over 2,149
+alerts, the clean subset collapsed on exactly the features that discriminate:
+
+    feature           sd (all)   sd (clean)
+    failed_count         0.469        0.088
+    off_hours            0.330        0.000
+    unknown_user         0.343        0.000
+    port_count           0.218        0.084
+
+StandardScaler then turned a single failed login into z ~ 11-37, the
+reconstruction error saturated, and 98% of production incidents came back
+CRITICAL. More clean data made it strictly worse, because it tightened those
+standard deviations toward zero.
+
+So failure markers now live in the FAILURE_* sets and feed `failure_outcome()`.
+They no longer make something an attack on their own. What still does: rules and
+phrases that describe a BURST ("multiple failed", "brute force", max auth
+attempts) or a technique (sql injection, rootkit, reverse shell). Those are
+verdicts — one is genuinely evidence of an attack.
 """
 
 ATTACK_KEYWORDS = {
-    # Specific attack-pattern phrases in rule descriptions
+    # Attack-pattern phrases. Every one of these describes a BURST or a
+    # TECHNIQUE, never a single ordinary failure.
     'brute force', 'multiple failed', 'attack', 'exploit',
     'sql injection', 'web attack', 'rootkit', 'trojan',
     'backdoor', 'reverse shell', 'privilege escalation attempt',
-    # Auth-specific attack signals
-    'non-existent', 'authentication_failed', 'invalid_login', 'authentication_failures',
+    # Plural / burst phrasing. Wazuh reuses ONE rule id (5503) for both
+    # "PAM: User login failed." (level 5, one miss) and "Multiple
+    # authentication failures." (level 10, a burst), so the description is the
+    # only thing that separates them — a rule-id split cannot do it.
+    'authentication_failures', 'multiple authentication', 'multiple failures',
+    # Putting an interface into promiscuous mode is a technique, not an
+    # outcome: nothing routine on this host sniffs the wire.
+    'promiscuous',
+}
+
+#: Phrases that mark a FAILURE OUTCOME. Present in perfectly ordinary events.
+#: These must never, alone, make something an attack — see the module docstring.
+FAILURE_KEYWORDS = {
+    'authentication_failed', 'invalid_login', 'non-existent',
+    'login failed', 'password check failed', 'authentication failure',
+    'user login failed', 'missed the password',
 }
 
 ATTACK_RULE_IDS = {
-    '5503',    # PAM: User login failed
-    '5710',    # sshd: Attempt to login using a non-existent user
-    '5760',    # sshd: authentication failed
-    '5758',    # sshd: max auth attempts
-    '5712',    # sshd: brute force (non-existent)
+    # Each of these fires on REPEATED failures or on a technique, not on one
+    # ordinary miss. That is the whole difference from FAILURE_RULE_IDS.
+    '5758',    # sshd: max auth attempts (a burst, by definition)
+    '5712',    # sshd: brute force (non-existent user)
     '5720',    # sshd: Multiple failed logins
-    '2502',    # User missed password for UID change
     '100001',  # Failed WordPress login (brute force)
-    '100002',  # Process execution at unusual time (custom rule — catches reverse shells, C2 beacons)
+    '100002',  # Process execution at unusual time (reverse shells, C2 beacons)
+}
+
+#: Rules that record a SINGLE failure. Ordinary on any host with a human on it:
+#: a mistyped password, a key offered before the right one, an expired sudo
+#: timestamp. Excluding these from training is what produced failed_count
+#: sd = 0.088 and the z ~ 37 that saturated the autoencoder.
+FAILURE_RULE_IDS = {
+    '5503',    # PAM: User login failed  (but see 'multiple authentication'
+               # in ATTACK_KEYWORDS — the same id also carries the burst)
+    '5710',    # sshd: attempt to login using a non-existent user
+    '5760',    # sshd: authentication failed
+    '5557',    # unix_chkpwd: password check failed
+    '5301',    # User missed the password to change UID
+    '5300',    # Telnet authentication failure
+    '2502',    # User missed the password for a UID change (legacy id)
 }
 
 # Union of groups from both scripts — previously inconsistent.
 ATTACK_GROUPS = {
     'attack', 'exploit',
     'web_attack', 'sql_injection', 'ids',
-    'bruteforce', 'failed-login',
-    'authentication_failed', 'invalid_login',
+    'bruteforce',
 }
+
+#: Groups that mark a failure outcome. Wazuh tags every single failed login
+#: with these, which is why they cannot be treated as an attack verdict.
+FAILURE_GROUPS = {
+    'authentication_failed', 'invalid_login', 'failed-login',
+}
+
+#: Wazuh rule level at which severity alone is taken as a verdict.
+#: Was 8, which swept in routine administrative events (Wazuh assigns 8 freely)
+#: and pushed them out of the clean training set. 12 is Wazuh's own "high
+#: importance" boundary and is the level at which severity is worth trusting
+#: on its own.
+SEVERE_LEVEL = 12
 
 # Rule IDs whose description clearly indicates a non-attack event.
 # The rule_id alone is not enough — Wazuh occasionally produces alerts
@@ -157,13 +230,44 @@ def is_attack_alert(alert, benign_rule_ids=frozenset()):
     if rule_id in ATTACK_RULE_IDS:
         return True
 
-    if level >= 8:
-        return True
-
     if any(kw in description for kw in ATTACK_KEYWORDS):
         return True
 
     if groups & ATTACK_GROUPS:
         return True
 
+    # Severity alone, but only at Wazuh's "high importance" boundary. The old
+    # `level >= 8` swept in routine administrative events — Wazuh assigns 8
+    # liberally — and every one of those left the clean training set.
+    if level >= SEVERE_LEVEL:
+        return True
+
+    # Note what is NOT here: FAILURE_RULE_IDS / FAILURE_KEYWORDS /
+    # FAILURE_GROUPS. A single failed login is an outcome, not a verdict, and
+    # it belongs IN the clean baseline so the model learns that failures are a
+    # normal part of a working host. Ask failure_outcome() for that signal.
     return False
+
+
+def failure_outcome(alert):
+    """True when the event records a failure or denial. Descriptive, not a verdict.
+
+    Separated from is_attack_alert() so the two can be used for what each is
+    actually good for: this one to build a feature, stratify a training sample
+    or drive burst detection, that one to label an attack.
+
+    A host that never emits this is not a secure host, it is an unused one.
+    """
+    rule = alert.get('rule', {}) or {}
+    rule_id = str(rule.get('id', ''))
+    description = str(rule.get('description', '')).lower()
+    groups = set(rule.get('groups', []) or [])
+
+    if rule_id in FAILURE_RULE_IDS:
+        return True
+    if any(kw in description for kw in FAILURE_KEYWORDS):
+        return True
+    if groups & FAILURE_GROUPS:
+        return True
+    # A burst of failures is both an outcome and a verdict.
+    return rule_id in ATTACK_RULE_IDS and 'fail' in description

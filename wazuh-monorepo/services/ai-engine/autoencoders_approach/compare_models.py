@@ -71,7 +71,7 @@ def score_all(if_detector, ae_detector, alerts):
         label = is_attack_alert(alert)
         rule  = alert.get('rule', {})
         if_r  = if_detector.detect_anomaly(alert)
-        ae_r  = ae_detector.detect_anomaly(alert)
+        ae_r  = ae_detector.detect_anomaly(alert, learn=False)   # measuring, not observing
         results.append({
             'is_attack':   label,
             'rule_desc':   rule.get('description', 'unknown'),

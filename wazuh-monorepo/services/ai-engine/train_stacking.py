@@ -73,7 +73,7 @@ def base_scores(ensemble, alerts):
     for alert in alerts:
         try:
             if_s = ensemble.if_det.detect_anomaly(alert)['anomaly_score']
-            ae_s = ensemble.ae_det.detect_anomaly(alert)['anomaly_score'] \
+            ae_s = ensemble.ae_det.detect_anomaly(alert, learn=False)['anomaly_score'] \
                 if ensemble.ae_det else 0
             ub_s = ensemble.ueba_det.detect_anomaly(alert)['anomaly_score'] \
                 if ensemble.ueba_det else 0

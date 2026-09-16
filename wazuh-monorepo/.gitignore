@@ -6,3 +6,6 @@ infra/deploy/dist/
 
 # private per-user RAG conversations (never commit / never ship)
 apps/backend/data/chats/
+
+# per-host rolling AE score window — runtime state, never source
+*_score_window.json

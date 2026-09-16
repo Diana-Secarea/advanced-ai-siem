@@ -196,8 +196,16 @@ def auth_login():
 
 #: Shown for every registration that does not fail on the username, whether or
 #: not an account was created — see auth_register.
-_REGISTER_OK = ("Check your email to confirm the address and finish setting up "
-                "your account.")
+# Deliberately conditional ("if that address is not already registered")
+# rather than a flat promise. The same body is returned whether an account was
+# created or the address was already taken — that is what stops the endpoint
+# being an oracle for who has an account — so a message saying mail IS on its
+# way is a lie in exactly the collision case, and sends the user to wait for an
+# email that was never sent. Naming the possibility costs no information: a
+# reader still cannot tell which branch they hit.
+_REGISTER_OK = ("If that address is not already registered, a confirmation "
+                "email is on its way — check your inbox and your spam folder. "
+                "Already have an account? Sign in and use Resend email.")
 
 
 @app.route("/api/auth/register", methods=["POST"])

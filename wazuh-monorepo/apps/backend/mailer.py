@@ -35,6 +35,21 @@ def is_configured():
     return bool(os.environ.get("SMTP_HOST", "").strip())
 
 
+def _from_address(user):
+    """Sender address for outgoing mail.
+
+    SMTP_FROM wins; otherwise fall back to SMTP_USER but only when it actually
+    looks like an address, so a provider whose username is an opaque token
+    cannot end up in a From header. Last resort is the brand default, which at
+    least fails as a delivery problem rather than a malformed message.
+    """
+    explicit = os.environ.get("SMTP_FROM", "").strip()
+    if explicit:
+        return explicit
+    user = (user or "").strip()
+    return user if "@" in user else "no-reply@selenne.app"
+
+
 def send(to_address, subject, body):
     """Send one plain-text message. Returns (ok, status).
 
@@ -62,7 +77,12 @@ def send(to_address, subject, body):
     # above is the belt to this braces, and gives a clean log line instead of
     # an exception from deep in the email package.
     msg["Subject"] = subject
-    msg["From"] = user or "no-reply@selenne.app"
+    # The auth username and the sender address are NOT the same thing. Gmail
+    # lets you conflate them because the username IS an address, but a
+    # transactional provider does not: Resend authenticates as the literal
+    # string "resend", Postmark as a server token. Using SMTP_USER as the From
+    # there produces `From: resend`, which the provider rejects outright.
+    msg["From"] = _from_address(user)
     msg["To"] = to_address
     msg.set_content(body)
 

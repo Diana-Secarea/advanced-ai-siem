@@ -100,6 +100,15 @@ _AUTH_EXEMPT_PATHS = {
     "/api/download/linux", "/download/selenne-linux.tar.gz",  # public app download
     "/api/billing/config", "/api/billing/checkout",  # Stripe checkout (public)
     "/api/auth/login", "/api/auth/register", "/api/auth/me",
+    # The verification link is clicked from an email client — on a phone, in a
+    # different browser, days later — so by construction there is no session on
+    # that request. Gating it made confirmation impossible for every user who
+    # did not happen to open the link in the same browser they signed up in,
+    # which is nearly all of them: the endpoint returned 401 before it ever
+    # ran. The token IS the credential here (single-use, SHA-256 at rest, 24h
+    # TTL, 20/hour rate limit) — that is the whole design of a verification
+    # link, and the endpoint's own docstring says so.
+    "/api/auth/verify",
     "/metrics",   # Prometheus scrape — read-only counters, no alert content
     "/health", "/ready",  # liveness/readiness probes for monitoring & LB
 }

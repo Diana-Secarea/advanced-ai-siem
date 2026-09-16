@@ -451,7 +451,12 @@ footer a:hover { color: var(--text); }
   <a class="link" href="#pricing">Pricing</a>
   <a class="link" href="#faq">FAQ</a>
   <span class="spacer"></span>
-  <a class="btn btn-ghost btn-sm" href="login.html">Sign in</a>
+  <!-- Ships in the signed-OUT shape and is upgraded by the /api/auth/me probe
+       below. That direction matters: a visitor with no session must never see
+       a half-rendered "signed in" nav, and a probe that fails leaves the safe
+       target in place. Same arming pattern as the collector buttons. -->
+  <a class="link" id="nav-user" href="profile.html" hidden></a>
+  <a class="btn btn-ghost btn-sm" id="nav-auth" href="login.html">Sign in</a>
   <a class="btn btn-primary btn-sm" href="index.html">Launch console</a>
 </nav>
 
@@ -1036,10 +1041,36 @@ footer a:hover { color: var(--text); }
      401 body as install-selenne-agent.cmd. */
   var collectors = Array.prototype.slice.call(document.querySelectorAll(".collector-dl"));
 
+  /* The nav used to be hardcoded to "Sign in", so arriving here with a live
+     session looked exactly like being logged out — while the session was in
+     fact untouched, which is why "Launch console" walked straight back in.
+     Nothing here signs anyone out; it only makes the existing state visible. */
+  function showSignedIn(user) {
+    var nav = document.getElementById("nav-user");
+    var auth = document.getElementById("nav-auth");
+    if (nav) {
+      nav.textContent = user.username;
+      nav.hidden = false;
+    }
+    if (!auth) return;
+    auth.textContent = "Sign out";
+    auth.href = "#";
+    auth.addEventListener("click", function (ev) {
+      ev.preventDefault();
+      // The session cookie is HttpOnly, so only the server can clear it —
+      // a client-side "log out" here would be cosmetic and leave the session
+      // alive on the server.
+      fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" })
+        .then(function () { location.reload(); })
+        .catch(function () { location.reload(); });
+    });
+  }
+
   fetch("/api/auth/me", { credentials: "same-origin" })
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (d) {
       if (!d || !d.user) return;            // signed out: leave them on login.html
+      showSignedIn(d.user);
       collectors.forEach(function (btn) {
         btn.href = btn.getAttribute("data-dl");
         btn.setAttribute("download", btn.getAttribute("data-dlname"));

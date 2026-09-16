@@ -387,7 +387,11 @@ def endpoints_assign():
 def auth_me():
     """Session probe — exempt from the gate so the UI can test login state."""
     if not AUTH_ENABLED:
-        return jsonify({"auth_enabled": False, "user": {"username": "anonymous", "role": "admin"}})
+        # email_verified True so the verify banner never nags in the
+        # auth-disabled dev mode, where there is no account to verify.
+        return jsonify({"auth_enabled": False,
+                        "user": {"username": "anonymous", "role": "admin",
+                                 "email_verified": True}})
     user = _auth.validate_token(_request_token())
     if not user:
         return jsonify({"auth_enabled": True, "user": None}), 401

@@ -1046,3 +1046,43 @@ body.page-leave { animation: pageOut .28s ease forwards; }
 .icon-btn svg { width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:1.8; }
 .icon-btn.rec { border-color:rgba(251,113,133,.7); color:var(--red); animation:recpulse 1.2s ease-in-out infinite; }
 @keyframes recpulse { 50% { box-shadow:0 0 0 6px rgba(251,113,133,.15); } }
+
+/* ---------- Unverified-email banner ----------
+   Sits above the sticky nav in the flow rather than fixed over it: the nav is
+   `position: sticky; top: 14px` and a fixed bar would cover it on scroll. */
+.verify-banner {
+  position: relative; z-index: 60;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin: 10px auto 0;
+  width: min(1120px, calc(100% - 32px));
+  padding: 10px 16px;
+  border-radius: 14px;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  color: var(--text);
+  /* Amber, not red: the account works, one action is outstanding. Red would
+     read as an error the user caused. */
+  background: rgba(251, 191, 36, .10);
+  border: 1px solid rgba(251, 191, 36, .34);
+}
+.verify-banner .vb-icon { font-size: 15px; color: var(--amber); }
+.verify-banner .vb-text { flex: 1 1 260px; color: var(--text-soft); }
+.verify-banner .vb-text b { color: var(--text); font-weight: 600; }
+.verify-banner .vb-btn {
+  flex: 0 0 auto;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font: 600 12.5px var(--font-body);
+  color: #1a1206;
+  background: var(--amber);
+  border: 0; cursor: pointer;
+  transition: filter .15s ease, opacity .15s ease;
+}
+.verify-banner .vb-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.verify-banner .vb-btn:disabled { opacity: .5; cursor: default; }
+.verify-banner .vb-status { flex: 0 1 auto; color: var(--text-dim); font-size: 12.5px; }
+
+@media (max-width: 620px) {
+  .verify-banner { font-size: 12.5px; padding: 9px 12px; }
+  .verify-banner .vb-status { flex-basis: 100%; }
+}

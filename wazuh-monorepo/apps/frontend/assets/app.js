@@ -512,3 +512,66 @@ makeNavManager({
   }, { threshold: 0.15 });
   document.querySelectorAll(".stagger-in").forEach((el) => sio.observe(el));
 })();
+
+/* ---------- Unverified-email banner ----------
+   Until this existed, an account that never received its confirmation mail had
+   no way out of the hole: the only symptom was a 403 at the collector
+   download, re-registering the same address silently collided (the endpoint
+   deliberately does not confirm an address is taken), and no resend control
+   was exposed anywhere. That is a signup funnel that loses people permanently.
+
+   Lives in app.js rather than in each page because every console page loads
+   this file — the nag and the fix should follow the user around, not depend on
+   which tab they happen to be on. */
+(function verifyBanner() {
+  // Fails closed: any error, or an unreadable answer, shows nothing. A false
+  // nag on a perfectly good account is worse than a missing one.
+  fetch("/api/auth/me", { credentials: "same-origin" })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => {
+      if (!d || !d.user || d.user.email_verified !== false) return;
+      render(d.user);
+    })
+    .catch(() => {});
+
+  function render(user) {
+    const bar = document.createElement("div");
+    bar.className = "verify-banner";
+    bar.innerHTML =
+      '<span class="vb-icon">✉</span>' +
+      '<span class="vb-text">Confirm <b></b> to download collectors and enrol endpoints.</span>' +
+      '<button class="vb-btn" type="button">Resend email</button>' +
+      '<span class="vb-status" role="status"></span>';
+    bar.querySelector("b").textContent = user.username;
+
+    const btn = bar.querySelector(".vb-btn");
+    const status = bar.querySelector(".vb-status");
+
+    btn.addEventListener("click", () => {
+      btn.disabled = true;
+      status.textContent = "Sending…";
+      fetch("/api/auth/verify/resend", { method: "POST", credentials: "same-origin" })
+        .then((r) => r.json().then((body) => ({ ok: r.ok, body })))
+        .then(({ ok, body }) => {
+          if (ok) {
+            status.textContent = "✓ Sent — check your inbox (and spam).";
+            // Not re-enabled on success: there is a 120s per-account cooldown
+            // server-side, and a button that looks ready but returns 400 reads
+            // as a broken feature.
+            return;
+          }
+          // Surface the server's reason — the cooldown and the mail failure
+          // are different problems and the user can act on the difference.
+          status.textContent = (body && body.error) || "Could not send — try again shortly.";
+          btn.disabled = false;
+        })
+        .catch(() => {
+          status.textContent = "Network error — try again.";
+          btn.disabled = false;
+        });
+    });
+
+    document.body.insertBefore(bar, document.body.firstChild);
+    document.body.classList.add("has-verify-banner");
+  }
+})();

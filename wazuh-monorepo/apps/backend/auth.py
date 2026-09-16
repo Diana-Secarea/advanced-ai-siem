@@ -419,18 +419,25 @@ def change_password(username, current_password, new_password, keep_token=None):
 
 
 def validate_token(token):
-    """Return {'username', 'role'} for a live session token, else None."""
+    """Return {'username', 'role', 'email_verified'} for a live session, else None.
+
+    email_verified rides along because the UI has to know it on every page load
+    to decide whether to nag: without it the only way to discover an unverified
+    account was to attempt a collector download and read the 403.
+    """
     if not token or len(token) > 128:
         return None
     with _db_lock, _conn() as conn:
         row = conn.execute(
-            "SELECT s.username, s.expires_at, u.role FROM sessions s "
-            "JOIN users u ON u.username = s.username WHERE s.token = ?",
+            "SELECT s.username, s.expires_at, u.role, u.email_verified "
+            "FROM sessions s JOIN users u ON u.username = s.username "
+            "WHERE s.token = ?",
             (_token_digest(token),),
         ).fetchone()
     if row is None or row["expires_at"] < _iso(_now()):
         return None
-    return {"username": row["username"], "role": row["role"]}
+    return {"username": row["username"], "role": row["role"],
+            "email_verified": bool(row["email_verified"])}
 
 
 def logout(token):

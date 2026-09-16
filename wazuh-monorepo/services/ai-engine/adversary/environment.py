@@ -120,7 +120,12 @@ class AttackerEnvironment:
             if not valid:
                 return 101.0, False
 
-            result = self.ens.score(alert)
+            # learn=False: the adversary scores thousands of MUTATED alerts
+            # hunting for evasions. Letting those into the baseline would
+            # teach the detector that attacker probes are normal traffic —
+            # the model poisoning the feedback-loop design explicitly warns
+            # about, self-inflicted.
+            result = self.ens.score(alert, learn=False)
             score = result["combined_score"]
 
             if result["is_anomaly"]:

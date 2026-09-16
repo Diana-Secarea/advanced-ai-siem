@@ -62,7 +62,7 @@ def evaluate(detector, alerts):
     clean_results  = []
     attack_results = []
     for alert in alerts:
-        result = detector.detect_anomaly(alert)
+        result = detector.detect_anomaly(alert, learn=False)   # measuring, not observing
         multi  = detector.multi_dimensional_scoring(alert)
         rule   = alert.get('rule', {})
         entry  = {

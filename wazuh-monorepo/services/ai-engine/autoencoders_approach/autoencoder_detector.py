@@ -20,9 +20,9 @@ from sklearn.neural_network import MLPRegressor
 from sklearn.preprocessing import StandardScaler
 
 try:                                    # imported as autoencoders_approach.<mod>
-    from .score_window import ScoreWindow
+    from .score_window import ScoreWindow, event_key
 except ImportError:                      # …or with this directory on sys.path
-    from score_window import ScoreWindow
+    from score_window import ScoreWindow, event_key
 
 try:
     from feature_text import message_word_count
@@ -461,7 +461,9 @@ class AutoencoderDetector:
             rank_score = self._rank_score(recon_error)
             calibrated_score = self._calibrated_score(recon_error)
             if learn and getattr(self, "window", None) is not None:
-                self.window.add(recon_error)
+                # Keyed, so the same alert rescored on every dashboard poll
+                # moves the baseline once rather than once per request.
+                self.window.add(recon_error, key=event_key(event))
 
             ranked = rank_score is not None
             normalized_score = rank_score if ranked else calibrated_score

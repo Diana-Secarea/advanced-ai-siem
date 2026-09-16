@@ -151,6 +151,60 @@ truthy(f"failures are a minority of the edge batch ({share:.0%})", 0.05 < share 
 truthy("maintenance really lands in the 02:00-06:00 window",
        0.1 < float(np.count_nonzero(X[:, IDX["off_hours"]]) / len(X)) < 0.8)
 
+print("\n9. Unsupervised purification is available but guarded")
+import autoencoders_approach.train_autoencoder as TR
+
+# Default OFF. Measured on this corpus (20.8% attacks): label-filtered F1
+# 0.745 vs unsupervised 0.038, and 80.3% of attacks SURVIVED the trim while
+# only 31.7% of rare benign events did.
+check("unsupervised is not the default", TR.AE_UNSUPERVISED, False)
+truthy("a contamination ceiling exists", TR.AE_MAX_CONTAMINATION > 0)
+truthy("and it is low enough to mean 'rare'", TR.AE_MAX_CONTAMINATION <= 0.10)
+
+
+print("\n10. _purify drops the worst-reconstructed rows, and only those")
+rng = np.random.default_rng(0)
+# 200 tight rows plus 20 DIFFUSE outliers — each one different, scattered over
+# a wide range. Diffuseness is the part that matters, and it is easy to get
+# wrong: an earlier version of this test used a tight CLUSTER of 20 outliers
+# and 90% of them survived the trim, because a 4-neuron bottleneck represents
+# two compact clusters as happily as one. Low contamination is necessary but
+# not sufficient — the anomalies must also be varied, or the autoencoder
+# simply learns them. That is the same mechanism that made unsupervised mode
+# fail on the real corpus, at a different scale.
+bulk = rng.normal(0, 1, size=(200, 4))
+outliers = rng.uniform(-60, 60, size=(20, 4))
+X = np.vstack([bulk, outliers])
+is_outlier = np.array([False] * 200 + [True] * 20)
+
+
+class _Stub:
+    """Just the two attributes _purify touches."""
+    def __init__(self):
+        from sklearn.preprocessing import StandardScaler
+        self.scaler = StandardScaler()
+        self.model = None
+
+
+keep, log = TR._purify(_Stub(), X, contamination=0.10, rounds=2)
+kept = np.zeros(len(X), bool)
+kept[keep] = True
+check("two rounds were logged", len(log), 2)
+truthy("it dropped roughly (1-c)^rounds worth", 0.7 * len(X) <= len(keep) <= 0.85 * len(X))
+# The whole point: when anomalies are rare AND varied, the trim finds THEM.
+# Asserted as a RATIO rather than an absolute rate — the trim drops a fixed
+# fraction of rows, so what matters is that outliers are hit far harder than
+# ordinary rows, not that every last one goes in two rounds.
+out_rate = float((~kept & is_outlier).sum()) / is_outlier.sum()
+bulk_rate = float((~kept & ~is_outlier).sum()) / (~is_outlier).sum()
+ok = out_rate > 4 * bulk_rate
+print(f"  {'PASS' if ok else 'FAIL'}  outliers are removed far faster than bulk "
+      f"({out_rate:.0%} vs {bulk_rate:.0%}, want >4x)")
+if not ok:
+    _fails.append("purify targets outliers")
+truthy("and the bulk is mostly kept",
+       float((kept & ~is_outlier).sum()) / (~is_outlier).sum() > 0.8)
+
 print()
 if _fails:
     print(f"{len(_fails)} FAILED: " + ", ".join(_fails))

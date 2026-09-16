@@ -74,7 +74,7 @@ class AttackerInLoop:
 
         def hint(best_alert):
             try:
-                scores = self.env.ens.score(best_alert)
+                scores = self.env.ens.score(best_alert, learn=False)
                 small = {k: scores.get(k) for k in
                          ("combined_score", "if_score", "ae_score", "ueba_score")}
                 return self.strategist.propose(best_alert, small)
@@ -111,7 +111,7 @@ class AttackerInLoop:
                 best_alert, best_score = st["best_alert"], st["best_score"]
 
             banked = len(self.env.blind_spots) - banked_before
-            baseline = self.env.ens.score(get_seed(family))   # seed's score, for contrast
+            baseline = self.env.ens.score(get_seed(family), learn=False)  # seed's score, for contrast
             rep.families[family] = {
                 "blind_spots": banked,
                 "best_evasion_score": None if best_score > 100 else round(best_score, 1),

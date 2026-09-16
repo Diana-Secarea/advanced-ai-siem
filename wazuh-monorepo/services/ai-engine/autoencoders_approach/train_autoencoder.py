@@ -125,10 +125,34 @@ def _fit_robust(X_scaled):
 #: Worse, filtering on those signals is what defined the clean set as "the rows
 #: where the discriminative features are zero" and saturated the model.
 #:
-#: Empirical purification has neither problem. It asks the data which rows are
-#: hard to reconstruct and drops those, so it finds anomalous BEHAVIOUR rather
-#: than anomalous paperwork.
-AE_UNSUPERVISED = os.environ.get("AE_UNSUPERVISED", "1") != "0"
+#: Empirical purification has neither problem IN PRINCIPLE. It asks the data
+#: which rows are hard to reconstruct and drops those, so it finds anomalous
+#: BEHAVIOUR rather than anomalous paperwork.
+#:
+#: MEASURED — DEFAULT OFF, because it only holds when contamination is genuinely
+#: small. On the current corpus (20.8% labelled attacks) it fails badly:
+#:
+#:     label-filtered        : precision 93.6%  recall 61.9%  F1 0.745
+#:     unsupervised c=0.12x3 : precision 13.0%  recall  2.2%  F1 0.038
+#:
+#: and the trim does the exact opposite of its job — 80.3% of labelled attacks
+#: SURVIVED it while only 31.7% of the rare benign events did. The reason is
+#: structural: at 20% of the corpus, attacks are not contamination, they are a
+#: dense MODE. An autoencoder reconstructs whatever is dense, so the rows with
+#: the worst error are the genuinely rare ones — which are the benign edge
+#: cases. It also re-broke the variance we had just restored (port_count
+#: 0.238 -> 0.047, external_srcip 0.161 -> 0.047).
+#:
+#: This is worth keeping, not deleting: on a REAL production stream, where
+#: attacks are a fraction of a percent, the premise holds and this is the
+#: better estimator — it needs no hand-maintained rule list and can find
+#: attacks nobody wrote a rule for. The guard below is what decides.
+AE_UNSUPERVISED = os.environ.get("AE_UNSUPERVISED", "0") != "0"
+
+#: Above this labelled-attack share, empirical purification is unsound — the
+#: anomalies are too dense to be trimmed as contamination. Checked at train
+#: time so the failure above cannot be repeated silently.
+AE_MAX_CONTAMINATION = float(os.environ.get("AE_MAX_CONTAMINATION", "0.05"))
 
 #: Fraction dropped per purification round. Total retained is
 #: (1 - contamination) ** rounds, so 0.12 over 3 rounds keeps ~68%.
@@ -199,6 +223,21 @@ def train(alerts_file, model_path, test_file=None, unsupervised=None,
     # Initialise detector (skip auto-load — we are about to overwrite)
     detector = AutoencoderDetector(model_path=model_path)
     detector.model = None
+
+    # Guard: empirical purification assumes the anomalies are RARE. When they
+    # are not, the autoencoder learns them as normal and the trim discards
+    # rare-but-benign rows instead — measured at 20.8% attacks, 80.3% of the
+    # attacks survived the trim. Refuse rather than train a model that looks
+    # fine and detects nothing.
+    attack_share = len(attack_alerts) / len(alerts) if alerts else 0.0
+    if unsupervised and attack_share > AE_MAX_CONTAMINATION:
+        print(f"  !! UNSUPERVISED MODE REFUSED: {attack_share:.1%} of this corpus is "
+              f"labelled attack, above the {AE_MAX_CONTAMINATION:.0%} ceiling.")
+        print("     At this density the anomalies are a mode, not contamination: the")
+        print("     trim would keep the attacks and drop the rare benign events.")
+        print("     Falling back to label-filtered training. Set AE_MAX_CONTAMINATION")
+        print("     higher only if you have measured that the premise still holds.")
+        unsupervised = False
 
     training_alerts = alerts if unsupervised else clean_alerts
     if unsupervised:
@@ -302,7 +341,7 @@ def train(alerts_file, model_path, test_file=None, unsupervised=None,
         attack_detected = 0
         attack_scores = []
         for alert in attack_alerts:
-            r = detector.detect_anomaly(alert)
+            r = detector.detect_anomaly(alert, learn=False)
             attack_scores.append(r['anomaly_score'])
             if r['is_anomaly']:
                 attack_detected += 1
@@ -314,7 +353,7 @@ def train(alerts_file, model_path, test_file=None, unsupervised=None,
         clean_fp = 0
         clean_scores = []
         for alert in clean_for_fp:
-            r = detector.detect_anomaly(alert)
+            r = detector.detect_anomaly(alert, learn=False)
             clean_scores.append(r['anomaly_score'])
             if r['is_anomaly']:
                 clean_fp += 1

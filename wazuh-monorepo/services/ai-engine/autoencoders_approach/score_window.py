@@ -21,10 +21,12 @@ model is portable, the sense of "normal here" is not and must be measured where
 it runs.
 """
 
+import hashlib
 import json
 import os
 import threading
 import time
+from collections import deque
 
 import numpy as np
 
@@ -36,6 +38,34 @@ MIN_SAMPLES = 50
 #: Events kept. Large enough that one busy hour cannot redefine "normal",
 #: small enough to follow a host that genuinely changes.
 DEFAULT_MAXLEN = 2000
+
+
+def event_key(event):
+    """Stable identity for one observation, or None when it cannot be derived.
+
+    This separates "the same alert scored again" from "the same KIND of event
+    happened again", and only the first is a duplicate. A host that emits five
+    hundred identical failed logins really did emit five hundred events and the
+    baseline should say so; the dashboard re-rendering one of them fifty times
+    did not.
+
+    Real Wazuh alerts carry a unique `id` ("1788682606.0"). Synthetic and
+    test alerts have none, so fall back to a digest that INCLUDES the
+    timestamp — content alone would collapse genuinely repeated events into
+    one and quietly starve the window.
+    """
+    if not isinstance(event, dict):
+        return None
+    ident = event.get("id")
+    if ident:
+        return str(ident)
+    rule = event.get("rule") or {}
+    parts = (str(event.get("timestamp", "")),
+             str(rule.get("id", "")),
+             str(event.get("full_log", ""))[:512])
+    if not any(parts):
+        return None
+    return hashlib.sha1("|".join(parts).encode("utf-8", "replace")).hexdigest()[:24]
 
 
 class ScoreWindow:
@@ -53,6 +83,13 @@ class ScoreWindow:
         self.save_every = int(save_every)
         self.save_interval = float(save_interval)
         self._errors = []
+        # Identities already recorded, so the same alert scored twice moves the
+        # baseline once. Without this the API path is the problem: it rescores
+        # up to 500 alerts per request against a 2000-slot window, so a handful
+        # of dashboard refreshes replace the host's traffic profile with
+        # whatever page was last rendered.
+        self._seen = set()
+        self._seen_order = deque()
         self._lock = threading.Lock()
         self._unsaved = 0
         self._last_save = 0.0
@@ -66,10 +103,15 @@ class ScoreWindow:
             errors = [float(e) for e in data.get("errors", [])
                       if isinstance(e, (int, float))]
             self._errors = errors[-self.maxlen:]
+            seen = [str(k) for k in data.get("seen", [])][-self.maxlen:]
+            self._seen_order = deque(seen)
+            self._seen = set(seen)
         except (OSError, ValueError, TypeError, AttributeError):
             # A missing or corrupt window is not an error: the detector simply
             # falls back to the fitted calibration until it refills.
             self._errors = []
+            self._seen = set()
+            self._seen_order = deque()
 
     def _save_locked(self):
         tmp = f"{self.path}.tmp"
@@ -77,6 +119,7 @@ class ScoreWindow:
             os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
             with open(tmp, "w") as fh:
                 json.dump({"errors": self._errors,
+                           "seen": list(self._seen_order),
                            "updated_at": time.time()}, fh)
             os.replace(tmp, self.path)          # atomic: never a half-written window
             self._unsaved = 0
@@ -108,15 +151,33 @@ class ScoreWindow:
         equal = float(np.count_nonzero(arr == error))
         return max(0.0, min(100.0, (below + 0.5 * equal) / len(arr) * 100.0))
 
-    def add(self, error):
-        """Record an observed error. Call AFTER rank() so nothing ranks itself."""
+    def add(self, error, key=None):
+        """Record an observed error. Call AFTER rank() so nothing ranks itself.
+
+        `key` is the observation's identity (see event_key). When it has
+        already been recorded the call is a no-op, so rescoring an alert — on
+        every dashboard poll, say — cannot reshape the baseline. Passing no key
+        always records, which is what synthetic callers without an identity
+        want.
+
+        Returns True when the window actually changed.
+        """
         try:
             value = float(error)
         except (TypeError, ValueError):
-            return
+            return False
         if not np.isfinite(value):
-            return
+            return False
         with self._lock:
+            if key is not None:
+                if key in self._seen:
+                    return False
+                # Keys are only ever appended when unseen, so each appears at
+                # most once in the ring and eviction can discard directly.
+                self._seen.add(key)
+                self._seen_order.append(key)
+                while len(self._seen_order) > self.maxlen:
+                    self._seen.discard(self._seen_order.popleft())
             self._errors.append(value)
             if len(self._errors) > self.maxlen:
                 del self._errors[:len(self._errors) - self.maxlen]
@@ -125,6 +186,7 @@ class ScoreWindow:
                    or time.time() - self._last_save >= self.save_interval)
             if due:
                 self._save_locked()
+        return True
 
     # -------------------------------------------------------------- status --
     @property

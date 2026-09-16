@@ -63,8 +63,13 @@ class EnsembleDetector:
         except Exception:
             return None
 
-    def score(self, alert):
+    def score(self, alert, learn=True):
         """Score a single Wazuh alert.
+
+        learn=False scores without letting the alert into the autoencoder's
+        rolling baseline. For offline work — evaluation, back-testing, the
+        adversary loop, the health monitor — which must measure the baseline,
+        not become part of it.
 
         Returns dict with:
             anomaly_label    — CRITICAL / HIGH / POSSIBLE / NORMAL
@@ -82,7 +87,7 @@ class EnsembleDetector:
 
         ae_score = ae_anomaly = ae_meta_score = None
         if self.ae_det is not None:
-            ae_result  = self.ae_det.detect_anomaly(alert)
+            ae_result  = self.ae_det.detect_anomaly(alert, learn=learn)
             ae_score   = ae_result['anomaly_score']
             ae_anomaly = ae_result['is_anomaly']
             # The stacker was FITTED on the autoencoder's calibrated scale.
@@ -148,9 +153,9 @@ class EnsembleDetector:
             'is_anomaly':       anomaly_label in self.ANOMALY_LABELS,
         }
 
-    def score_many(self, alerts):
+    def score_many(self, alerts, learn=True):
         """Score a list of alerts.  Returns list of (alert, ensemble_result) tuples."""
-        return [(a, self.score(a)) for a in alerts]
+        return [(a, self.score(a, learn=learn)) for a in alerts]
 
 
 # ------------------------------------------------------------------ #

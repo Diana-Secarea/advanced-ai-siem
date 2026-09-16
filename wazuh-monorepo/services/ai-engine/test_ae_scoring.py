@@ -19,7 +19,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 
-from autoencoders_approach.score_window import ScoreWindow, MIN_SAMPLES
+from autoencoders_approach.score_window import (
+    ScoreWindow, MIN_SAMPLES, event_key)
 from autoencoders_approach.autoencoder_detector import apply_variance_floor
 
 _fails = []
@@ -127,6 +128,58 @@ sc2 = StandardScaler().fit(np.array([[0.0], [1.0], [2.0], [3.0]]))
 untouched = [float(x) for x in sc2.scale_]
 apply_variance_floor(sc2, floor=0)
 check("floor=0 is a no-op", [float(x) for x in sc2.scale_], untouched)
+
+print("\n7. Rescoring the same alert moves the baseline exactly once")
+# The live bug this closes: the scored-alerts endpoint rescores up to 500
+# alerts per request against a 2000-slot window, so a few dashboard refreshes
+# replaced the host's traffic profile with whatever page was last rendered.
+w8 = ScoreWindow(os.path.join(tmp, "w8.json"))
+check("first add is recorded", w8.add(1.0, key="alert-1"), True)
+check("the same identity is refused", w8.add(1.0, key="alert-1"), False)
+for _ in range(500):
+    w8.add(1.0, key="alert-1")
+check("hammering it 500 more times changes nothing", len(w8), 1)
+truthy("a different identity is recorded", w8.add(2.0, key="alert-2"))
+check("window grew by exactly one", len(w8), 2)
+check("an unkeyed add always records", w8.add(3.0), True)
+check("…and again", w8.add(3.0), True)
+check("so unkeyed callers are unaffected", len(w8), 4)
+
+print("\n8. Dedupe survives a restart, and is bounded")
+w8.flush()
+again = ScoreWindow(os.path.join(tmp, "w8.json"))
+check("a known identity is still refused after reload",
+      again.add(1.0, key="alert-1"), False)
+# The seen-ring is capped with the window, or it would grow without bound on a
+# busy host and become the memory leak the window was designed to avoid.
+w9 = ScoreWindow(os.path.join(tmp, "w9.json"), maxlen=50)
+for i in range(500):
+    w9.add(float(i), key=f"k{i}")
+check("window stays at maxlen", len(w9), 50)
+truthy("the id ring is bounded too", len(w9._seen) <= 50)
+truthy("an identity evicted long ago may be recorded again",
+       w9.add(1.0, key="k0"))
+
+
+print("\n9. Identity separates a rescore from a genuinely repeated event")
+def ev(**kw):
+    base = {"timestamp": "2026-09-16T10:00:00.000+0000",
+            "rule": {"id": "5503"}, "full_log": "PAM: login failed"}
+    base.update(kw)
+    return base
+
+check("a real Wazuh id is used verbatim", event_key(ev(id="1788682606.0")), "1788682606.0")
+check("the same alert twice yields the same key",
+      event_key(ev()), event_key(ev()))
+# Two identical events at DIFFERENT times are two events, not one. Hashing
+# content alone would collapse them and starve the window on a host that
+# repeats itself — which is most hosts.
+truthy("the same event at a later time is a DIFFERENT observation",
+       event_key(ev()) != event_key(ev(timestamp="2026-09-16T10:00:01.000+0000")))
+truthy("different rules are different observations",
+       event_key(ev()) != event_key(ev(rule={"id": "5710"})))
+check("an unusable event has no identity", event_key({}), None)
+check("a non-dict has no identity", event_key("nope"), None)
 
 print()
 if _fails:

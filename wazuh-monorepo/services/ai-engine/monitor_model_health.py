@@ -51,7 +51,9 @@ def analyze_model_performance(alerts_file, model_path):
     high_score_alerts = []
     
     for alert in alerts:
-        result = detector.detect_anomaly(alert)
+        # learn=False: this scores the LIVE stream to detect saturation. With
+        # learn=True it would reshape the very baseline it is measuring.
+        result = detector.detect_anomaly(alert, learn=False)
         score = result['anomaly_score']
         is_anomaly = result['is_anomaly']
         
@@ -171,7 +173,7 @@ DRIFT_BUCKETS = list(range(0, 101, 10))  # ensemble combined_score is 0-100
 def _ensemble_scores(alerts):
     from autoencoders_approach.ensemble_detector import load_ensemble
     ens = load_ensemble()
-    return [ens.score(a)["combined_score"] for a in alerts]
+    return [ens.score(a, learn=False)["combined_score"] for a in alerts]
 
 
 def _bucket_proportions(scores):

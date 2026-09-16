@@ -51,7 +51,10 @@ fi
 [[ -f "$ENV_FILE" ]] || { echo "env file not found: $ENV_FILE"; exit 1; }
 
 echo "Configuring SMTP in $ENV_FILE"
-echo "Leave a value blank to keep whatever is already set."
+echo "Blank keeps the current value. The first three have no default —"
+echo "leaving them blank on a fresh file configures nothing."
+echo
+echo "For Resend:  host smtp.resend.com | port 587 | user resend | pass re_..."
 echo
 read -r -p "  SMTP_HOST (e.g. smtp.resend.com, smtp.gmail.com) : " IN_HOST
 read -r -p "  SMTP_PORT [587]                                  : " IN_PORT
@@ -104,7 +107,26 @@ chmod 600 "$ENV_FILE"
 echo
 echo "Keys now present (names only):"
 grep -oE '^(SMTP_HOST|SMTP_PORT|SMTP_USER|SMTP_PASS|SMTP_FROM|SELENNE_PUBLIC_URL)=' "$ENV_FILE" | tr -d '='
+
+# Verify the RESULT, not the input. Leaving a required prompt blank used to
+# print this same reassuring summary and leave mail unconfigured — the failure
+# only surfaced later as "mailer reports unconfigured", which looks like a bug
+# in the backend rather than a prompt nobody filled in.
+MISSING=""
+for K in SMTP_HOST SMTP_USER SMTP_PASS; do
+  grep -qE "^${K}=.+" "$ENV_FILE" || MISSING="$MISSING $K"
+done
+if [[ -n "$MISSING" ]]; then
+  echo
+  echo "INCOMPLETE — still empty or unset:$MISSING"
+  echo "Mail will NOT send. Re-run and enter all three:"
+  echo "    SMTP_HOST=smtp.resend.com   SMTP_USER=resend   SMTP_PASS=<your re_... API key>"
+  echo "The env file is saved and backed up; re-running is safe and will not duplicate keys."
+  exit 1
+fi
+
 echo
+echo "All required keys set."
 echo "Next:"
 echo "  sudo systemctl restart selenne-backend      # the service reads env at start"
-echo "  sudo $0 --test-only you@example.com         # prove a message actually sends"
+echo "  sudo bash $0 --test-only you@example.com    # prove a message actually sends"

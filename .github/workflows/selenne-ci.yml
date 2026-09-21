@@ -1,0 +1,104 @@
+# Selenne CI — the app's own tests, separate from the 146 upstream Wazuh
+# workflows in this directory (all of which are workflow_dispatch/schedule and
+# never fire on a push here).
+#
+# The point is to catch, before merge, the class of bug that reached production
+# on 2026-09-16: /api/auth/verify was missing from the auth gate's exempt list,
+# so every emailed confirmation link returned 401 and no new customer could
+# ever verify. It was found by hand, in production, hours later.
+name: Selenne CI
+
+on:
+  pull_request:
+    paths:
+      - 'wazuh-monorepo/apps/**'
+      - 'wazuh-monorepo/services/ai-engine/**'
+      - 'wazuh-monorepo/infra/**'
+      - '.github/workflows/selenne-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'wazuh-monorepo/apps/**'
+      - 'wazuh-monorepo/services/ai-engine/**'
+      - 'wazuh-monorepo/infra/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  # A newer push makes an in-flight run irrelevant; cancel it rather than
+  # queueing behind it.
+  group: selenne-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install runtime deps
+        run: |
+          python -m pip install --upgrade pip
+          # The HTTP tests import server.py for real, so the web stack has to
+          # be present. The ML stack is loaded lazily and is not needed here.
+          pip install flask flask-cors flask-limiter python-dotenv werkzeug requests
+
+      - name: Shell scripts parse
+        run: |
+          for f in wazuh-monorepo/infra/deploy/*.sh; do
+            bash -n "$f" || { echo "syntax error in $f"; exit 1; }
+          done
+
+      - name: Python compiles
+        run: python -m compileall -q wazuh-monorepo/apps/backend
+
+      - name: Auth, identity and tenancy suites
+        working-directory: wazuh-monorepo/apps/backend
+        run: |
+          fail=0
+          for t in test_identity_security.py \
+                   test_registration_flow.py \
+                   test_registration_http.py \
+                   test_credential_paths.py \
+                   test_request_context.py; do
+            echo "::group::$t"
+            python "$t" || fail=1
+            echo "::endgroup::"
+          done
+          exit $fail
+
+  engine:
+    name: ML engine tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install ML deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy scikit-learn joblib
+
+      - name: Scoring and training-corpus suites
+        working-directory: wazuh-monorepo/services/ai-engine
+        run: |
+          fail=0
+          for t in test_ae_scoring.py test_training_corpus.py; do
+            echo "::group::$t"
+            python "$t" || fail=1
+            echo "::endgroup::"
+          done
+          exit $fail

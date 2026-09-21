@@ -405,6 +405,36 @@ makeNavManager({
   empty: "No suspicious groups yet.",
 });
 
+/* ---------- Collector downloads ----------
+   A plain <a download> hands a refusal straight to the browser, which shows
+   only "Couldn't download – No permissions" (403) — the server's reason
+   (unverified email, enrolment unconfigured, rate limit) is lost. Fetch first,
+   save the blob on success, toast the JSON error otherwise. Middle-click and
+   "Save link as" still use the plain href. */
+document.addEventListener("click", (ev) => {
+  const a = ev.target.closest && ev.target.closest('a[href^="/api/download/agent/"]');
+  if (!a || ev.button !== 0 || ev.ctrlKey || ev.metaKey || ev.shiftKey) return;
+  ev.preventDefault();
+  const name = a.getAttribute("download") || "selenne-collector.zip";
+  NX.toast("Preparing your collector…");
+  fetch(a.getAttribute("href"), { credentials: "same-origin" })
+    .then(async (r) => {
+      if (r.ok) return r.blob();
+      const body = await r.json().catch(() => ({}));
+      let msg = body.error || `Download failed (HTTP ${r.status})`;
+      if (body.action === "verify_email") msg += " — check your inbox for the confirmation link.";
+      throw new Error(msg);
+    })
+    .then((blob) => {
+      const url = URL.createObjectURL(blob);
+      const tmp = Object.assign(document.createElement("a"), { href: url, download: name });
+      document.body.appendChild(tmp); tmp.click(); tmp.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      NX.toast("✓ Download started — unzip it and run the installer.");
+    })
+    .catch((e) => NX.toast(e.message || "Network error — try again.", 6000));
+});
+
 /* ---------- Auth session guard ---------- */
 /* Every page except login.html: verify the session cookie; bounce to the
    login screen when missing/expired, and add a logout chip to the nav. */

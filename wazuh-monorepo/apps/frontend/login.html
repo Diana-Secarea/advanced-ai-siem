@@ -82,7 +82,10 @@ const $ = id => document.getElementById(id);
     msg.textContent = "Email confirmed — sign in to download your collector.";
   } else {
     msg.className = "auth-err";
-    msg.textContent = q.get("reason") || "Verification failed.";
+    // "request a new one" alone strands people: the resend control is the
+    // banner inside the console, which they only see after signing in.
+    msg.textContent = (q.get("reason") || "Verification failed.") +
+      " Sign in and use “Resend email” at the top of the page for a fresh link.";
   }
 })();
 

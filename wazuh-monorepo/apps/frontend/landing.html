@@ -1082,12 +1082,45 @@ footer a:hover { color: var(--text); }
   // Second line of defence: a click before the probe resolves still explains
   // itself instead of silently navigating.
   collectors.forEach(function (btn) {
-    btn.addEventListener("click", function () {
+    btn.addEventListener("click", function (ev) {
       if (btn.getAttribute("data-armed") !== "1") {
         showToast("Sign in first — the collector is tied to your account.");
+        return;
       }
+      ev.preventDefault();
+      NXDownload(btn.getAttribute("data-dl"), btn.getAttribute("data-dlname"), showToast);
     });
   });
+
+  /* A plain <a download> hands any refusal straight to the browser, which
+     shows only "Couldn't download – No permissions" (403) or "Needs
+     authorization" (401) — the server's reason (unverified email, enrolment
+     not configured, rate limit) never reaches the user. Fetch first, save the
+     blob on success, and surface the JSON error otherwise. The armed href
+     stays in place for middle-click / "Save link as". */
+  function NXDownload(url, name, notify) {
+    notify("Preparing your collector…");
+    fetch(url, { credentials: "same-origin" })
+      .then(function (r) {
+        if (r.ok) return r.blob();
+        return r.json().catch(function () { return {}; }).then(function (body) {
+          var msg = (body && body.error) || ("Download failed (HTTP " + r.status + ")");
+          if (body && body.action === "verify_email") {
+            msg += " — check your inbox for the confirmation link.";
+          }
+          throw new Error(msg);
+        });
+      })
+      .then(function (blob) {
+        var obj = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = obj; a.download = name;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(obj); }, 10000);
+        notify("✓ Download started — unzip it and run the installer.", "ok");
+      })
+      .catch(function (e) { notify(e.message || "Network error — try again."); });
+  }
 
   /* ---------- checkout return messages ---------- */
   var qs = new URLSearchParams(location.search);

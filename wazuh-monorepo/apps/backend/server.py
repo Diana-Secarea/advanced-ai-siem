@@ -100,6 +100,15 @@ _AUTH_EXEMPT_PATHS = {
     "/api/download/linux", "/download/selenne-linux.tar.gz",  # public app download
     "/api/billing/config", "/api/billing/checkout",  # Stripe checkout (public)
     "/api/auth/login", "/api/auth/register", "/api/auth/me",
+    # The verification link is clicked from an email client — on a phone, in a
+    # different browser, days later — so by construction there is no session on
+    # that request. Gating it made confirmation impossible for every user who
+    # did not happen to open the link in the same browser they signed up in,
+    # which is nearly all of them: the endpoint returned 401 before it ever
+    # ran. The token IS the credential here (single-use, SHA-256 at rest, 24h
+    # TTL, 20/hour rate limit) — that is the whole design of a verification
+    # link, and the endpoint's own docstring says so.
+    "/api/auth/verify",
     "/metrics",   # Prometheus scrape — read-only counters, no alert content
     "/health", "/ready",  # liveness/readiness probes for monitoring & LB
 }
@@ -470,7 +479,23 @@ _tickets.init_db()
 
 
 def _current_username():
-    user = getattr(request, "auth_user", None)
+    """(username, is_admin) for the caller, or a fail-closed default.
+
+    `request` is a thread-local bound to the request context. The chat stream
+    builds its context in a worker thread and the reactor's triage agent runs
+    in a daemon with no request at all, so reaching for it there raised
+    "Working outside of request context" — which surfaced to the user as
+    "Error preparing context" and made every alert tool fail.
+
+    Outside a request we return the no-identity answer rather than raising:
+    callers that legitimately run detached must pass an explicit `viewer`, and
+    anything that forgets gets an EMPTY alert view instead of a crash or, far
+    worse, another tenant's machines.
+    """
+    try:
+        user = getattr(request, "auth_user", None)
+    except RuntimeError:
+        user = None
     if user:
         return user["username"], user.get("role") == "admin"
     return ("anonymous", True) if not AUTH_ENABLED else (None, False)
@@ -497,9 +522,14 @@ def _alert_visible(alert, username, is_admin):
     return _tenancy.visible_to(_agent_name_of(alert), username, is_admin)
 
 
-def _visible_alerts():
-    """Snapshot of the alert store scoped to the caller."""
-    username, is_admin = _current_username()
+def _visible_alerts(viewer=None):
+    """Snapshot of the alert store scoped to the caller.
+
+    `viewer` is an explicit (username, is_admin) pair for code running outside
+    a request context. Authorisation should not depend on an ambient
+    thread-local that silently disappears in a worker thread.
+    """
+    username, is_admin = viewer if viewer else _current_username()
     with _wazuh_alerts_lock:
         alerts = list(_wazuh_alerts)
     if is_admin:
@@ -1221,7 +1251,7 @@ def _alert_to_text(alert):
     return " ".join(str(p) for p in parts).lower()
 
 
-def _search_wazuh_alerts(query: str, top_k: int = 10) -> list:
+def _search_wazuh_alerts(query: str, top_k: int = 10, viewer=None) -> list:
     """Search Wazuh alerts by keyword matching and scoring.
 
     Scoped to the caller's endpoints — the AI analyst and the agent tools must
@@ -1233,7 +1263,7 @@ def _search_wazuh_alerts(query: str, top_k: int = 10) -> list:
     # Check for new alerts on each search
     _check_new_alerts()
 
-    alerts = _visible_alerts()
+    alerts = _visible_alerts(viewer)
 
     if not alerts:
         return []
@@ -1695,12 +1725,12 @@ def _agentic_llm(messages: list, max_tokens: int = 64) -> str:
     return _call_ollama(messages, temperature=0.0, max_tokens=max_tokens, timeout=30)
 
 
-def _multi_query_alerts(queries: list, top_k: int = 10) -> list:
+def _multi_query_alerts(queries: list, top_k: int = 10, viewer=None) -> list:
     """Run the keyword alert search once per query and merge, keeping each
     alert's best score so a rewrite can only improve its rank."""
     best = {}
     for q in queries:
-        for score, alert in _search_wazuh_alerts(q, top_k=top_k):
+        for score, alert in _search_wazuh_alerts(q, top_k=top_k, viewer=viewer):
             key = alert.get("id") or (alert.get("timestamp", ""),
                                       (alert.get("rule") or {}).get("id", ""),
                                       alert.get("full_log", "")[:80])
@@ -1723,7 +1753,8 @@ def _multi_query_kb(queries: list, top_k: int = 5) -> list:
     return sorted(best.values(), key=lambda r: r.get("score", 0), reverse=True)[:top_k]
 
 
-def _build_rag_context(user_message: str, history: list, inj_flagged: bool) -> tuple:
+def _build_rag_context(user_message: str, history: list, inj_flagged: bool,
+                       viewer=None) -> tuple:
     """The RAG pipeline behind /api/chat and /api/chat/stream.
 
     Wraps the original one-shot retrieval in three agentic stages — retrieval
@@ -1767,7 +1798,7 @@ def _build_rag_context(user_message: str, history: list, inj_flagged: bool) -> t
                 _metric_counters["rag_rewrites"] += 1
     rag_meta["queries"] = queries
 
-    alert_matches = _multi_query_alerts(queries, top_k=10)
+    alert_matches = _multi_query_alerts(queries, top_k=10, viewer=viewer)
 
     anomaly_scores = {}
     ensemble = _get_ensemble()
@@ -1858,7 +1889,7 @@ def _build_rag_context(user_message: str, history: list, inj_flagged: bool) -> t
     if not alert_block:
         alert_block = "No matching Wazuh alerts found."
 
-    n_total = len(_visible_alerts())
+    n_total = len(_visible_alerts(viewer))
 
     augmented = (
         f"=== Threat Intelligence Context ===\n{_guardrails.wrap_context(ti_block)}\n\n"
@@ -1947,7 +1978,7 @@ def _cve_ledger_brief(cve_id):
             f"reasoning: {reasoning}\n{desc}")
 
 
-def _make_agent_tools(collector):
+def _make_agent_tools(collector, viewer=None):
     """Build the per-run tool registry; hits push source chips into collector."""
 
     def search_threat_intel(query):
@@ -1963,7 +1994,7 @@ def _make_agent_tools(collector):
         return "\n".join(lines) if lines else "no matching threat intel"
 
     def search_alerts(query):
-        matches = _search_wazuh_alerts(query.strip(), top_k=5)
+        matches = _search_wazuh_alerts(query.strip(), top_k=5, viewer=viewer)
         anomaly_scores = {}
         ensemble = _get_ensemble()
         if ensemble:
@@ -2080,7 +2111,7 @@ possible injection attempt.
 - If a question is conversational and needs no facts, answer without any tool call."""
 
 
-def _investigate(user_message, history, on_event=None):
+def _investigate(user_message, history, on_event=None, viewer=None):
     """Phase-3 bounded agent loop for a chat question.
 
     Returns (augmented_message, sources, rag_meta, trace) or None when the
@@ -2088,7 +2119,7 @@ def _investigate(user_message, history, on_event=None):
     falls back to the Phase-1 pipeline.
     """
     collector = {"sources": []}
-    tools = _make_agent_tools(collector)
+    tools = _make_agent_tools(collector, viewer=viewer)
     trace = []
 
     def _event(ev):
@@ -2141,16 +2172,18 @@ def _investigate(user_message, history, on_event=None):
     return augmented, collector["sources"], rag_meta, trace
 
 
-def _chat_context(user_message, history, inj_flagged, agent_mode, on_event=None):
+def _chat_context(user_message, history, inj_flagged, agent_mode, on_event=None,
+                  viewer=None):
     """Choose agent (Phase 3) or classic (Phase 1) context. Injection-flagged
     input never reaches the agent loop; a failed agent run falls back."""
     if agent_mode and not inj_flagged:
-        r = _investigate(user_message, history, on_event=on_event)
+        r = _investigate(user_message, history, on_event=on_event, viewer=viewer)
         if r is not None:
             return r
         with _metric_lock:
             _metric_counters["rag_agent_fallbacks"] += 1
-    augmented, sources, rag_meta = _build_rag_context(user_message, history, inj_flagged)
+    augmented, sources, rag_meta = _build_rag_context(user_message, history, inj_flagged,
+                                                      viewer=viewer)
     if agent_mode and not inj_flagged:
         rag_meta["mode"] = "classic_fallback"
     return augmented, sources, rag_meta, []
@@ -2509,6 +2542,10 @@ def chat_stream():
     history = _get_session_history(chat_user, session_id)
     agent_mode = bool(data.get("agent"))
     inj_flagged = bool(inj_patterns)
+    # Read the identity HERE, in the request context. generate() is iterated
+    # after the view returns and build_context runs in a worker thread, so by
+    # the time the alert tools run there is no request to read it from.
+    viewer = _current_username()
 
     def generate():
         from queue import Queue
@@ -2519,7 +2556,7 @@ def chat_stream():
             try:
                 outcome["ctx"] = _chat_context(
                     user_message, history, inj_flagged, agent_mode,
-                    on_event=events.put)
+                    on_event=events.put, viewer=viewer)
             except Exception as e:
                 outcome["error"] = str(e)
             finally:
@@ -4476,10 +4513,17 @@ exactly these keys:
 Ground every claim in the provided material; do not invent log lines or CVEs."""
 
 
+#: The reactor is a system daemon, not a person. It triages every incident the
+#: manager produces, so it reads the whole alert store — stated explicitly here
+#: because the alternative (an absent request context quietly yielding "no
+#: identity") would make triage silently see nothing and report all-clear.
+_REACTOR_VIEWER = ("reactor", True)
+
+
 def _ai_triage_incident(inc):
     """Run the agent loop on one incident and return a validated report dict."""
     collector = {"sources": []}
-    tools = _make_agent_tools(collector)
+    tools = _make_agent_tools(collector, viewer=_REACTOR_VIEWER)
 
     inc_desc = (f"Incident {inc.get('id')}: label={inc.get('label')} "
                 f"score={inc.get('score')}/100 | rule {inc.get('rule_id')} — "

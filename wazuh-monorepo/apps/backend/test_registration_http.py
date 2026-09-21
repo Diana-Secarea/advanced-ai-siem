@@ -162,6 +162,41 @@ check("anonymous download -> 401", c2.get("/api/download/agent/linux").status_co
 check("anonymous resend -> 401",
       c2.post("/api/auth/verify/resend").status_code, 401)
 
+print("\n10. The verification link works with NO session")
+# The bug this pins: /api/auth/verify was missing from _AUTH_EXEMPT_PATHS, so
+# the global gate answered 401 before the route ran. A verification link is
+# clicked from an email client — on a phone, in another browser, days later —
+# where there is by construction no session cookie. Confirmation was therefore
+# impossible for anyone who did not happen to open the link in the same browser
+# they signed up in. Measured in production: an iPhone hitting the emailed link
+# got "401 Authentication required".
+anon = app.test_client()                      # no cookies at all
+
+ok, err = auth.create_user("linkuser", "password123", email="link@example.com")
+check("fixture account created", (ok, err), (True, None))
+tok, terr = auth.issue_verification("linkuser")
+check("token issued", terr, None)
+
+r = anon.get(f"/api/auth/verify?token={tok}")
+check("an anonymous request is NOT refused by the auth gate", r.status_code == 401, False)
+check("and the account is now verified", auth.is_email_verified("linkuser"), True)
+
+# The path must be exempt EXACTLY, never by prefix — /api/auth/verify/resend
+# takes its account from the session and must keep requiring one.
+check("/api/auth/verify is exempt", "/api/auth/verify" in server._AUTH_EXEMPT_PATHS, True)
+check("/api/auth/verify/resend is NOT exempt",
+      "/api/auth/verify/resend" in server._AUTH_EXEMPT_PATHS, False)
+r = anon.post("/api/auth/verify/resend")
+check("anonymous resend still refused", r.status_code, 401)
+
+# A bad token must fail as a TOKEN failure (400), not as an auth failure (401):
+# the difference is what tells you whether the link is stale or the gate is
+# eating the request.
+r = anon.get("/api/auth/verify?token=not-a-real-token")
+check("a bad token is a 400, not a 401", r.status_code, 400)
+r = anon.get(f"/api/auth/verify?token={tok}")
+check("the token is single-use", r.status_code, 400)
+
 print()
 if _fails:
     print(f"FAILED ({len(_fails)}): " + ", ".join(_fails[:8]))

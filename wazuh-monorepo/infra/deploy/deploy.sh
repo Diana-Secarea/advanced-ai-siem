@@ -34,6 +34,27 @@ case "${1:-}" in
   *) echo "usage: $0 [--dry-run|--rollback]"; exit 2 ;;
 esac
 
+ENV_FILE="${ENV_FILE:-/etc/wazuh-ai/backend.env}"
+
+# CPU latency knobs for the RAG pipeline (DEPLOYMENT.md, "RAG latency on a CPU
+# host"). server.py already defaults to exactly these values, so a host without
+# them behaves identically — writing them out is what makes them discoverable
+# and tunable on the box without editing Python. Only keys that are ABSENT get
+# appended: a value you have already tuned is never overwritten.
+LATENCY_DEFAULTS=(
+  "OLLAMA_NUM_CTX=8192"
+  "OLLAMA_NUM_PREDICT=700"
+  "OLLAMA_NUM_THREAD=0"
+  "CHAT_HISTORY_MSGS=6"
+  "CHAT_HISTORY_CLIP=700"
+  "RAG_ALERTS_TOP_K=6"
+  "RAG_ALERT_LOG_CLIP=180"
+  "RAG_KB_TOP_K=4"
+  "RAG_KB_SUMMARY_CLIP=350"
+  "RAG_HELPER_LLM=1"
+  "RAG_GRADE_SKIP_SCORE=0.75"
+)
+
 say()  { printf '\n\033[1m%s\033[0m\n' "$1"; }
 ok()   { printf '  \033[32m✓\033[0m %s\n' "$1"; }
 bad()  { printf '  \033[31m✗ %s\033[0m\n' "$1"; }
@@ -50,6 +71,40 @@ restart_service() {
   fi
   note "passwordless restart unavailable — prompting"
   sudo systemctl restart "$UNIT"
+}
+
+# --- env defaults -----------------------------------------------------------
+# $1 = "report" to only list what is missing (dry run), "apply" to write it.
+# The env file is root-only, so both reading and writing need sudo; without it
+# we print the exact block to paste rather than failing the deploy, since the
+# code's own defaults already match.
+ensure_env_defaults() {
+  local mode="$1" missing=() kv key existing
+  if ! existing="$(sudo -n cat "$ENV_FILE" 2>/dev/null)"; then
+    note "cannot read $ENV_FILE (needs sudo) — skipping env check"
+    return 0
+  fi
+  for kv in "${LATENCY_DEFAULTS[@]}"; do
+    key="${kv%%=*}"
+    grep -qE "^[[:space:]]*${key}=" <<<"$existing" || missing+=("$kv")
+  done
+  if (( ${#missing[@]} == 0 )); then
+    ok "latency knobs present in $ENV_FILE"
+    return 0
+  fi
+  if [[ "$mode" == "report" ]]; then
+    note "would add ${#missing[@]} missing key(s) to $ENV_FILE:"
+    printf '      %s\n' "${missing[@]}"
+    return 0
+  fi
+  if printf '\n# --- CPU latency budget (added by deploy.sh %s) ---\n%s\n' \
+       "$(date -u +%Y-%m-%d)" "$(printf '%s\n' "${missing[@]}")" \
+       | sudo -n tee -a "$ENV_FILE" >/dev/null 2>&1; then
+    ok "added ${#missing[@]} latency knob(s) to $ENV_FILE"
+  else
+    note "could not write $ENV_FILE — add these by hand (defaults already apply):"
+    printf '      %s\n' "${missing[@]}"
+  fi
 }
 
 health_ok() {
@@ -102,6 +157,8 @@ if grep -qE '\.py$' <<<"$CHANGED"; then
 fi
 
 if (( DRY )); then
+  say "Env file"
+  ensure_env_defaults report
   say "Dry run — nothing changed"
   exit 0
 fi
@@ -114,6 +171,11 @@ git merge --ff-only "origin/$BRANCH" || {
 }
 ok "tree at $(git rev-parse --short HEAD)"
 
+# Before the restart, so new code and new settings take effect together.
+say "Env file"
+ensure_env_defaults apply
+
+say "Restarting $UNIT"
 restart_service || { bad "restart failed"; exit 1; }
 
 if health_ok; then

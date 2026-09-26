@@ -39,6 +39,8 @@ attempts) or a technique (sql injection, rootkit, reverse shell). Those are
 verdicts — one is genuinely evidence of an attack.
 """
 
+import os
+
 ATTACK_KEYWORDS = {
     # Attack-pattern phrases. Every one of these describes a BURST or a
     # TECHNIQUE, never a single ordinary failure.
@@ -65,7 +67,7 @@ FAILURE_KEYWORDS = {
 
 ATTACK_RULE_IDS = {
     # Each of these fires on REPEATED failures or on a technique, not on one
-    # ordinary miss. That is the whole difference from FAILURE_RULE_IDS.
+    # ordinary miss, which is what separates a verdict from an outcome.
     '5758',    # sshd: max auth attempts (a burst, by definition)
     '5712',    # sshd: brute force (non-existent user)
     '5720',    # sshd: Multiple failed logins
@@ -73,20 +75,6 @@ ATTACK_RULE_IDS = {
     '100002',  # Process execution at unusual time (reverse shells, C2 beacons)
 }
 
-#: Rules that record a SINGLE failure. Ordinary on any host with a human on it:
-#: a mistyped password, a key offered before the right one, an expired sudo
-#: timestamp. Excluding these from training is what produced failed_count
-#: sd = 0.088 and the z ~ 37 that saturated the autoencoder.
-FAILURE_RULE_IDS = {
-    '5503',    # PAM: User login failed  (but see 'multiple authentication'
-               # in ATTACK_KEYWORDS — the same id also carries the burst)
-    '5710',    # sshd: attempt to login using a non-existent user
-    '5760',    # sshd: authentication failed
-    '5557',    # unix_chkpwd: password check failed
-    '5301',    # User missed the password to change UID
-    '5300',    # Telnet authentication failure
-    '2502',    # User missed the password for a UID change (legacy id)
-}
 
 # Union of groups from both scripts — previously inconsistent.
 ATTACK_GROUPS = {
@@ -182,6 +170,177 @@ def is_routine_safe(alert, benign_rule_ids=frozenset()):
     return False
 
 
+
+# --------------------------------------------------------------------------- #
+#  Ambient hostile traffic
+# --------------------------------------------------------------------------- #
+# The stance, stated once so it is a decision rather than a side effect:
+#
+#     Ambient hostile traffic is suppressed by frequency but NEVER reclassified
+#     as benign; it escalates on success, on targeting a real account, or on
+#     volume above this host's own baseline.
+#
+# Why a third state is needed at all: two orthogonal questions were being
+# collapsed into one label.
+#
+#     is it novel here?  — SSH scanning: no, it arrives every hour
+#     is it hostile?     — SSH scanning: yes, unambiguously
+#
+# "Hostile but expected" is a coherent answer that a two-valued label cannot
+# hold. Forcing it either way is what produced both failure modes we have
+# already hit: call it an attack and the operator gets 142 criticals a day and
+# stops looking; call it clean and it enters the training baseline and teaches
+# the model that port-scanning is what health looks like.
+#
+# Frequency is MEASURED per host (see rule_baseline.RuleBaseline), never
+# declared in a table — whether a rule is ambient is a fact about the host, not
+# about the rule.
+
+
+#: Score at which the learned content model is allowed to call something
+#: hostile ON ITS OWN. Deliberately ABOVE the model's own 60/100 decision
+#: boundary, because here it is a second opinion that can only ADD alerts, and
+#: a second opinion has to be quiet unless it is sure.
+#:
+#: Calibrated against real prod traffic (selenne-prod, 2026-09-26), where the
+#: two classes the model wanted to add separated cleanly:
+#:
+#:     94.7  rule 5762  "Connection reset by authenticating user root"  x124
+#:                      -> genuine SSH brute force the keyword tables miss
+#:     77.8  rule 5715  "Accepted publickey for selenne from 109.166…"  x13
+#:                      -> Diana's OWN successful logins. A false positive.
+#:
+#: 80 keeps all 124 true positives and drops all 13 false ones. Recalibrate
+#: after any content-model retrain — this number belongs to the model, not to
+#: the problem.
+CONTENT_HOSTILE_MIN = float(os.environ.get("CONTENT_HOSTILE_MIN", "80"))
+
+
+def content_hostile(alert, scorer=None):
+    """Second opinion: does the LEARNED model think this content is hostile?
+
+    Returns (bool, score). The keyword tables cannot see anything nobody wrote
+    a rule for; this can. It is combined with them by OR, never replacing
+    them — measured on the same prod day, the tables alone caught 4 events the
+    model missed entirely (web recon, an OOM kill) and the model alone caught
+    131 the tables missed. Either-one catches 135; either-alone loses real
+    detections.
+
+    Fails silent: no scorer, no model, or any error means "no opinion", so a
+    missing artefact can never quieten the tables.
+    """
+    if scorer is None:
+        return False, None
+    try:
+        if not getattr(scorer, "ok", False):
+            return False, None
+        score, _ = scorer.score({"full_log": alert.get("full_log", ""),
+                                 "location": alert.get("location", "")})
+    except Exception:                       # noqa: BLE001 — advisory only
+        return False, None
+    return (score is not None and score >= CONTENT_HOSTILE_MIN), score
+
+#: Verdicts returned by classify().
+ATTACK = "attack"                    # hostile, and not routine here
+AMBIENT_HOSTILE = "ambient_hostile"  # hostile, but this host sees it constantly
+ROUTINE = "routine"                  # explicitly known-benign
+BENIGN = "benign"                    # nothing says otherwise
+
+
+def _escalations(alert, baseline, known_users, today):
+    """Reasons an ambient event must be treated as an attack anyway."""
+    reasons = []
+    rule = alert.get("rule", {}) or {}
+    data = alert.get("data", {}) or {}
+    rule_id = str(rule.get("id", ""))
+    srcip = str(data.get("srcip") or "")
+    desc = str(rule.get("description", "")).lower()
+
+    # 1. It worked. A source that has been failing and then succeeds is the
+    #    one shape of this traffic that always matters, and the only one the
+    #    old rules could never express.
+    if baseline is not None and srcip:
+        success = ("success" in desc or "accepted" in desc
+                   or "logged on" in desc or "session opened" in desc)
+        if success and baseline.recent_failures(srcip) >= 3:
+            reasons.append("success after repeated failures from the same source")
+
+    # 2. It is aimed, not sprayed. Probing a username that exists here means
+    #    the sender knows something about this host.
+    if known_users:
+        target = str(data.get("srcuser") or data.get("dstuser") or "").strip().lower()
+        if target and target in {u.lower() for u in known_users}:
+            reasons.append(f"targets an existing account ({target})")
+
+    # 3. The volume itself is abnormal for this host. Ambient describes a rate;
+    #    a rate far above its own history is a campaign, not the background.
+    if baseline is not None and rule_id and baseline.is_spiking(rule_id, today):
+        reasons.append("volume far above this host's own baseline")
+
+    return reasons
+
+
+def classify(alert, benign_rule_ids=frozenset(), baseline=None,
+             known_users=None, today=None, scorer=None):
+    """Full verdict for one alert: ATTACK / AMBIENT_HOSTILE / ROUTINE / BENIGN.
+
+    Returns (verdict, reasons). `baseline` is a RuleBaseline for this host;
+    without one nothing can be ambient and the result collapses to the old
+    two-valued behaviour, which is the correct way to fail — unmeasured
+    traffic is never quietly downgraded.
+    """
+    if is_routine_safe(alert, benign_rule_ids):
+        return ROUTINE, []
+
+    # Hostile here is BROADER than is_attack_alert(). A failed authentication
+    # carries attack signal even though one of them is not a verdict — that is
+    # exactly the event the third state exists for. is_attack_alert() keeps its
+    # narrower meaning for the six callers that already depend on it.
+    hostile = is_attack_alert(alert, benign_rule_ids) or failure_outcome(alert)
+    by_model = False
+    if not hostile:
+        # Only consulted when the tables have nothing to say, so the model can
+        # add coverage but never argue an alert down.
+        by_model, _score = content_hostile(alert, scorer)
+        hostile = by_model
+    if not hostile:
+        return BENIGN, []
+
+    why = "content model" if by_model else "rules"
+    rule_id = str((alert.get("rule") or {}).get("id", ""))
+    if baseline is None or not baseline.is_ambient(rule_id):
+        return ATTACK, [f"hostile ({why}) and not routine on this host"]
+
+    reasons = _escalations(alert, baseline, known_users, today)
+    if reasons:
+        return ATTACK, reasons
+    return AMBIENT_HOSTILE, [f"hostile ({why}), but this host sees it constantly"]
+
+
+def excluded_from_clean_training(alert, benign_rule_ids=frozenset(),
+                                 baseline=None, known_users=None, today=None,
+                                 scorer=None):
+    """True when an alert must stay OUT of the one-class training baseline.
+
+    ATTACK only. AMBIENT_HOSTILE deliberately stays IN, which looks wrong for
+    about five seconds and is the crux of the whole design:
+
+    The autoencoder is a NOVELTY model. Its question is "is this unlike what
+    this host emits", and on a scanned host a scan is emphatically not unlike
+    it. Excluding ambient traffic is precisely how the original saturation was
+    built — filter every failure out of the training set and failed_count has
+    standard deviation 0.088, so the first real failure arrives at z = 11 and
+    pins the score at 100. Feeding the scans in is what gives that feature
+    honest variance and stops each one reading as an anomaly.
+
+    Hostility is carried by the VERDICT, not by absence from the baseline.
+    AMBIENT_HOSTILE is never reported as benign; it is reported as hostile and
+    expected, and it escalates the moment it stops being expected.
+    """
+    verdict, _ = classify(alert, benign_rule_ids, baseline, known_users, today,
+                          scorer=scorer)
+    return verdict == ATTACK
+
 def is_operational_log(event):
     """True for Wazuh control-plane / routine operational log events (rootcheck,
     SCA, monitord, PAM sessions…). Keyed on the collector source and content, so
@@ -242,8 +401,8 @@ def is_attack_alert(alert, benign_rule_ids=frozenset()):
     if level >= SEVERE_LEVEL:
         return True
 
-    # Note what is NOT here: FAILURE_RULE_IDS / FAILURE_KEYWORDS /
-    # FAILURE_GROUPS. A single failed login is an outcome, not a verdict, and
+    # Note what is NOT here: FAILURE_KEYWORDS / FAILURE_GROUPS.
+    # A single failed login is an outcome, not a verdict, and
     # it belongs IN the clean baseline so the model learns that failures are a
     # normal part of a working host. Ask failure_outcome() for that signal.
     return False
@@ -263,8 +422,6 @@ def failure_outcome(alert):
     description = str(rule.get('description', '')).lower()
     groups = set(rule.get('groups', []) or [])
 
-    if rule_id in FAILURE_RULE_IDS:
-        return True
     if any(kw in description for kw in FAILURE_KEYWORDS):
         return True
     if groups & FAILURE_GROUPS:

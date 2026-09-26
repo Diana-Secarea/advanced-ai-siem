@@ -51,15 +51,18 @@ def alert(rule_id, level, desc, full_log="", groups=None):
 
 
 print("\n1. A single failure is an OUTCOME, not a verdict")
+# Groups matter here. Wazuh tags its own auth-failure rules, and reading that
+# tag is how these are recognised — there is deliberately no rule-id table and
+# no keyword invented just to make a test pass.
 singles = [
-    (5503, 5, "PAM: User login failed."),
-    (5760, 5, "sshd: authentication failed."),
-    (5710, 5, "sshd: Attempt to login using a non-existent user"),
-    (5557, 5, "unix_chkpwd: Password check failed."),
-    (5301, 5, "User missed the password to change UID (user id)."),
+    (5503, 5, "PAM: User login failed.", ["pam", "syslog", "authentication_failed"]),
+    (5760, 5, "sshd: authentication failed.", ["syslog", "sshd", "authentication_failed"]),
+    (5710, 5, "sshd: Attempt to login using a non-existent user", ["syslog", "sshd", "invalid_login"]),
+    (5557, 5, "unix_chkpwd: Password check failed.", ["pam", "syslog", "authentication_failed"]),
+    (5301, 5, "User missed the password to change UID (user id).", ["syslog", "authentication_failed"]),
 ]
-for rid, lvl, desc in singles:
-    a = alert(rid, lvl, desc)
+for rid, lvl, desc, grps in singles:
+    a = alert(rid, lvl, desc, groups=grps)
     check(f"{desc[:38]!r} is not an attack", L.is_attack_alert(a, BEN), False)
     check(f"   …but IS a failure outcome", L.failure_outcome(a), True)
 
@@ -118,8 +121,10 @@ for kw in ("authentication_failed", "invalid_login", "non-existent"):
            kw in L.FAILURE_KEYWORDS or kw in L.FAILURE_GROUPS)
 check("FAILURE_GROUPS and ATTACK_GROUPS are disjoint",
       bool(L.FAILURE_GROUPS & L.ATTACK_GROUPS), False)
-check("FAILURE_RULE_IDS and ATTACK_RULE_IDS are disjoint",
-      bool(L.FAILURE_RULE_IDS & L.ATTACK_RULE_IDS), False)
+# There is no FAILURE_RULE_IDS any more: whether a rule is ordinary here is
+# measured per host (rule_baseline.RuleBaseline), not asserted in a table.
+check("no hand-maintained failure rule-id table exists",
+      hasattr(L, "FAILURE_RULE_IDS"), False)
 
 
 print("\n7. Generated edge cases survive into the CLEAN training set")

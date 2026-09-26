@@ -605,3 +605,77 @@ document.addEventListener("click", (ev) => {
     document.body.classList.add("has-verify-banner");
   }
 })();
+
+/* ---------- Observation-mode banner ----------
+   A newly enrolled host is scored from the first event but cannot trigger a
+   reaction until it has been watched for a week. That is a deliberate,
+   temporary silence — and silence the operator does not know about is
+   indistinguishable from a product that does not work. So it is stated, with
+   progress, on every page.
+
+   Reads /api/observation, which is cheap and already tenant-scoped. */
+(function observationBanner() {
+  fetch("/api/observation", { credentials: "same-origin" })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => {
+      // available:false means nothing is being suppressed — say nothing.
+      if (!d || d.available === false) return;
+      if (d.state === "armed") return;
+      render(d);
+    })
+    .catch(() => {});
+
+  function render(d) {
+    const ready = d.state === "ready";
+    const bar = document.createElement("div");
+    bar.className = "obs-banner" + (ready ? " obs-ready" : "");
+    bar.innerHTML =
+      '<span class="obs-icon"></span>' +
+      '<span class="obs-text"></span>' +
+      '<span class="obs-track"><span class="obs-fill"></span></span>' +
+      '<span class="obs-pct"></span>' +
+      '<button class="obs-btn" type="button" hidden>Start alerting</button>' +
+      '<span class="obs-status" role="status"></span>';
+
+    bar.querySelector(".obs-icon").textContent = ready ? "✓" : "●";
+    bar.querySelector(".obs-text").innerHTML = ready
+      ? "Baseline complete — <b></b> is ready to start alerting."
+      : "Learning your environment — alerts are held back until this finishes.";
+    const who = bar.querySelector(".obs-text b");
+    if (who) who.textContent = d.owner || "this account";
+
+    const pct = Math.max(0, Math.min(100, d.percent || 0));
+    bar.querySelector(".obs-fill").style.width = pct + "%";
+    bar.querySelector(".obs-pct").textContent =
+      `${d.days_seen}/${d.days_needed}d · ${d.events}/${d.events_needed} events`;
+
+    const btn = bar.querySelector(".obs-btn");
+    const status = bar.querySelector(".obs-status");
+    if (ready) {
+      btn.hidden = false;
+      btn.addEventListener("click", () => {
+        btn.disabled = true;
+        status.textContent = "Arming…";
+        fetch("/api/observation/arm", { method: "POST", credentials: "same-origin" })
+          .then((r) => r.json().then((body) => ({ ok: r.ok, body })))
+          .then(({ ok, body }) => {
+            if (ok) {
+              status.textContent = "✓ Alerting is on.";
+              // Removed rather than left showing a stale state: the banner's
+              // whole job was to explain a silence that no longer exists.
+              setTimeout(() => bar.remove(), 2500);
+              return;
+            }
+            status.textContent = (body && body.error) || "Could not arm — try again.";
+            btn.disabled = false;
+          })
+          .catch(() => {
+            status.textContent = "Network error — try again.";
+            btn.disabled = false;
+          });
+      });
+    }
+
+    document.body.insertBefore(bar, document.body.firstChild);
+  }
+})();

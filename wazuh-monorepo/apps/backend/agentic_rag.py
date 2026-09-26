@@ -66,6 +66,59 @@ def _history_tail(history):
             if m.get("role") in ("user", "assistant")]
 
 
+# Cheap pre-gate patterns. On a CPU host every helper completion costs its own
+# prompt-processing pass before the user sees anything, so the obvious cases are
+# decided here for free and the LLM is asked only about the genuinely ambiguous
+# middle. Deliberately narrow: anything unrecognised falls through to the model.
+_SMALL_TALK = re.compile(
+    r"^\s*(hi|hey|hello|yo|hiya|thanks|thank you|thx|ta|cheers|ok|okay|k|cool|"
+    r"nice|great|got it|understood|sure|yes|yep|no|nope|bye|goodbye|good (morning|"
+    r"afternoon|evening|night)|how are you|who are you|what can you do)"
+    # "hi there", "thanks a lot" — still small talk, and common enough that
+    # paying a helper completion to discover it would be silly.
+    r"( there| everyone| team| again| a lot| so much| very much)?"
+    r"[\s!.,?)]*$", re.I)
+
+# Requests purely about the previous answer — no new facts needed.
+_META = re.compile(
+    r"\b(rephrase|reword|rewrite (that|it|this)|say (that|it) again|repeat that|"
+    r"translate|in (romanian|english|french|german|spanish)|shorter|longer|"
+    r"summar(ise|ize) (that|it|this|your (last )?answer)|tl;?dr|simpler|"
+    r"explain (that|it|this|the term)|what (did|do) you mean|what you meant|"
+    r"elaborate on (that|it))\b", re.I)
+
+# Anything naming the system's own subject matter needs evidence, so the gate
+# LLM would only ever answer RETRIEVE — skip asking it.
+_NEEDS_EVIDENCE = re.compile(
+    r"\b(alert|alerts|log|logs|attack|attacks|attacker|threat|threats|incident|"
+    r"cve|cves|vulnerab\w*|exploit|malware|ransomware|phish\w*|brute[- ]?force|"
+    r"anomal\w*|suspicious|mitre|t\d{4}(\.\d{3})?|technique|rule|rules|agent|"
+    r"agents|endpoint|endpoints|host|hostname|ip|ips|port|ssh|rdp|firewall|"
+    r"privilege|persistence|exfil\w*|c2|lateral|scan|scanning|sql ?injection|"
+    r"xss|yara|sigma|severity|score|critical|level \d|who|what happened|when did|"
+    r"how many|show me|list|investigate|triage)\b", re.I)
+
+
+def cheap_gate(user_message):
+    """Decide retrieval without an LLM call where the answer is obvious.
+
+    Returns "skip", "retrieve", or None when it genuinely cannot tell (the
+    caller then asks the LLM). Order matters: a message can name a security
+    term *and* be about the last answer ("translate that alert summary"), and
+    the meta reading is the right one because the facts are already on screen.
+    """
+    msg = (user_message or "").strip()
+    if not msg:
+        return "skip"
+    if _SMALL_TALK.match(msg):
+        return "skip"
+    if _META.search(msg) and len(msg.split()) <= 12:
+        return "skip"
+    if _NEEDS_EVIDENCE.search(msg):
+        return "retrieve"
+    return None
+
+
 def gate_skip(llm, user_message, history):
     """True only when the LLM confidently says no retrieval is needed."""
     msgs = [{"role": "system", "content": _GATE_SYSTEM}]

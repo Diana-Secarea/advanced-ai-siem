@@ -1,0 +1,142 @@
+"""Observation mode: learn a host for a week before it is allowed to page anyone.
+
+    venv/bin/python test_observation.py
+
+The property under test is mostly a negative one — that a freshly installed
+host stays SILENT — which is the kind of thing that quietly stops working and
+nobody notices until a customer is paged with verdicts from a model that has
+never seen their traffic.
+"""
+
+import os
+import sys
+import tempfile
+import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from observation import ObservationMode, COLLECTING, READY, ARMED
+
+_fails = []
+
+
+def check(label, got, want):
+    ok = got == want
+    print(f"  {'PASS' if ok else 'FAIL'}  {label}")
+    if not ok:
+        print(f"        expected {want!r}, got {got!r}")
+        _fails.append(label)
+
+
+def truthy(label, got):
+    ok = bool(got)
+    print(f"  {'PASS' if ok else 'FAIL'}  {label}")
+    if not ok:
+        _fails.append(label)
+
+
+def fed(owner="acme", days=7, per_day=100, min_days=7, min_events=500, path=None):
+    """A host observed for `days` days, back-dated so the clock agrees."""
+    o = ObservationMode(path=path, min_days=min_days, min_events=min_events)
+    start = time.time() - days * 86400
+    o._state[owner] = {"state": COLLECTING, "started_at": start,
+                       "events": 0, "days": []}
+    for d in range(days):
+        o.observe(owner, f"2026-09-{1 + d:02d}", n=per_day)
+    return o
+
+
+print("\n1. A brand-new install is silent")
+fresh = ObservationMode()
+check("unknown owner is collecting", fresh.state("nobody"), COLLECTING)
+check("and must not alert", fresh.should_alert("nobody"), False)
+fresh.observe("acme", "2026-09-01", n=10)
+check("one day in, still collecting", fresh.state("acme"), COLLECTING)
+check("still silent", fresh.should_alert("acme"), False)
+
+
+print("\n2. Both thresholds must be met, not either")
+# A busy host still waits out the week…
+busy = fed(days=2, per_day=5000)
+check("5000 events/day for 2 days is not enough", busy.state("acme"), COLLECTING)
+check("…and stays silent", busy.should_alert("acme"), False)
+# …and a quiet one still waits for enough events.
+quiet = fed(days=8, per_day=10)
+check("8 days of near-silence is not enough", quiet.state("acme"), COLLECTING)
+check("…and stays silent too", quiet.should_alert("acme"), False)
+
+
+print("\n3. Enough of both promotes to READY — but not to ARMED")
+ready = fed(days=7, per_day=100)
+check("becomes ready", ready.state("acme"), READY)
+# Arming is a human decision on purpose: going from "silent" to "can page you"
+# should not happen because a counter ticked over at 3am.
+check("ready is still NOT armed", ready.should_alert("acme"), False)
+
+
+print("\n4. Arming is an operator action, and is refused early")
+early = fed(days=2, per_day=50)
+ok, err = early.arm("acme")
+check("arming a still-collecting host is refused", ok, False)
+truthy("with a reason", err)
+check("and it stays silent", early.should_alert("acme"), False)
+
+ok, err = ready.arm("acme")
+check("arming a ready host succeeds", (ok, err), (True, None))
+check("now it may alert", ready.should_alert("acme"), True)
+
+
+print("\n5. Progress is reportable while it happens")
+p = fed(days=3, per_day=100).progress("acme")
+check("state is collecting", p["state"], COLLECTING)
+check("days counted", p["days_seen"], 3)
+check("events counted", p["events"], 300)
+truthy("percent is partial", 0 < p["percent"] < 100)
+# The SLOWER axis governs, so a host cannot look nearly-done on volume alone.
+fast = fed(days=1, per_day=100000).progress("acme")
+truthy("volume alone cannot fake progress", fast["percent"] <= 20)
+
+
+print("\n6. Tenants are independent")
+multi = fed(owner="acme", days=7, per_day=100)
+multi.observe("beta", "2026-09-01", n=5)
+multi.arm("acme")
+check("armed tenant alerts", multi.should_alert("acme"), True)
+check("the new tenant does not", multi.should_alert("beta"), False)
+check("both are tracked", multi.all_owners(), ["acme", "beta"])
+
+
+print("\n7. It survives a restart")
+path = os.path.join(tempfile.mkdtemp(), "obs.json")
+o = fed(days=7, per_day=100, path=path)
+o.arm("acme")
+o.save()
+again = ObservationMode(path=path)
+check("armed state persists", again.should_alert("acme"), True)
+check("and the counts persist", again.progress("acme")["events"], 700)
+
+
+print("\n8. Unreadable state fails CLOSED (silent), never open")
+bad = os.path.join(tempfile.mkdtemp(), "corrupt.json")
+with open(bad, "w") as fh:
+    fh.write("{not json at all")
+o2 = ObservationMode(path=bad)
+check("a corrupt file does not crash", o2.state("acme"), COLLECTING)
+check("and nobody gets paged from it", o2.should_alert("acme"), False)
+check("a missing file is the same", ObservationMode(path="/nope/x.json").should_alert("a"), False)
+
+
+print("\n9. A host can be sent back to school")
+o3 = fed(days=7, per_day=100)
+o3.arm("acme")
+check("armed", o3.should_alert("acme"), True)
+o3.reset("acme")
+check("reset returns it to collecting", o3.state("acme"), COLLECTING)
+check("and it goes quiet again", o3.should_alert("acme"), False)
+check("with the counters cleared", o3.progress("acme")["events"], 0)
+
+print()
+if _fails:
+    print(f"{len(_fails)} FAILED: " + ", ".join(_fails))
+    sys.exit(1)
+print("All observation-mode tests passed.")

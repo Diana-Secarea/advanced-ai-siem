@@ -19,6 +19,28 @@ Randomised hosts/IPs/pids keep each line distinct, mirroring production churn.
 
 import random
 
+# ⚠ DO NOT RETRAIN FROM THIS CORPUS ALONE AND SHIP THE RESULT.
+#
+# Measured 2026-09-26 against real selenne-prod traffic. Adding the web_recon
+# family below did NOT fix what it was meant to fix, and regressed something
+# that was already working:
+#
+#     /phpinfo.php.bak   raw prob 0.003 -> 0.24    still under threshold, NOT fixed
+#     sshd auth success  raw prob 0.630 -> 0.843   Diana's OWN logins, worse
+#     nginx error msg    score      2.0 -> 96.2    ordinary errors, false positive
+#
+# The cause is visible in the trainer's own output: held-out ROC-AUC 1.000,
+# precision 1.000, recall 1.000. Synthetic benign and synthetic attack are
+# trivially separable, so the fitted boundary is unconstrained in the region
+# where REAL traffic actually sits — and any corpus edit moves it there at
+# random. That is why adding web-recon examples changed the verdict on SSH
+# logins, which have nothing to do with web recon.
+#
+# These families are still worth having; they are not sufficient alone. A
+# retrain is only trustworthy once the corpus contains real labelled events
+# from the host being protected (see observation mode), and only after an A/B
+# against live traffic rather than against held-out synthetic data.
+
 _HOSTS = ["LAPTOP-M9GQ2F87", "web-prod-01", "db-node-2", "gw-edge"]
 _USERS = ["sek", "diana", "root", "www-data", "postgres", "deploy", "backup"]
 _INT_IPS = ["192.168.1.10", "192.168.1.22", "10.0.0.50", "10.0.0.100", "172.17.0.3"]
@@ -26,6 +48,24 @@ _EXT_IPS = ["203.0.113.9", "45.9.148.22", "185.220.101.7", "89.248.165.44",
             "193.32.162.11", "141.98.10.63", "80.94.92.20"]
 _MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+
+#: One user-agent pool shared by BENIGN and RECON web traffic, deliberately.
+#: Quiet recon arrives with an ordinary browser UA — the real prod misses were
+#: "GET /phpinfo.php.bak" behind a normal Mozilla/Macintosh string. If the
+#: benign corpus only ever used the literal "Mozilla/5.0" while recon used
+#: realistic long ones, the model would learn "long UA = attack" and flag
+#: every genuine visitor. The PATH has to be the only thing that separates
+#: them, because in production it is.
+_WEB_UAS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64; rv:125.0) Gecko/20100101 Firefox/125.0",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0",
+    "python-requests/2.31.0",
+    "curl/7.88.1",
+]
 
 
 def _ts():
@@ -157,7 +197,7 @@ def _benign_line():
                              "/api/status", "/products", "/sitemap.xml"])
         code = random.choice([200, 200, 200, 304, 301, 404])
         return _ev(f'{ip} - - [{_ts()}] "GET {page} HTTP/1.1" {code} {random.randint(100,9000)} '
-                   f'"-" "Mozilla/5.0"', "apache", 0)
+                   f'"-" "{random.choice(_WEB_UAS)}"', "apache", 0)
 
     if kind == "dpkg":
         pkg = random.choice(["libc6:amd64", "openssl", "curl", "python3.11",
@@ -210,7 +250,7 @@ def _attack_line():
     pid = _pid()
     kind = random.choice([
         "revshell", "web_exploit", "ssh_brute", "privesc", "cred_theft",
-        "exfil", "malware_dl", "log_tamper", "recon", "webshell"])
+        "exfil", "malware_dl", "log_tamper", "recon", "webshell", "web_recon"])
 
     if kind == "revshell":
         p = random.randint(1024, 65535)
@@ -297,6 +337,36 @@ def _attack_line():
             "shred -u /var/ossec/logs/alerts/alerts.json",
         ])
         return _ev(f"{_ts()} {h} bash[{pid}]: {payload}", "journald")
+
+    if kind == "web_recon":
+        # Quiet probing for information disclosure: no injection syntax, no
+        # scanner user-agent, just a GET for a file that should not be there.
+        # This is the class the content model scored 0.3 on in production
+        # (/server-status.php, /phpinfo.php.bak, /info.php.bak) — it looks
+        # exactly like ordinary traffic apart from WHAT is being asked for.
+        path = random.choice([
+            # information disclosure
+            "/phpinfo.php", "/phpinfo.php.bak", "/info.php", "/info.php.bak",
+            "/server-status", "/server-status.php", "/server-info",
+            "/test.php", "/i.php", "/_profiler/phpinfo",
+            # configuration and secrets left on disk
+            "/.env", "/.env.bak", "/.env.save", "/config.php.bak",
+            "/wp-config.php.bak", "/wp-config.php~", "/settings.py.bak",
+            "/.git/config", "/.git/HEAD", "/.svn/entries", "/.DS_Store",
+            # administrative surfaces
+            "/admin.php", "/administrator/", "/wp-login.php", "/phpmyadmin/",
+            "/pma/", "/adminer.php", "/manager/html", "/solr/admin/info/system",
+            # backups anyone can fetch
+            "/backup.zip", "/backup.tar.gz", "/db.sql", "/dump.sql",
+            "/database.sql.gz", "/www.zip",
+            # framework/debug endpoints
+            "/actuator/env", "/actuator/health", "/api/v1/swagger.json",
+            "/debug/default/view", "/telescope/requests",
+        ])
+        code = random.choice(["404", "404", "404", "403", "200", "429"])
+        return _ev(f'{ip} - - [{_ts()}] "GET {path} HTTP/1.1" {code} '
+                   f'{random.randint(0,900)} "-" "{random.choice(_WEB_UAS)}"',
+                   "nginx")
 
     if kind == "recon":
         payload = random.choice([

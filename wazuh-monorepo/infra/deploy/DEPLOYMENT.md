@@ -361,6 +361,59 @@ attachments would evict the chat model on every image), keep the swap file from
 worse than a cold load. Trimming retrieved context (`k`, chunk size) buys more
 first-token latency on CPU than any Ollama flag.
 
+## RAG latency on a CPU host
+
+**There is no GPU to turn on.** Hetzner *Cloud* (CPX/CCX, including the CPX32
+running `selenne-prod`) has no GPU option at all — no driver, flag or Ollama
+setting changes that, and `nvidia-smi` on the box returns nothing. GPU means a
+Hetzner *dedicated* GEX server, which is a different machine at a higher monthly
+price plus a setup fee. Everything below makes the CPU path fast instead.
+
+Where a 2-minute answer actually went, on 4 vCPU with `llama3.2` (3B):
+
+| Cost | Why |
+|---|---|
+| **Prompt processing (prefill)** | the dominant term. Every token of system prompt + history + retrieved evidence is processed before the first output token. |
+| **Up to 5 sequential helper LLM calls** | the agentic stages (gate → rewrite → grade, plus rewrite+grade again on a corrective retry) each ran a *separate* completion with its own prefill, all before the answer started. |
+| **History growth** | the whole conversation was re-sent every turn, so turn 10 prefilled several times what turn 1 did — the "it gets slower the longer I chat" effect. |
+| **Cold model loads** | the OpenAI-compatible `/v1` endpoint ignores `keep_alive` and reset the unload timer to 5 minutes, so a quiet spell cost a full reload. |
+
+What the backend now does about it:
+
+1. **Native `/api/chat`, not `/v1`.** Only the native endpoint accepts
+   `options` and honours `keep_alive`, so the window is explicit and the model
+   stays resident.
+2. **`num_ctx` is set explicitly (`OLLAMA_NUM_CTX`, default 8192).** Ollama's
+   default window is smaller than a full RAG prompt and it truncates *silently*
+   — the old setup could drop the retrieved evidence it had just paid to
+   process. Budget ~110 KB of RAM per token of window for this model: 8k ≈ 0.9
+   GB on top of the ~2 GB of weights. Drop to 4096 if RAM gets tight.
+3. **Bounded prompt.** `CHAT_HISTORY_MSGS`/`CHAT_HISTORY_CLIP` cap what the
+   model rereads (the UI still shows the full conversation), and
+   `RAG_ALERTS_TOP_K`, `RAG_ALERT_LOG_CLIP`, `RAG_KB_TOP_K`,
+   `RAG_KB_SUMMARY_CLIP` cap the evidence. Together these take a turn-10 prompt
+   from ~8.7k tokens to ~2.1k.
+4. **Helper calls only when they can change the outcome.** A regex pre-gate
+   decides the obvious cases for free ("hi" → skip, "list critical alerts" →
+   retrieve) and the gate LLM is asked only about the ambiguous middle; CRAG
+   grading is skipped when hybrid retrieval already ranked a chunk top in both
+   the dense and the BM25 list (`RAG_GRADE_SKIP_SCORE`). `RAG_HELPER_LLM=0`
+   turns all of them off and keeps only the heuristics.
+
+**Measure, don't guess.** Every streamed answer now logs Ollama's own counters:
+
+```bash
+sudo journalctl -u selenne-backend -f | grep '\[ollama\]'
+# [ollama] prompt 2043 tok in 24150 ms (84.6 tok/s) | generated 240 tok in 22600 ms (10.6 tok/s)
+```
+
+If *prompt* tok/s is the problem, cut context (items 3–4). If *generated* tok/s
+is, cut `OLLAMA_NUM_PREDICT` or move to a smaller model — `llama3.2:1b` roughly
+triples generation speed at a real quality cost, and `qwen2.5:3b-instruct-q4_K_M`
+is a like-for-like alternative. Check the model is resident and not reloading
+per query with `ollama ps` (`UNTIL` should be hours away, not "4 minutes"), and
+keep `OLLAMA_NUM_PARALLEL=1`: extra slots *divide* `num_ctx` between them.
+
 ## Health & monitoring
 
 | Probe | Meaning |

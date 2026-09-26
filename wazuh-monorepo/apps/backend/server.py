@@ -173,10 +173,16 @@ def _require_auth():
     if path.startswith("/api/"):
         return jsonify({"error": "Authentication required"}), 401
     from flask import redirect
-    # Anonymous visitors hitting the app root see the public landing page;
-    # deep links into the console still go to the sign-in screen.
+    # Anonymous visitors hitting the app root get the public landing page as a
+    # 200 at "/" rather than a redirect to /landing.html. Link validators and
+    # preview crawlers (Upwork portfolio items, LinkedIn, Slack) submit the
+    # apex URL and several of them treat "302 to a different path" as a link
+    # they cannot read — which is what made https://selenne.app/ unusable as a
+    # portfolio link. Serving the bytes directly also gives the apex a single
+    # canonical 200 for search engines instead of a hop.
     if path in ("/", "/index.html"):
-        return redirect("/landing.html")
+        return send_from_directory(UI_DIR, "landing.html")
+    # Deep links into the console still go to the sign-in screen.
     return redirect("/login.html")
 
 
@@ -535,6 +541,74 @@ def _visible_alerts(viewer=None):
     if is_admin:
         return alerts
     return [a for a in alerts if _alert_visible(a, username, is_admin)]
+
+
+
+# --------------------------------------------------------------------------- #
+#  Observation mode API
+# --------------------------------------------------------------------------- #
+
+@app.route("/api/observation", methods=["GET"])
+def observation_status():
+    """Progress for the caller's own tenant (admins may ask about any)."""
+    username, is_admin = _current_username()
+    if not username or username == "anonymous":
+        return jsonify({"error": "Sign in"}), 401
+    obs = _get_observation()
+    if obs is None:
+        # Not an error: it means nothing is being suppressed.
+        return jsonify({"available": False, "state": "armed", "percent": 100})
+    owner = request.args.get("owner") if is_admin else None
+    target = owner or username
+    data = obs.progress(target)
+    data["available"] = True
+    data["owner"] = target
+    data["alerting"] = obs.should_alert(target)
+    if is_admin:
+        data["all_owners"] = [
+            {"owner": o, **obs.progress(o), "alerting": obs.should_alert(o)}
+            for o in obs.all_owners()
+        ]
+    return jsonify(data)
+
+
+@app.route("/api/observation/arm", methods=["POST"])
+def observation_arm():
+    """Finish observation and start alerting. Deliberately a human action."""
+    username, is_admin = _current_username()
+    if not username or username == "anonymous":
+        return jsonify({"error": "Sign in"}), 401
+    obs = _get_observation()
+    if obs is None:
+        return jsonify({"error": "Observation mode is not available"}), 503
+    body = request.get_json(silent=True) or {}
+    target = (body.get("owner") if is_admin else None) or username
+    ok, err = obs.arm(target)
+    logging_setup.audit("observation_arm", username=username, outcome="success" if ok else "denied",
+                        reason=err or "", src_ip=get_remote_address())
+    if not ok:
+        return jsonify({"error": err, **obs.progress(target)}), 409
+    return jsonify({"status": "ok", "owner": target, **obs.progress(target)})
+
+
+@app.route("/api/observation/reset", methods=["POST"])
+def observation_reset():
+    """Re-baseline a host whose shape genuinely changed (migration, re-image).
+    Admin-only: it silences alerting for another full observation window."""
+    username, is_admin = _current_username()
+    if not username or username == "anonymous":
+        return jsonify({"error": "Sign in"}), 401
+    if not is_admin:
+        return jsonify({"error": "Admins only"}), 403
+    obs = _get_observation()
+    if obs is None:
+        return jsonify({"error": "Observation mode is not available"}), 503
+    body = request.get_json(silent=True) or {}
+    target = body.get("owner") or username
+    obs.reset(target)
+    logging_setup.audit("observation_reset", username=username, outcome="success",
+                        reason=f"owner={target}", src_ip=get_remote_address())
+    return jsonify({"status": "ok", "owner": target, **obs.progress(target)})
 
 
 @app.route("/api/profile", methods=["GET", "POST"])
@@ -1025,6 +1099,38 @@ OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2")
 # account from this host.
 OLLAMA_KEEP_ALIVE = os.environ.get("OLLAMA_KEEP_ALIVE", "24h")
 
+# --- CPU latency budget -------------------------------------------------------
+# The production host is CPU-only (Hetzner has no GPU), where *prompt*
+# processing dominates: a 3B model prefills on the order of a few dozen
+# tokens/second, so every extra 1k tokens of context is seconds of wait before
+# the first one comes back. These knobs bound the prompt. Raise them on a
+# bigger box; they change latency, not correctness.
+#
+# num_ctx matters twice over: Ollama's own default is small (2–4k depending on
+# version), and a prompt longer than the window is silently TRUNCATED — so an
+# untuned context window both slows answers down and quietly drops the
+# retrieved evidence the answer is supposed to be grounded in.
+OLLAMA_NUM_CTX = int(os.environ.get("OLLAMA_NUM_CTX", "8192"))
+OLLAMA_NUM_THREAD = int(os.environ.get("OLLAMA_NUM_THREAD", "0"))  # 0 = Ollama decides
+OLLAMA_NUM_PREDICT = int(os.environ.get("OLLAMA_NUM_PREDICT", "700"))
+# History sent to the model, as opposed to MAX_HISTORY kept for display. The
+# full conversation is still stored and shown in the UI; only the slice the
+# model rereads on every turn is bounded. Without this the prompt grows by a
+# whole answer per turn, which is why a long conversation crawls while the
+# first question is quick.
+CHAT_HISTORY_MSGS = int(os.environ.get("CHAT_HISTORY_MSGS", "6"))
+CHAT_HISTORY_CLIP = int(os.environ.get("CHAT_HISTORY_CLIP", "700"))
+# Retrieved evidence in the prompt.
+RAG_ALERTS_TOP_K = int(os.environ.get("RAG_ALERTS_TOP_K", "6"))
+RAG_ALERT_LOG_CLIP = int(os.environ.get("RAG_ALERT_LOG_CLIP", "180"))
+RAG_KB_TOP_K = int(os.environ.get("RAG_KB_TOP_K", "4"))
+RAG_KB_SUMMARY_CLIP = int(os.environ.get("RAG_KB_SUMMARY_CLIP", "350"))
+# Helper-stage LLM calls (gate, rewrite, grade) each pay their own prefill, so
+# on CPU they are only worth making when they can change the outcome. See
+# _agentic_rag.cheap_gate() and the grading threshold in _build_rag_context.
+RAG_HELPER_LLM = os.environ.get("RAG_HELPER_LLM", "1") == "1"
+RAG_GRADE_SKIP_SCORE = float(os.environ.get("RAG_GRADE_SKIP_SCORE", "0.75"))
+
 # --- Wazuh Alert Store ---
 # Stateful across restarts: every alert seen while the server runs is appended
 # to ALERT_SESSION_FILE and reloaded on the next start, so dashboard counts
@@ -1037,6 +1143,46 @@ _wazuh_watch_pos = 0      # file position for tailing alerts.json
 
 # --- User-defined Benign Rule Exceptions ---
 BENIGN_RULES_FILE = os.path.join(os.path.dirname(__file__), "benign_rules.json")
+
+# --- Install-time observation mode ---------------------------------------- #
+# A freshly enrolled host has never been seen by any model here, so nothing
+# here is entitled to page anyone about it yet. Alerts are scored and the
+# baselines are fed from the first event; only DISPATCH waits. See
+# services/ai-engine/observation.py for why a week, and why arming is manual.
+OBSERVATION_FILE = os.path.join(os.path.dirname(__file__), "observation.json")
+_observation = None
+
+
+def _get_observation():
+    """Lazy singleton. Returns None if the module cannot be loaded, and every
+    caller treats that as 'do not suppress' — a missing feature must not
+    silently disable alerting for an armed customer."""
+    global _observation
+    if _observation is not None:
+        # `or None` here too, not just at the end: _observation is False once a
+        # load has failed, and returning that bool straight out handed callers
+        # an object they then called .progress() on. The fail-open path was the
+        # one path that crashed.
+        return _observation or None
+    try:
+        engine = str(Path(__file__).resolve().parent.parent.parent
+                     / "services" / "ai-engine")
+        if engine not in sys.path:
+            sys.path.insert(0, engine)
+        from observation import ObservationMode
+        _observation = ObservationMode(path=OBSERVATION_FILE)
+        print(f"[observation] loaded ({len(_observation.all_owners())} owners tracked)")
+    except Exception as e:  # noqa: BLE001
+        print(f"[observation] unavailable, alerting is NOT suppressed: {e}")
+        _observation = False
+    return _observation or None
+
+
+def _observation_owner(alert):
+    """Which tenant an alert counts towards. Unclaimed hosts fall to the
+    manager's own bucket so the manager itself is observed too."""
+    name = _agent_name_of(alert)
+    return _tenancy.owner_of(name) or "__manager__"
 _user_benign_rules = {}   # str(rule_id) -> {rule_id, rule_description, added_at}
 _benign_rules_lock = threading.Lock()
 
@@ -1166,6 +1312,16 @@ def _check_new_alerts():
         with _wazuh_alerts_lock:
             _wazuh_alerts.extend(new_alerts)
             _persist_alerts(new_alerts)
+        # Observation is fed at INGEST, not at dispatch: a host under
+        # observation is still being measured, that is the entire point.
+        obs = _get_observation()
+        if obs is not None:
+            for a in new_alerts:
+                try:
+                    obs.observe(_observation_owner(a),
+                                str(a.get("timestamp", ""))[:10])
+                except Exception:  # noqa: BLE001 — never break ingest
+                    pass
         print(f"[alerts] Added {len(new_alerts)} new alerts (total: {len(_wazuh_alerts)})")
 
 
@@ -1307,7 +1463,7 @@ def _format_alert_context(scored_alerts: list, anomaly_scores: dict = None,
         level = rule.get("level", 0)
         rid = rule.get("id", "?")
         desc = rule.get("description", "")
-        full_log = alert.get("full_log", "")[:300]
+        full_log = alert.get("full_log", "")[:RAG_ALERT_LOG_CLIP]
         agent_name = alert.get("agent", {}).get("name", "?")
         groups = ", ".join(rule.get("groups", []))
         mitre = rule.get("mitre", {})
@@ -1627,9 +1783,11 @@ def _search_knowledge_base(query: str, top_k: int = 5) -> list:
 def _pin_ollama_model():
     """Load the model and hold it for OLLAMA_KEEP_ALIVE via the native API.
 
-    The OpenAI-compatible /v1 endpoint ignores keep_alive and resets the
-    unload timer to the server default (5 min) on every request, so we
-    re-pin fire-and-forget after each chat call and once at startup.
+    Called once at startup so the first question of the day does not pay the
+    cold load. Every chat call now goes through the native /api/chat with its
+    own keep_alive, so the old "re-pin after each request" workaround (needed
+    because /v1 silently reset the timer to 5 min) is gone: those extra
+    requests queued behind real ones on a single-slot Ollama.
     """
     import requests
 
@@ -1648,25 +1806,45 @@ def _pin_ollama_async():
     threading.Thread(target=_pin_ollama_model, daemon=True).start()
 
 
+def _ollama_options(temperature: float, num_predict: int) -> dict:
+    """Generation options for the native API.
+
+    num_ctx is the important one on a CPU host: Ollama's default window is
+    smaller than a full RAG prompt, and it truncates silently rather than
+    erroring — so the model would answer from a clipped context while paying
+    for the whole thing.
+    """
+    opts = {"temperature": temperature, "num_predict": num_predict,
+            "num_ctx": OLLAMA_NUM_CTX}
+    if OLLAMA_NUM_THREAD > 0:
+        opts["num_thread"] = OLLAMA_NUM_THREAD
+    return opts
+
+
 def _call_ollama(messages: list, temperature: float = 0.3,
-                 max_tokens: int = 1024, timeout: int = 120) -> str:
-    """Call Ollama's OpenAI-compatible chat completions API (blocking)."""
+                 max_tokens: int = None, timeout: int = 120) -> str:
+    """Call Ollama's native chat API (blocking).
+
+    Native /api/chat rather than the OpenAI-compatible /v1: only this one
+    accepts `options` (num_ctx, num_thread) and honours keep_alive, so the
+    model stays resident instead of being unloaded 5 minutes later and cold
+    loaded — a cold 3B load is tens of seconds on a CPU box.
+    """
     import requests
 
-    url = f"{OLLAMA_URL}/v1/chat/completions"
     payload = {
         "model": OLLAMA_MODEL,
         "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
+        "stream": False,
+        "keep_alive": OLLAMA_KEEP_ALIVE,
+        "options": _ollama_options(
+            temperature, max_tokens if max_tokens is not None else OLLAMA_NUM_PREDICT),
     }
 
     try:
-        resp = requests.post(url, json=payload, timeout=timeout)
+        resp = requests.post(f"{OLLAMA_URL}/api/chat", json=payload, timeout=timeout)
         resp.raise_for_status()
-        data = resp.json()
-        _pin_ollama_async()  # /v1 reset the unload timer to 5 min — re-pin
-        return data["choices"][0]["message"]["content"]
+        return resp.json().get("message", {}).get("content", "")
     except requests.exceptions.ConnectionError:
         return "Error: Cannot connect to Ollama. Make sure `ollama serve` is running."
     except requests.exceptions.Timeout:
@@ -1676,45 +1854,51 @@ def _call_ollama(messages: list, temperature: float = 0.3,
 
 
 def _stream_ollama(messages: list):
-    """Yield text chunks from Ollama using server-sent events (NDJSON stream)."""
+    """Yield text chunks from Ollama's native chat API (NDJSON stream)."""
     import requests
 
-    url = f"{OLLAMA_URL}/v1/chat/completions"
     payload = {
         "model": OLLAMA_MODEL,
         "messages": messages,
-        "temperature": 0.3,
-        "max_tokens": 1024,
         "stream": True,
+        "keep_alive": OLLAMA_KEEP_ALIVE,
+        "options": _ollama_options(0.3, OLLAMA_NUM_PREDICT),
     }
 
     try:
-        with requests.post(url, json=payload, stream=True, timeout=120) as resp:
+        with requests.post(f"{OLLAMA_URL}/api/chat", json=payload,
+                           stream=True, timeout=180) as resp:
             resp.raise_for_status()
             for raw_line in resp.iter_lines():
                 if not raw_line:
                     continue
                 line = raw_line.decode("utf-8") if isinstance(raw_line, bytes) else raw_line
-                if line.startswith("data: "):
-                    line = line[6:]
-                if line == "[DONE]":
-                    return
                 try:
                     chunk = json.loads(line)
-                    delta = chunk["choices"][0].get("delta", {})
-                    token = delta.get("content", "")
-                    if token:
-                        yield token
-                except (json.JSONDecodeError, KeyError):
+                except json.JSONDecodeError:
                     continue
+                token = (chunk.get("message") or {}).get("content", "")
+                if token:
+                    yield token
+                if chunk.get("done"):
+                    # Prompt/eval counts are the only direct read on where the
+                    # time went: prompt_eval_count/duration is prefill, which is
+                    # what a long context makes expensive.
+                    p_tok = chunk.get("prompt_eval_count") or 0
+                    p_ms = (chunk.get("prompt_eval_duration") or 0) / 1e6
+                    g_tok = chunk.get("eval_count") or 0
+                    g_ms = (chunk.get("eval_duration") or 0) / 1e6
+                    log.info("[ollama] prompt %d tok in %.0f ms (%.1f tok/s) | "
+                             "generated %d tok in %.0f ms (%.1f tok/s)",
+                             p_tok, p_ms, (p_tok / p_ms * 1000) if p_ms else 0,
+                             g_tok, g_ms, (g_tok / g_ms * 1000) if g_ms else 0)
+                    return
     except requests.exceptions.ConnectionError:
         yield "\n\nError: Cannot connect to Ollama. Make sure `ollama serve` is running."
     except requests.exceptions.Timeout:
         yield "\n\nError: Ollama request timed out."
     except Exception as e:
         yield f"\n\nError calling Ollama: {e}"
-    finally:
-        _pin_ollama_async()  # /v1 reset the unload timer to 5 min — re-pin
 
 
 # ==================== Agentic RAG Pipeline (shared by /api/chat + stream) ====================
@@ -1723,6 +1907,25 @@ def _stream_ollama(messages: list):
 def _agentic_llm(messages: list, max_tokens: int = 64) -> str:
     """Small deterministic completion used by the agentic RAG helper stages."""
     return _call_ollama(messages, temperature=0.0, max_tokens=max_tokens, timeout=30)
+
+
+def _prompt_history(history: list) -> list:
+    """The slice of the conversation the model rereads, bounded.
+
+    The whole history is still stored and displayed; this only bounds what goes
+    back into the prompt. Unbounded, each turn adds a full previous answer to
+    the prefill, so turn 10 of a conversation cost several times turn 1 — the
+    "it gets slower the longer I chat" symptom. Assistant turns are clipped
+    harder than user turns: they are the long ones, and their gist survives.
+    """
+    tail = history[-CHAT_HISTORY_MSGS:] if CHAT_HISTORY_MSGS > 0 else []
+    out = []
+    for m in tail:
+        content = m.get("content") or ""
+        if m.get("role") == "assistant" and len(content) > CHAT_HISTORY_CLIP:
+            content = content[:CHAT_HISTORY_CLIP] + " …[earlier answer truncated]"
+        out.append({"role": m.get("role", "user"), "content": content})
+    return out
 
 
 def _multi_query_alerts(queries: list, top_k: int = 10, viewer=None) -> list:
@@ -1770,7 +1973,20 @@ def _build_rag_context(user_message: str, history: list, inj_flagged: bool,
                 "corrective_retry": False, "low_confidence": False}
 
     # --- Stage 1: retrieval gate ---
-    if not inj_flagged and _agentic_rag.gate_skip(_agentic_llm, user_message, history):
+    # Heuristics first, LLM only for the ambiguous middle. On a CPU-only host
+    # this helper completion costs seconds of prefill before the user sees a
+    # single token, and for "hi" or "list critical alerts" its answer is a
+    # foregone conclusion.
+    cheap = _agentic_rag.cheap_gate(user_message)
+    if cheap == "retrieve":
+        skip_retrieval = False
+    elif cheap == "skip":
+        skip_retrieval = True
+    else:
+        skip_retrieval = (RAG_HELPER_LLM and not inj_flagged
+                          and _agentic_rag.gate_skip(_agentic_llm, user_message, history))
+    rag_meta["gate_decided_by"] = "heuristic" if cheap else "llm"
+    if not inj_flagged and skip_retrieval:
         with _metric_lock:
             _metric_counters["rag_gate_skips"] += 1
         rag_meta["gate"] = "skip"
@@ -1798,7 +2014,7 @@ def _build_rag_context(user_message: str, history: list, inj_flagged: bool,
                 _metric_counters["rag_rewrites"] += 1
     rag_meta["queries"] = queries
 
-    alert_matches = _multi_query_alerts(queries, top_k=10, viewer=viewer)
+    alert_matches = _multi_query_alerts(queries, top_k=RAG_ALERTS_TOP_K, viewer=viewer)
 
     anomaly_scores = {}
     ensemble = _get_ensemble()
@@ -1824,13 +2040,22 @@ def _build_rag_context(user_message: str, history: list, inj_flagged: bool,
 
     sources = []
     if fetch_threat_intel:
-        ti_results = _multi_query_kb([user_message], top_k=5)
+        ti_results = _multi_query_kb([user_message], top_k=RAG_KB_TOP_K)
         low_confidence = False
 
         # --- Stage 3: chunk grading, with one corrective re-retrieve ---
-        if ti_results and not inj_flagged:
+        # Grading is skipped when hybrid retrieval was already confident: a
+        # chunk ranked near the top of BOTH the dense and the BM25 list
+        # (similarity is the RRF score normalised to [0,1]) is one the grader
+        # keeps anyway, so the call only buys latency. Ambiguous retrievals —
+        # the case CRAG exists for — still get graded.
+        top_similarity = max((r.get("similarity", 0) for r in ti_results), default=0)
+        grade_worthwhile = top_similarity < RAG_GRADE_SKIP_SCORE
+        if not grade_worthwhile:
+            rag_meta["grading"] = f"skipped (confident, similarity {top_similarity:.2f})"
+        if ti_results and not inj_flagged and RAG_HELPER_LLM and grade_worthwhile:
             rag_meta["chunks_retrieved"] = len(ti_results)
-            chunk_texts = [f"({r.get('episode_type', '')}) {r.get('summary', '')[:400]}"
+            chunk_texts = [f"({r.get('episode_type', '')}) {r.get('summary', '')[:RAG_KB_SUMMARY_CLIP]}"
                            for r in ti_results]
             kept, graded = _agentic_rag.grade_chunks(_agentic_llm, user_message, chunk_texts)
             if graded and not kept:
@@ -1838,8 +2063,8 @@ def _build_rag_context(user_message: str, history: list, inj_flagged: bool,
                 retry_queries = _agentic_rag.rewrite_queries(
                     _agentic_llm, user_message, history,
                     feedback="; ".join(queries))
-                retry_results = _multi_query_kb(retry_queries, top_k=5)
-                retry_texts = [f"({r.get('episode_type', '')}) {r.get('summary', '')[:400]}"
+                retry_results = _multi_query_kb(retry_queries, top_k=RAG_KB_TOP_K)
+                retry_texts = [f"({r.get('episode_type', '')}) {r.get('summary', '')[:RAG_KB_SUMMARY_CLIP]}"
                                for r in retry_results]
                 kept2, graded2 = _agentic_rag.grade_chunks(_agentic_llm, user_message, retry_texts)
                 if graded2 and kept2:
@@ -1860,7 +2085,7 @@ def _build_rag_context(user_message: str, history: list, inj_flagged: bool,
 
         ti_context_parts = []
         for i, r in enumerate(ti_results, 1):
-            summary = r.get("summary", "")[:500]
+            summary = r.get("summary", "")[:RAG_KB_SUMMARY_CLIP]
             etype = r.get("episode_type", "")
             eid = r.get("episode_id", "")
             score = r.get("score", 0)
@@ -2146,7 +2371,6 @@ def _investigate(user_message, history, on_event=None, viewer=None):
         return None
     if result["stop_reason"].startswith("error"):
         return None
-    _pin_ollama_async()   # native calls also reset the unload timer
 
     if result["evidence"]:
         evidence_block = "\n\n".join(
@@ -2491,7 +2715,7 @@ def chat():
     t_retrieval = time.time()
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT + _guardrails.GUARDRAIL_PROMPT}]
-    messages.extend(history)
+    messages.extend(_prompt_history(history))
     messages.append({"role": "user", "content": augmented_message})
 
     # Call LLM
@@ -2578,7 +2802,7 @@ def chat_stream():
 
         t_retrieval = time.time()
         messages = [{"role": "system", "content": SYSTEM_PROMPT + _guardrails.GUARDRAIL_PROMPT}]
-        messages.extend(history)
+        messages.extend(_prompt_history(history))
         messages.append({"role": "user", "content": augmented_message})
 
         full_reply = []
@@ -4550,7 +4774,6 @@ def _ai_triage_incident(inc):
         f"INCIDENT RECORD:\n{_guardrails.wrap_context(inc_desc)}\n\n"
         f"INVESTIGATION EVIDENCE:\n{_guardrails.wrap_context(evidence_block)}",
         timeout=90)
-    _pin_ollama_async()
 
     # Validate + clip the model's JSON into a fixed shape — never trust it raw.
     raw = raw or {}
@@ -4879,6 +5102,22 @@ def _reactor_scan_once():
         verdict = _score_alert_for_reactor(alert)
         if not verdict or not _reactor_should_fire(verdict):
             continue
+
+        # THE GATE. Scoring above still runs — the incident is judged, the
+        # baselines are fed, the counters move — but a host that is still
+        # being learned does not get to trigger a reaction. Placed after
+        # scoring on purpose: suppressing earlier would starve the very
+        # measurements that decide when observation ends.
+        obs = _get_observation()
+        if obs is not None:
+            owner = _observation_owner(alert)
+            if not obs.should_alert(owner):
+                with _reactor_lock:
+                    _reactor["counts"]["suppressed"] += 1
+                rlog.info(f"observation: held back {alert.get('rule', {}).get('id')} "
+                          f"for '{owner}' ({obs.state(owner)})")
+                continue
+
         inc = _make_incident(alert, verdict)
         if not _reactor_dedup_ok(inc):
             with _reactor_lock:
@@ -5390,6 +5629,7 @@ def robots_txt():
     crawlers burning budget on pages that only ever 302."""
     return Response(
         "User-agent: *\n"
+        "Allow: /$\n"            # the apex now serves the landing page itself
         "Allow: /landing.html\n"
         "Disallow: /api/\n"
         "Disallow: /legacy/\n"

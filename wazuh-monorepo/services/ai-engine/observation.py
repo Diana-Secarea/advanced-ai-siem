@@ -51,6 +51,11 @@ MIN_DAYS = float(os.environ.get("OBSERVATION_MIN_DAYS", "7"))
 #: emitted 40 events in a week has not been observed, it has been idle.
 MIN_EVENTS = int(os.environ.get("OBSERVATION_MIN_EVENTS", "500"))
 
+#: Seconds between forced flushes. Progress towards a 7-day window is the
+#: state worth losing least, and a quiet host may take days to reach the
+#: event-count flush.
+SAVE_INTERVAL = float(os.environ.get("OBSERVATION_SAVE_INTERVAL", "60"))
+
 COLLECTING = "collecting"
 READY = "ready"
 ARMED = "armed"
@@ -66,6 +71,11 @@ class ObservationMode:
         self._state = {}
         self._lock = threading.Lock()
         self._dirty = 0
+        self._last_save = time.time()
+        #: True when there was no state file to read — i.e. this is the first
+        #: run after observation mode was deployed. The caller uses it to
+        #: decide whether existing tenants need grandfathering.
+        self.first_run = True
         self._load()
 
     # ------------------------------------------------------------- io --
@@ -78,6 +88,7 @@ class ObservationMode:
             if isinstance(data, dict):
                 self._state = {str(k): v for k, v in data.get("owners", {}).items()
                                if isinstance(v, dict)}
+                self.first_run = False
         except (OSError, ValueError, TypeError, AttributeError):
             self._state = {}       # unreadable state == everyone is collecting
 
@@ -123,7 +134,11 @@ class ObservationMode:
             if e["state"] == COLLECTING and self._sufficient(e, now):
                 e["state"] = READY
         self._dirty += n
-        if self._dirty >= 500:
+        # Flush on EITHER enough events or enough elapsed time. Counting alone
+        # was wrong for the one case that matters: a quiet host accumulating a
+        # 7-day window might not reach 500 events for days, and a restart
+        # before the first flush silently sends it back to day zero.
+        if self._dirty >= 500 or (time.time() - self._last_save) >= SAVE_INTERVAL:
             self.save()
 
     def _sufficient(self, entry, now=None):
@@ -175,6 +190,37 @@ class ObservationMode:
         }
 
     # --------------------------------------------------------- control --
+    def grandfather(self, owners, reason="existed before observation mode"):
+        """Mark already-running tenants ARMED, without an observation window.
+
+        Observation exists to stop a model judging a host it has never seen.
+        A tenant that was already installed and already being alerted on does
+        not have that problem — switching it to COLLECTING would take a
+        working detector and silence it for a week, which is a regression
+        dressed up as a safety feature.
+
+        Only ever applied on the FIRST run after deployment, and only to
+        owners with no state, so it can never un-observe a genuinely new host.
+        Returns the list it actually changed.
+        """
+        done = []
+        with self._lock:
+            for owner in owners:
+                owner = str(owner or "").strip()
+                if not owner or owner in self._state:
+                    continue
+                self._state[owner] = {
+                    "state": ARMED,
+                    "started_at": time.time(),
+                    "events": 0,
+                    "days": [],
+                    "grandfathered": reason,
+                }
+                done.append(owner)
+        if done:
+            self.save()
+        return done
+
     def arm(self, owner):
         """Operator action. Refuses while the evidence is not there yet."""
         with self._lock:

@@ -565,10 +565,19 @@ def observation_status():
     data["owner"] = target
     data["alerting"] = obs.should_alert(target)
     if is_admin:
-        data["all_owners"] = [
-            {"owner": o, **obs.progress(o), "alerting": obs.should_alert(o)}
-            for o in obs.all_owners()
-        ]
+        everyone = [{"owner": o, **obs.progress(o), "alerting": obs.should_alert(o)}
+                    for o in obs.all_owners()]
+        data["all_owners"] = everyone
+        # An admin's OWN tenant is usually empty — alerts land under the agent's
+        # owner, or under __manager__ for unclaimed hosts. Reporting the admin's
+        # own 0/7d while the manager quietly holds back every alert is the
+        # difference between a status display and a misleading one. Surface the
+        # bucket that is actually gating: the least-progressed unarmed owner.
+        gating = sorted((o for o in everyone if not o["alerting"]),
+                        key=lambda o: o.get("percent", 0))
+        if gating:
+            data["gating"] = gating[0]
+            data["gating_count"] = len(gating)
     return jsonify(data)
 
 
@@ -1171,6 +1180,16 @@ def _get_observation():
             sys.path.insert(0, engine)
         from observation import ObservationMode
         _observation = ObservationMode(path=OBSERVATION_FILE)
+        if _observation.first_run:
+            # Upgrading an existing install must not silence it. Everyone who
+            # already had an account when observation mode arrived keeps
+            # alerting; only hosts enrolled AFTER this point get a window.
+            existing = {u["username"] for u in (_auth.list_users() or [])
+                        if u.get("username")}
+            existing.add("__manager__")          # the box itself was already live
+            done = _observation.grandfather(sorted(existing))
+            print(f"[observation] first run — grandfathered {len(done)} existing "
+                  f"owner(s) as armed: {', '.join(done[:8])}")
         print(f"[observation] loaded ({len(_observation.all_owners())} owners tracked)")
     except Exception as e:  # noqa: BLE001
         print(f"[observation] unavailable, alerting is NOT suppressed: {e}")

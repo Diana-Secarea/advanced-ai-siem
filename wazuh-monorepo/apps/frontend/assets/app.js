@@ -620,8 +620,14 @@ document.addEventListener("click", (ev) => {
     .then((d) => {
       // available:false means nothing is being suppressed — say nothing.
       if (!d || d.available === false) return;
-      if (d.state === "armed") return;
-      render(d);
+      // An admin's own tenant is usually empty: alerts land under the agent's
+      // owner, or under __manager__. Showing the admin their own 0/7d while
+      // the manager silently holds back every alert would be worse than
+      // showing nothing, so prefer the bucket that is actually gating.
+      const subject = d.gating || d;
+      if (subject.state === "armed") return;
+      subject.others = (d.gating_count || 1) - 1;
+      render(subject);
     })
     .catch(() => {});
 
@@ -638,9 +644,10 @@ document.addEventListener("click", (ev) => {
       '<span class="obs-status" role="status"></span>';
 
     bar.querySelector(".obs-icon").textContent = ready ? "✓" : "●";
+    const extra = d.others > 0 ? ` (+${d.others} more waiting)` : "";
     bar.querySelector(".obs-text").innerHTML = ready
-      ? "Baseline complete — <b></b> is ready to start alerting."
-      : "Learning your environment — alerts are held back until this finishes.";
+      ? "Baseline complete — <b></b> is ready to start alerting." + extra
+      : "Learning <b></b> — alerts are held back until this finishes." + extra;
     const who = bar.querySelector(".obs-text b");
     if (who) who.textContent = d.owner || "this account";
 
@@ -656,7 +663,14 @@ document.addEventListener("click", (ev) => {
       btn.addEventListener("click", () => {
         btn.disabled = true;
         status.textContent = "Arming…";
-        fetch("/api/observation/arm", { method: "POST", credentials: "same-origin" })
+        fetch("/api/observation/arm", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          // Arm the owner the banner is actually reporting on. Ignored for
+          // non-admins server-side, which is the correct place to enforce it.
+          body: JSON.stringify({ owner: d.owner }),
+        })
           .then((r) => r.json().then((body) => ({ ok: r.ok, body })))
           .then(({ ok, body }) => {
             if (ok) {

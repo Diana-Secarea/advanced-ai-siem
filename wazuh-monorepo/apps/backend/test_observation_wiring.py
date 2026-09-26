@@ -158,6 +158,44 @@ check("the API says so plainly", (r.get_json() or {}).get("available"), False)
 check("and reports armed, not suppressed", (r.get_json() or {}).get("state"), "armed")
 server._observation = saved
 
+print("\n9. Existing tenants are grandfathered on the upgrade")
+# Deployed to a live install, observation must not take a working detector
+# and silence it for a week. Verified against the real _get_observation()
+# path, because the grandfathering happens there, not in the module.
+import observation as _obsmod
+fresh_path = os.path.join(tempfile.mkdtemp(), "obs_first.json")
+server.OBSERVATION_FILE = fresh_path
+server._observation = None
+auth.create_user("carol", "password123", email="carol@example.com")
+
+o2 = server._get_observation()
+truthy("observation reloaded", o2 is not None)
+check("the pre-existing admin keeps alerting", o2.should_alert("admin"), True)
+check("so does carol", o2.should_alert("carol"), True)
+check("and the manager bucket", o2.should_alert("__manager__"), True)
+check("a host enrolled LATER still observes", o2.should_alert("newcomer"), False)
+
+# On the next boot there is a state file, so nothing is grandfathered again.
+server._observation = None
+o3 = server._get_observation()
+check("second load does not re-grandfather", o3.first_run, False)
+check("newcomer is still observing", o3.should_alert("newcomer"), False)
+
+
+print("\n10. Admins see the bucket that is actually gating")
+# An admin's own tenant is usually empty — alerts land under the agent owner
+# or __manager__. Reporting the admin's own 0/7d while something else holds
+# every alert back is worse than silence.
+o3.observe("newcomer", "2026-09-26", n=7)
+atok, _ = auth.login("admin", "bootstrap-admin-pw", ip="1.1.1.1")
+ac = app.test_client()
+ac.set_cookie("session_token", atok)
+body = ac.get("/api/observation").get_json()
+truthy("admins get the full owner list", body.get("all_owners"))
+truthy("and a 'gating' pointer", body.get("gating"))
+check("which names the unarmed tenant", body["gating"]["owner"], "newcomer")
+check("the admin's own tenant is armed", body.get("alerting"), True)
+
 print()
 if _fails:
     print(f"{len(_fails)} FAILED: " + ", ".join(_fails))

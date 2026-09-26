@@ -135,6 +135,47 @@ check("reset returns it to collecting", o3.state("acme"), COLLECTING)
 check("and it goes quiet again", o3.should_alert("acme"), False)
 check("with the counters cleared", o3.progress("acme")["events"], 0)
 
+print("\n10. Grandfathering: upgrading must not silence a working install")
+# The regression this prevents: deploy observation mode to a host that has
+# been alerting for months, and every tenant drops to COLLECTING — a working
+# detector goes quiet for a week, presented as a safety feature.
+g = ObservationMode()
+truthy("a fresh object reports first_run", g.first_run)
+done = g.grandfather(["admin", "alexandru", "__manager__"])
+check("all three were grandfathered", sorted(done), ["__manager__", "admin", "alexandru"])
+check("an existing tenant keeps alerting", g.should_alert("admin"), True)
+check("so does the manager bucket", g.should_alert("__manager__"), True)
+
+# …but it must never reach a host that genuinely needs observing.
+g.observe("brand_new", "2026-09-26", n=1)
+again = g.grandfather(["admin", "brand_new"])
+check("nothing already tracked is touched", again, [])
+check("and the new tenant is STILL collecting", g.state("brand_new"), COLLECTING)
+check("so it is still silent", g.should_alert("brand_new"), False)
+
+print("\n11. …and only on the first run")
+path = os.path.join(tempfile.mkdtemp(), "obs.json")
+first = ObservationMode(path=path)
+truthy("first load is first_run", first.first_run)
+first.grandfather(["admin"])
+first.save()
+second = ObservationMode(path=path)
+check("a later load is NOT first_run", second.first_run, False)
+check("but the grandfathered state persists", second.should_alert("admin"), True)
+
+print("\n12. Progress is flushed on time, not only on volume")
+# A quiet host may take days to reach the event-count flush; a restart before
+# then would silently reset its window to day zero.
+import observation as _obs
+path2 = os.path.join(tempfile.mkdtemp(), "obs2.json")
+o = ObservationMode(path=path2)
+o._last_save = time.time() - (_obs.SAVE_INTERVAL + 5)   # pretend time passed
+o.observe("slowpoke", "2026-09-26", n=1)                # one single event
+truthy("the state file exists after one event", os.path.exists(path2))
+check("and it survives a restart",
+      ObservationMode(path=path2).progress("slowpoke")["events"], 1)
+truthy("the interval is short enough to matter", _obs.SAVE_INTERVAL <= 300)
+
 print()
 if _fails:
     print(f"{len(_fails)} FAILED: " + ", ".join(_fails))

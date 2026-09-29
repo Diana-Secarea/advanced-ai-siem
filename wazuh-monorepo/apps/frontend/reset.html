@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Choose a new password — Selenne</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .auth-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .auth-card { width: 100%; max-width: 400px; padding: 36px; }
+  .auth-card h1 { font-size: 26px; margin: 6px 0 4px; }
+  .auth-field { margin-top: 16px; }
+  .auth-field label { display: block; font-family: var(--font-mono); font-size: 11px; letter-spacing: 1.5px; color: var(--text-dim); margin-bottom: 6px; }
+  .auth-field input {
+    width: 100%; padding: 11px 14px; border-radius: 10px;
+    border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04);
+    color: var(--text, #e8ecf8); font-size: 14px; outline: none;
+  }
+  .auth-field input:focus { border-color: rgba(34,211,238,.55); }
+  .auth-field input.bad { border-color: rgba(251,113,133,.7); }
+  .auth-err { color: #fb7185; font-size: 13px; margin-top: 14px; min-height: 18px; }
+  .auth-ok  { color: #34d399; }
+  .auth-btn { width: 100%; margin-top: 18px; justify-content: center; }
+  .auth-toggle { margin-top: 18px; text-align: center; font-size: 13px; color: var(--text-dim); }
+  .auth-toggle a { color: var(--cyan, #22d3ee); cursor: pointer; }
+  .pw-hint { font-size: 12px; color: var(--text-dim); margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<video class="auth-bg-video" autoplay muted loop playsinline preload="metadata" aria-hidden="true"
+       onerror="this.style.display='none'">
+  <source src="assets/hero-bg.mp4" type="video/mp4">
+</video>
+<canvas id="particles"></canvas>
+<div class="aurora"><span></span><span></span><span></span></div>
+<div class="grid-overlay"></div>
+
+<div class="auth-wrap">
+  <div class="card auth-card keyart">
+    <a class="brand" href="landing.html" title="Back to landing page"><span class="logo">◈</span><em>SELENNE</em></a>
+    <h1 id="title">Choose a new password</h1>
+    <p style="font-size:13px;color:var(--text-dim);" id="sub">Checking your reset link…</p>
+
+    <form id="resetForm" hidden>
+      <div class="auth-field">
+        <label>NEW PASSWORD</label>
+        <input id="pw1" type="password" autocomplete="new-password" required minlength="8" maxlength="128">
+        <div class="pw-hint">At least 8 characters.</div>
+      </div>
+      <div class="auth-field">
+        <label>CONFIRM NEW PASSWORD</label>
+        <input id="pw2" type="password" autocomplete="new-password" required minlength="8" maxlength="128">
+      </div>
+      <div class="auth-err" id="msg"></div>
+      <button class="btn btn-primary auth-btn" id="btn" type="submit">▶ Set new password</button>
+    </form>
+
+    <div class="auth-err" id="deadMsg" hidden></div>
+    <div class="auth-toggle"><a href="login.html">← Back to sign in</a></div>
+  </div>
+</div>
+
+<script src="assets/app.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const token = new URLSearchParams(location.search).get("token") || "";
+
+function dead(text) {
+  $("sub").textContent = "";
+  $("resetForm").hidden = true;
+  const d = $("deadMsg");
+  d.hidden = false;
+  d.textContent = text + " Request a fresh link from the sign-in page.";
+}
+
+// Check the link BEFORE showing the form. Letting someone type a password
+// twice and only then telling them the link expired is the worst ordering:
+// it wastes the effort and reads as "my new password was rejected".
+(async () => {
+  if (!token) { dead("This page needs a reset link."); return; }
+  try {
+    const r = await fetch("/api/auth/password/reset?token=" + encodeURIComponent(token));
+    const d = await r.json();
+    if (!r.ok || !d.valid) { dead(d.error || "This reset link is not valid."); return; }
+    $("sub").textContent = "Resetting the password for " + d.username + ".";
+    $("resetForm").hidden = false;
+    $("pw1").focus();
+  } catch (err) {
+    dead("Backend unreachable — is the server running?");
+  }
+})();
+
+$("resetForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = $("msg");
+  msg.className = "auth-err";
+  $("pw1").classList.remove("bad"); $("pw2").classList.remove("bad");
+  if ($("pw1").value !== $("pw2").value) {
+    msg.textContent = "The two passwords do not match.";
+    $("pw2").classList.add("bad"); $("pw2").focus();
+    return;
+  }
+  msg.textContent = "…";
+  $("btn").disabled = true;
+  try {
+    const r = await fetch("/api/auth/password/reset", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, new_password: $("pw1").value }),
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      msg.textContent = d.error || "Could not reset the password.";
+      $("pw1").classList.add("bad");
+      $("btn").disabled = false;
+      return;
+    }
+    // The token is spent and every session was dropped, so there is nothing
+    // to stay on this page for — send them straight to sign in.
+    location.href = "/login.html?reset=ok";
+  } catch (err) {
+    msg.textContent = "Backend unreachable — is the server running?";
+    $("btn").disabled = false;
+  }
+});
+</script>
+</body>
+</html>

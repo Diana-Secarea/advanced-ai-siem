@@ -70,6 +70,52 @@
     watch one alert flow through feature extraction, two complementary models, and the fusion that produces the verdict.</p>
   </div>
 
+  <!-- ============ OBSERVATION MODE ============ -->
+  <section style="padding:12px 0;" id="obsSection" hidden>
+    <div class="card reveal" style="padding:22px 24px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:6px;">
+        <h3 style="margin:0;">▸ Training data collection <span class="badge info" id="obsState">—</span></h3>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <button class="btn btn-primary" id="obsStart" style="min-height:38px;">▶ Start collecting</button>
+          <button class="btn btn-ghost" id="obsArm" style="min-height:38px;display:none;">✓ Finish &amp; start alerting</button>
+        </div>
+      </div>
+      <p class="mono" id="obsExplain"
+         style="font-family:var(--font-mono);font-size:12px;color:var(--text-dim);margin:0 0 18px;line-height:1.7;"></p>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;">
+        <div>
+          <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin-bottom:7px;">
+            <span>LOGS COLLECTED</span><span id="obsEventsTxt">—</span>
+          </div>
+          <div class="bar"><i id="obsEventsBar" style="width:0%"></i></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin-bottom:7px;">
+            <span>DAYS OBSERVED</span><span id="obsDaysTxt">—</span>
+          </div>
+          <div class="bar"><i id="obsDaysBar" style="width:0%"></i></div>
+        </div>
+      </div>
+
+      <div class="mono" id="obsMsg"
+           style="font-family:var(--font-mono);font-size:12px;margin-top:16px;min-height:16px;color:var(--text-dim);"></div>
+
+      <!-- Admin only: every tenant's window, since alerts land under the
+           AGENT's owner, not under the admin's own name. -->
+      <div id="obsAllWrap" style="display:none;margin-top:20px;overflow-x:auto;">
+        <table class="table" style="width:100%;font-size:12px;">
+          <thead><tr>
+            <th style="text-align:left;">OWNER</th><th style="text-align:left;">STATE</th>
+            <th style="text-align:right;">LOGS</th><th style="text-align:right;">DAYS</th>
+            <th style="text-align:right;">PROGRESS</th><th style="text-align:left;">ALERTING</th>
+          </tr></thead>
+          <tbody id="obsAllRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
   <!-- ============ LIVE SCORING WALKTHROUGH ============ -->
   <section style="padding:12px 0;">
     <div class="card reveal" style="padding:22px 24px;">
@@ -563,6 +609,126 @@ liveSel.addEventListener("change", ()=>{
 
 // initial preview (baked vector until first live score)
 drawRows(rowsFromSample(SAMPLES[0]), SAMPLES[0].log, false);
+
+/* ---- observation mode: training-data collection ---- */
+(() => {
+  const $o = id => document.getElementById(id);
+  const sec = $o("obsSection");
+  let current = null;
+
+  const fmt = n => Number(n || 0).toLocaleString();
+  // days_needed is a float (OBSERVATION_MIN_DAYS) — show 7, not 7.0.
+  const days = n => (Math.round(Number(n || 0) * 10) / 10);
+
+  function say(text, tone) {
+    const el = $o("obsMsg");
+    el.textContent = text || "";
+    el.style.color = tone === "bad" ? "#fb7185"
+                   : tone === "good" ? "#34d399" : "var(--text-dim)";
+  }
+
+  function paint(d) {
+    current = d;
+    sec.hidden = false;
+    const state = d.state || "collecting";
+    const pill = $o("obsState");
+    pill.textContent = state.toUpperCase();
+    pill.className = "badge " + (state === "armed" ? "low"
+                               : state === "ready" ? "info" : "amber");
+
+    const evPct = Math.min(100, 100 * (d.events || 0) / (d.events_needed || 1));
+    const dayPct = Math.min(100, 100 * (d.days_seen || 0) / (d.days_needed || 1));
+    $o("obsEventsBar").style.width = evPct + "%";
+    $o("obsDaysBar").style.width = dayPct + "%";
+    $o("obsEventsBar").parentElement.className = "bar " + (evPct >= 100 ? "green" : "amber");
+    $o("obsDaysBar").parentElement.className = "bar " + (dayPct >= 100 ? "green" : "amber");
+    $o("obsEventsTxt").textContent = fmt(d.events) + " / " + fmt(d.events_needed);
+    $o("obsDaysTxt").textContent = days(d.days_seen) + " / " + days(d.days_needed);
+
+    // Both bars have to fill: the gate is AND, so showing one number would
+    // promise a readiness the backend will refuse.
+    $o("obsExplain").textContent = state === "armed"
+      ? "This host is armed — the ensemble is scoring and alerting normally."
+      : state === "ready"
+        ? "Enough data collected. Arming is a manual step on purpose: it is the "
+          + "moment this host goes from silent to able to page you."
+        : "Alerts are scored and stored but NOT dispatched while the engine learns "
+          + "what is normal here. It needs " + fmt(d.events_needed) + " logs AND "
+          + days(d.days_needed) + " days — both, not either.";
+
+    $o("obsArm").style.display = state === "ready" ? "" : "none";
+    $o("obsStart").textContent = state === "collecting"
+      ? "\u21bb Restart collection" : "\u25b6 Start collecting";
+
+    if (Array.isArray(d.all_owners) && d.all_owners.length) {
+      $o("obsAllWrap").style.display = "";
+      $o("obsAllRows").innerHTML = d.all_owners.map(o => `
+        <tr>
+          <td style="font-family:var(--font-mono);">${o.owner}</td>
+          <td>${o.state}</td>
+          <td style="text-align:right;">${fmt(o.events)}</td>
+          <td style="text-align:right;">${days(o.days_seen)}</td>
+          <td style="text-align:right;">${o.percent}%</td>
+          <td style="color:${o.alerting ? "var(--green)" : "var(--amber)"}">${o.alerting ? "live" : "held"}</td>
+        </tr>`).join("");
+      if (d.gating) {
+        say(`${d.gating_count} tenant(s) still collecting — the slowest is `
+            + `"${d.gating.owner}" at ${d.gating.percent}%. Alerts for those hosts are held back.`);
+      }
+    }
+  }
+
+  async function load() {
+    try {
+      const r = await fetch("/api/observation");
+      if (!r.ok) return;                 // not signed in, or auth disabled
+      const d = await r.json();
+      if (d.available === false) return; // nothing is being suppressed
+      paint(d);
+    } catch (e) { /* page still works without the panel */ }
+  }
+
+  async function post(url, payload) {
+    const r = await fetch(url, { method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload || {}) });
+    return [r, await r.json().catch(() => ({}))];
+  }
+
+  $o("obsStart").addEventListener("click", async () => {
+    say("\u2026");
+    let [r, d] = await post("/api/observation/start", {});
+    if (r.status === 409) {
+      // The server refused because a window is already running and told us
+      // exactly what restarting would discard — quote those numbers back.
+      const lost = `${fmt(d.events)} logs and ${days(d.days_seen)} day(s)`;
+      if (d.state === "armed") {
+        if (!confirm("This host is already ARMED and alerting.\n\n"
+              + "Restarting collection silences its alerts until it has been "
+              + "observed all over again. Continue?")) { say(""); return; }
+      } else if (!confirm(`Already collecting: ${lost} banked.\n\n`
+            + "Restarting throws that away and begins from zero. Continue?")) {
+        say(""); return;
+      }
+      [r, d] = await post("/api/observation/start", { force: true });
+    }
+    if (!r.ok) { say(d.error || "Could not start collection.", "bad"); return; }
+    paint(d);
+    say("Collection started \u2014 alerts are held back until this fills.", "good");
+  });
+
+  $o("obsArm").addEventListener("click", async () => {
+    if (!confirm("Finish observation and start dispatching alerts for this host?")) return;
+    say("\u2026");
+    const [r, d] = await post("/api/observation/arm", {});
+    if (!r.ok) { say(d.error || "Could not arm.", "bad"); return; }
+    paint(d);
+    say("Armed \u2014 alerts are now dispatched for this host.", "good");
+  });
+
+  load();
+  setInterval(load, 30000);
+})();
 
 /* ---- score separation histogram ---- */
 window.addEventListener("load", ()=>{

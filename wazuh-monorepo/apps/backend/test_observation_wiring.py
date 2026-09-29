@@ -114,8 +114,12 @@ check("still not alerting after a refused arm", obs.should_alert("alice"), False
 print("\n5. Once the evidence is there, the operator can arm it")
 import time
 obs._state["alice"]["started_at"] = time.time() - 8 * 86400
+# Derived from the configured bar rather than hard-coded: this fixture fed a
+# flat 100/day, which silently stopped clearing the threshold the day
+# MIN_EVENTS was raised from 500 to 2000.
+_per_day = obs.min_events // 8 + 1
 for d in range(8):
-    obs.observe("alice", f"2026-10-{1 + d:02d}", n=100)
+    obs.observe("alice", f"2026-10-{1 + d:02d}", n=_per_day)
 check("promoted to ready", obs.state("alice"), "ready")
 check("ready is still not alerting", obs.should_alert("alice"), False)
 
@@ -195,6 +199,45 @@ truthy("admins get the full owner list", body.get("all_owners"))
 truthy("and a 'gating' pointer", body.get("gating"))
 check("which names the unarmed tenant", body["gating"]["owner"], "newcomer")
 check("the admin's own tenant is armed", body.get("alerting"), True)
+
+print("\n11. The Start-collecting button")
+# o3 is the live singleton at this point; "newcomer" is mid-window and
+# "carol" is grandfathered ARMED.
+check("anonymous start is refused",
+      anon.post("/api/observation/start").status_code, 401)
+
+# A tenant with no window at all can just start one.
+nc = app.test_client()
+auth.create_user("dave", "password123", email="dave@example.com")
+dtok, _ = auth.login("dave", "password123", ip="1.1.1.1")
+nc.set_cookie("session_token", dtok)
+r = nc.post("/api/observation/start")
+check("a tenant with no window starts one", r.status_code, 200)
+check("and it is collecting", r.get_json().get("state"), "collecting")
+
+# A second press must NOT silently wipe the window.
+o3.observe("dave", "2026-11-01", n=250)
+r = nc.post("/api/observation/start")
+check("pressing it again is refused", r.status_code, 409)
+truthy("with a reason for the prompt", (r.get_json() or {}).get("error"))
+check("and the 409 carries what would be lost",
+      (r.get_json() or {}).get("events"), 250)
+check("nothing was discarded", o3.progress("dave")["events"], 250)
+
+r = nc.post("/api/observation/start", json={"force": True})
+check("force restarts it", r.status_code, 200)
+check("counters cleared", o3.progress("dave")["events"], 0)
+truthy("and the response reports what it threw away",
+       (r.get_json() or {}).get("discarded"))
+
+# Cross-tenant: the owner field is admin-only, exactly like arm/reset.
+r = nc.post("/api/observation/start", json={"owner": "carol", "force": True})
+check("a non-admin naming another owner hits their OWN bucket",
+      r.get_json().get("owner"), "dave")
+check("carol is untouched and still alerting", o3.should_alert("carol"), True)
+r = ac.post("/api/observation/start", json={"owner": "carol", "force": True})
+check("an admin may restart another tenant", r.status_code, 200)
+check("which does silence that tenant", o3.should_alert("carol"), False)
 
 print()
 if _fails:

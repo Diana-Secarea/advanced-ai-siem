@@ -109,6 +109,11 @@ _AUTH_EXEMPT_PATHS = {
     # TTL, 20/hour rate limit) — that is the whole design of a verification
     # link, and the endpoint's own docstring says so.
     "/api/auth/verify",
+    # Forgot-password is by definition reached without a session, and the
+    # reset page itself is opened from a mail client. Both are rate-limited
+    # and the token is the only credential — same design as /api/auth/verify.
+    "/api/auth/password/forgot", "/api/auth/password/reset",
+    "/reset.html",
     "/metrics",   # Prometheus scrape — read-only counters, no alert content
     "/health", "/ready",  # liveness/readiness probes for monitoring & LB
 }
@@ -222,6 +227,33 @@ _REGISTER_OK = ("If that address is not already registered, a confirmation "
                 "email is on its way — check your inbox and your spam folder. "
                 "Already have an account? Sign in and use Resend email.")
 
+#: Used when a collision IS reported, so reaching this message really does mean
+#: an account was created and mail was sent. The hedged wording above only
+#: makes sense while the collision case shares this response.
+_REGISTER_OK_DIRECT = ("Account created — a confirmation email is on its way. "
+                       "Check your inbox and your spam folder.")
+
+#: Whether a registration that collides on the EMAIL says so.
+#:
+#: Telling the caller "that email is already registered" is what a user expects
+#: and what stops them silently creating nothing and waiting for a mail that
+#: never comes. It is also, unavoidably, an oracle: anyone can now ask this
+#: endpoint whether a given person holds an account on a security product.
+#: Product decision (2026-09-29) is that the usability wins, with the rate
+#: limit (5/min) as the brake and the audit line as the record. Set
+#: REGISTER_REVEAL_EMAIL_COLLISION=0 to go back to the silent behaviour.
+_REVEAL_EMAIL_COLLISION = os.environ.get(
+    "REGISTER_REVEAL_EMAIL_COLLISION", "1") == "1"
+
+#: Same generic body for every forgot-password request, whatever happened.
+#: Unlike registration this one stays blind: a reset request needs no username,
+#: so revealing the answer would turn it into a bulk address checker, and
+#: unlike registration the user has no reason to be told — they typed an
+#: address they believe is theirs, and "check your inbox" is the whole answer.
+_FORGOT_OK = ("If that address has an account, a password-reset link is on "
+              "its way — check your inbox and your spam folder. The link "
+              "expires in an hour.")
+
 
 @app.route("/api/auth/register", methods=["POST"])
 @limiter.limit("5 per minute")
@@ -229,20 +261,28 @@ def auth_register():
     """Create an unverified account and mail a confirmation link.
 
     Username collisions are reported plainly — a name is either free or it is
-    not, and the caller has to be told. An EMAIL collision is not reported:
-    answering "already registered" turns this endpoint into an oracle for
-    whether a given person has an account here, which for a security product is
-    itself the sensitive fact. That case returns the same body as success and
-    creates nothing.
+    not, and the caller has to be told. EMAIL collisions are reported too, by
+    default: see _REVEAL_EMAIL_COLLISION for the trade-off that decision makes
+    and the env var that reverses it. Either way nothing is created.
     """
     body = request.get_json(silent=True) or {}
     ok, err = _auth.create_user(body.get("username"), body.get("password"),
                                 email=body.get("email"))
     if not ok:
         if err == "That email is already registered":
-            logging_setup.audit("register_email_collision", outcome="suppressed",
-                                src_ip=get_remote_address())
-            return jsonify({"status": "ok", "message": _REGISTER_OK})
+            logging_setup.audit(
+                "register_email_collision",
+                outcome="reported" if _REVEAL_EMAIL_COLLISION else "suppressed",
+                src_ip=get_remote_address())
+            if not _REVEAL_EMAIL_COLLISION:
+                return jsonify({"status": "ok", "message": _REGISTER_OK})
+            # "field" lets the form put the message under the email input
+            # rather than in the generic error line.
+            return jsonify({
+                "error": "This email is already registered — sign in instead, "
+                         "or use “Forgot password?” if you cannot get in.",
+                "field": "email",
+            }), 409
         return jsonify({"error": err}), 400
 
     username, _ = _identity.normalise_username(body.get("username"))
@@ -259,7 +299,9 @@ def auth_register():
                         mail=mail_status, src_ip=get_remote_address(),
                         user_agent=request.user_agent.string or "-")
     log.info("[auth] registered '%s' (verification mail: %s)", username, mail_status)
-    resp = {"status": "ok", "message": _REGISTER_OK}
+    resp = {"status": "ok",
+            "message": _REGISTER_OK_DIRECT if _REVEAL_EMAIL_COLLISION
+                       else _REGISTER_OK}
     if not _mailer.is_configured():
         # Without SMTP nobody could ever verify. Surfaced only to an operator
         # running without mail configured, never the token itself.
@@ -316,6 +358,76 @@ def auth_verify_resend():
     if not ok:
         return jsonify({"error": "Could not send the email — try again later"}), 503
     return jsonify({"status": "ok", "message": _REGISTER_OK})
+
+
+@app.route("/api/auth/password/forgot", methods=["POST"])
+@limiter.limit("5 per hour")
+def auth_password_forgot():
+    """Mail a one-time password-reset link to a registered address.
+
+    Answers identically whatever happened — unknown address, cooldown still
+    running, SMTP down. The caller learns nothing about who has an account,
+    and the real outcome goes to the audit log where an operator can see it.
+
+    Rate limited per IP on top of the per-account cooldown in
+    auth.issue_password_reset: the first bounds an attacker scanning many
+    addresses, the second bounds how much mail one victim can be sent.
+    """
+    body = request.get_json(silent=True) or {}
+    token, username, err = _auth.issue_password_reset(body.get("email"))
+    if err or not token:
+        logging_setup.audit("password_reset_request", outcome="no_mail_sent",
+                            reason=err or "no token", username=username or "-",
+                            src_ip=get_remote_address())
+        return jsonify({"status": "ok", "message": _FORGOT_OK})
+
+    profile = _auth.get_profile(username) or {}
+    ok, mail_status = _mailer.send_password_reset(
+        profile.get("email", ""), username, token,
+        ttl_minutes=_auth.RESET_TTL_MINUTES)
+    logging_setup.audit("password_reset_request", username=username,
+                        outcome="success" if ok else "mail_failed",
+                        mail=mail_status, src_ip=get_remote_address())
+    log.info("[auth] password reset requested for '%s' (mail: %s)",
+             username, mail_status)
+    resp = {"status": "ok", "message": _FORGOT_OK}
+    if not _mailer.is_configured():
+        # Only ever seen by an operator running without SMTP; never the token.
+        resp["warning"] = ("Email is not configured on this server — no reset "
+                           "link could be sent.")
+    return jsonify(resp)
+
+
+@app.route("/api/auth/password/reset", methods=["GET", "POST"])
+@limiter.limit("20 per hour")
+def auth_password_reset():
+    """GET: is this link still good?  POST: consume it and set the password.
+
+    GET exists so reset.html can say "this link expired" before the visitor
+    types a new password twice; it consumes nothing. Both are rate-limited
+    because the token is a bearer credential presented without a session —
+    the limit is what stops it being guessed.
+    """
+    if request.method == "GET":
+        username, err = _auth.peek_password_reset(request.args.get("token", ""))
+        if err:
+            return jsonify({"valid": False, "error": err}), 400
+        return jsonify({"valid": True, "username": username})
+
+    body = request.get_json(silent=True) or {}
+    # Not truncated — identity.check_password owns the length policy, and
+    # silently trimming would let a too-long password through as a short one.
+    username, err = _auth.reset_password(body.get("token"),
+                                         str(body.get("new_password") or ""))
+    if err:
+        logging_setup.audit("password_reset", outcome="denied", reason=err,
+                            src_ip=get_remote_address())
+        return jsonify({"error": err}), 400
+    logging_setup.audit("password_reset", username=username, outcome="success",
+                        src_ip=get_remote_address())
+    return jsonify({"status": "ok", "username": username,
+                    "message": "Password updated — sign in with your new "
+                               "password. Any other sessions were signed out."})
 
 
 @app.route("/api/auth/logout", methods=["POST"])
@@ -579,6 +691,39 @@ def observation_status():
             data["gating"] = gating[0]
             data["gating_count"] = len(gating)
     return jsonify(data)
+
+
+@app.route("/api/observation/start", methods=["POST"])
+def observation_start():
+    """Begin (or deliberately restart) the observation window for a tenant.
+
+    A tenant may start their own; only an admin may name another owner. The
+    restart is gated behind an explicit ``force`` because it discards however
+    many days and events have already been banked — the UI has to show that
+    number and get a confirmation before sending it.
+    """
+    username, is_admin = _current_username()
+    if not username or username == "anonymous":
+        return jsonify({"error": "Sign in"}), 401
+    obs = _get_observation()
+    if obs is None:
+        return jsonify({"error": "Observation mode is not available"}), 503
+    body = request.get_json(silent=True) or {}
+    target = (body.get("owner") if is_admin else None) or username
+    force = bool(body.get("force"))
+    before = obs.progress(target)
+    ok, err = obs.start(target, force=force)
+    logging_setup.audit("observation_start", username=username,
+                        outcome="success" if ok else "denied",
+                        reason=err or ("restart" if force else "start"),
+                        target=target, src_ip=get_remote_address())
+    if not ok:
+        # 409 with the CURRENT progress: the UI needs the days/events it is
+        # about to discard in order to write an honest confirmation prompt.
+        return jsonify({"error": err, **before}), 409
+    return jsonify({"status": "ok", "owner": target,
+                    "discarded": before if force else None,
+                    **obs.progress(target)})
 
 
 @app.route("/api/observation/arm", methods=["POST"])

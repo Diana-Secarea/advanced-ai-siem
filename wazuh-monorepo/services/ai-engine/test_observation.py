@@ -176,6 +176,46 @@ check("and it survives a restart",
       ObservationMode(path=path2).progress("slowpoke")["events"], 1)
 truthy("the interval is short enough to matter", _obs.SAVE_INTERVAL <= 300)
 
+print("\n13. The flush stamp is actually updated")
+# _last_save was set in __init__ and nowhere else, so once the process had
+# been up for SAVE_INTERVAL the time condition was permanently true and every
+# single observed event rewrote the whole JSON file.
+path3 = os.path.join(tempfile.mkdtemp(), "obs3.json")
+o3 = ObservationMode(path=path3)
+o3._last_save = time.time() - (_obs.SAVE_INTERVAL + 5)
+o3.observe("chatty", "2026-09-26", n=1)                 # triggers the flush
+truthy("save() stamps _last_save",
+       (time.time() - o3._last_save) < _obs.SAVE_INTERVAL)
+writes_before = os.stat(path3).st_mtime_ns
+o3.observe("chatty", "2026-09-26", n=1)                 # must NOT flush again
+check("the very next event does not rewrite the file",
+      os.stat(path3).st_mtime_ns, writes_before)
+
+print("\n14. The default event bar is the trainable one, not the token one")
+truthy("MIN_EVENTS is at least 1500", _obs.MIN_EVENTS >= 1500)
+check("and the default is 2000", _obs.MIN_EVENTS, 2000)
+check("days unchanged at 7", _obs.MIN_DAYS, 7.0)
+
+print("\n15. start() begins a window and refuses to silently discard one")
+st = ObservationMode()
+ok, err = st.start("newco")
+truthy("a tenant with no window can start one", ok)
+check("and it is collecting", st.state("newco"), COLLECTING)
+st.observe("newco", "2026-09-26", n=42)
+ok, err = st.start("newco")
+check("a second start is refused", ok, False)
+truthy("with a reason naming the state", "collecting" in (err or ""))
+check("and the banked progress is untouched", st.progress("newco")["events"], 42)
+ok, err = st.start("newco", force=True)
+truthy("force restarts it", ok)
+check("which does clear the counters", st.progress("newco")["events"], 0)
+# An ARMED host is the dangerous case: restarting silences a live detector.
+st.grandfather(["liveco"])
+ok, err = st.start("liveco")
+check("an armed host is refused too", ok, False)
+truthy("and the reason says armed", "armed" in (err or ""))
+check("and it keeps alerting", st.should_alert("liveco"), True)
+
 print()
 if _fails:
     print(f"{len(_fails)} FAILED: " + ", ".join(_fails))

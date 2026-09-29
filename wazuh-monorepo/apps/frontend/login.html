@@ -22,8 +22,13 @@
   .auth-err { color: #fb7185; font-size: 13px; margin-top: 14px; min-height: 18px; }
   .auth-ok  { color: #34d399; }
   .auth-btn { width: 100%; margin-top: 18px; justify-content: center; }
+  .auth-field input.bad { border-color: rgba(251,113,133,.7); }
+  .auth-field .field-err { color: #fb7185; font-size: 12px; margin-top: 6px; min-height: 0; }
   .auth-toggle { margin-top: 18px; text-align: center; font-size: 13px; color: var(--text-dim); }
   .auth-toggle a { color: var(--cyan, #22d3ee); cursor: pointer; }
+  .auth-forgot { margin-top: 10px; text-align: right; font-size: 12px; }
+  .auth-forgot a { color: var(--text-dim); cursor: pointer; }
+  .auth-forgot a:hover { color: var(--cyan, #22d3ee); }
 </style>
 </head>
 <body>
@@ -43,18 +48,20 @@
     <p style="font-size:13px;color:var(--text-dim);" id="authSub">Analyst access to the AI Threat Engine.</p>
 
     <form id="authForm">
-      <div class="auth-field">
+      <div class="auth-field" id="usernameField">
         <label>USERNAME</label>
         <input id="username" autocomplete="username" required>
       </div>
       <div class="auth-field" id="emailField" hidden>
         <label>EMAIL</label>
         <input id="email" type="email" autocomplete="email" maxlength="254">
+        <div class="field-err" id="emailErr"></div>
       </div>
-      <div class="auth-field">
+      <div class="auth-field" id="passwordField">
         <label>PASSWORD</label>
         <input id="password" type="password" autocomplete="current-password" required minlength="8" maxlength="128">
       </div>
+      <div class="auth-forgot" id="forgotLine"><a id="forgotLink">Forgot your password?</a></div>
       <div class="auth-err" id="authMsg"></div>
       <button class="btn btn-primary auth-btn" id="authBtn" type="submit">▶ Sign in</button>
     </form>
@@ -68,76 +75,153 @@
 
 <script src="assets/app.js"></script>
 <script>
-let registering = false;
 const $ = id => document.getElementById(id);
+
+// Three modes share one form: sign-in, create-account, and forgot-password.
+// One form rather than three pages so a visitor who typed their email into
+// the wrong one does not lose it when they switch.
+const MODES = {
+  login: {
+    title: "Sign in", sub: "Analyst access to the AI Threat Engine.",
+    btn: "\u25b6 Sign in", email: false, password: true, forgot: true,
+    toggleText: "No account yet? ", toggleLink: "Create one", toggleTo: "register",
+  },
+  register: {
+    title: "Create account",
+    sub: "Pick a username, confirm your email, and choose a password of at least 8 characters.",
+    btn: "\u25b6 Create account", email: true, password: true, forgot: false,
+    toggleText: "Already registered? ", toggleLink: "Sign in", toggleTo: "login",
+  },
+  forgot: {
+    title: "Reset your password",
+    sub: "Enter the email address on your account and we will send you a link to choose a new password.",
+    btn: "\u25b6 Email me a reset link", email: true, password: false, forgot: false,
+    toggleText: "Remembered it? ", toggleLink: "Back to sign in", toggleTo: "login",
+  },
+};
+let mode = "login";
+
+function setMode(next) {
+  mode = next;
+  const m = MODES[mode];
+  $("authTitle").textContent = m.title;
+  $("authSub").textContent = m.sub;
+  $("authBtn").textContent = m.btn;
+  $("emailField").hidden = !m.email;
+  $("email").required = m.email;
+  // Forgot-password asks for an email only. The username input is the account
+  // key everywhere else, but here we look the account up BY address, so
+  // requiring a username would block exactly the person who forgot their
+  // credentials.
+  $("usernameField").hidden = (mode === "forgot");
+  $("username").required = (mode !== "forgot");
+  $("passwordField").hidden = !m.password;
+  $("password").required = m.password;
+  $("password").autocomplete = mode === "register" ? "new-password" : "current-password";
+  $("forgotLine").hidden = !m.forgot;
+  $("toggleLine").firstChild.textContent = m.toggleText;
+  $("toggleLink").textContent = m.toggleLink;
+  clearErrors();
+}
+
+function clearErrors() {
+  $("authMsg").textContent = "";
+  $("authMsg").className = "auth-err";
+  $("emailErr").textContent = "";
+  $("email").classList.remove("bad");
+}
+
+function fail(text, field) {
+  const msg = $("authMsg");
+  msg.className = "auth-err";
+  if (field === "email") {
+    // Under the offending input, not in the generic line: "this email is
+    // already registered" is about the field the user has to change.
+    $("emailErr").textContent = text;
+    $("email").classList.add("bad");
+    $("email").focus();
+    msg.textContent = "";
+  } else {
+    msg.textContent = text;
+  }
+}
+
+function succeed(text) {
+  const msg = $("authMsg");
+  msg.className = "auth-err auth-ok";
+  msg.textContent = text;
+}
 
 // Result of clicking the link in the verification email.
 (() => {
   const q = new URLSearchParams(location.search);
   const v = q.get("verify");
+  if (q.get("reset") === "ok") {
+    succeed("Password updated \u2014 sign in with your new password.");
+  }
   if (!v) return;
-  const msg = $("authMsg");
   if (v === "ok") {
-    msg.className = "auth-err auth-ok";
-    msg.textContent = "Email confirmed — sign in to download your collector.";
+    succeed("Email confirmed \u2014 sign in to download your collector.");
   } else {
-    msg.className = "auth-err";
     // "request a new one" alone strands people: the resend control is the
     // banner inside the console, which they only see after signing in.
-    msg.textContent = (q.get("reason") || "Verification failed.") +
-      " Sign in and use “Resend email” at the top of the page for a fresh link.";
+    fail((q.get("reason") || "Verification failed.") +
+      " Sign in and use \u201cResend email\u201d at the top of the page for a fresh link.");
   }
 })();
 
 // Already signed in? Straight to the dashboard.
 fetch("/api/auth/me").then(r => { if (r.ok) location.href = "/"; }).catch(()=>{});
 
-$("toggleLink").addEventListener("click", () => {
-  registering = !registering;
-  $("authTitle").textContent = registering ? "Create account" : "Sign in";
-  $("authSub").textContent = registering
-    ? "Pick a username, confirm your email, and choose a password of at least 8 characters."
-    : "Analyst access to the AI Threat Engine.";
-  $("authBtn").textContent = registering ? "▶ Create account" : "▶ Sign in";
-  $("emailField").hidden = !registering;
-  $("email").required = registering;
-  $("toggleLine").firstChild.textContent = registering ? "Already registered? " : "No account yet? ";
-  $("toggleLink").textContent = registering ? "Sign in" : "Create one";
-  $("authMsg").textContent = "";
+$("toggleLink").addEventListener("click", () => setMode(MODES[mode].toggleTo));
+$("forgotLink").addEventListener("click", () => setMode("forgot"));
+$("email").addEventListener("input", () => {
+  $("emailErr").textContent = "";
+  $("email").classList.remove("bad");
 });
+
+async function post(url, payload) {
+  const r = await fetch(url, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return [r, await r.json().catch(() => ({}))];
+}
 
 $("authForm").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const msg = $("authMsg");
-  msg.className = "auth-err";
-  msg.textContent = "…";
-  const creds = { username: $("username").value, password: $("password").value };
-  const opts = { method: "POST", headers: { "Content-Type": "application/json" },
-                 body: JSON.stringify(creds) };
+  clearErrors();
+  $("authMsg").textContent = "\u2026";
+  const username = $("username").value;
+  const password = $("password").value;
   try {
-    if (registering) {
-      const r = await fetch("/api/auth/register", {
-        ...opts,
-        body: JSON.stringify({ ...creds, email: $("email").value }),
-      });
-      const d = await r.json();
-      if (!r.ok) { msg.textContent = d.error || "Registration failed"; return; }
-      // Deliberately does NOT sign in: the account is unverified until the
-      // emailed link is opened, and collector downloads stay blocked till then.
-      msg.className = "auth-err auth-ok";
-      msg.textContent = d.warning
-        ? d.warning
-        : (d.message || "Check your email to confirm your address.");
+    if (mode === "forgot") {
+      const [r, d] = await post("/api/auth/password/forgot", { email: $("email").value });
+      if (!r.ok) {
+        fail(d.error || "Could not send the reset email \u2014 try again shortly.");
+        return;
+      }
+      succeed(d.warning || d.message);
       return;
     }
-    const r = await fetch("/api/auth/login", opts);
-    const d = await r.json();
-    if (!r.ok) { msg.textContent = d.error || "Login failed"; return; }
+    if (mode === "register") {
+      const [r, d] = await post("/api/auth/register",
+        { username, password, email: $("email").value });
+      if (!r.ok) { fail(d.error || "Registration failed", d.field); return; }
+      // Deliberately does NOT sign in: the account is unverified until the
+      // emailed link is opened, and collector downloads stay blocked till then.
+      succeed(d.warning || d.message || "Check your email to confirm your address.");
+      return;
+    }
+    const [r, d] = await post("/api/auth/login", { username, password });
+    if (!r.ok) { fail(d.error || "Login failed"); return; }
     location.href = "/";
   } catch (err) {
-    msg.textContent = "Backend unreachable — is the server running?";
+    fail("Backend unreachable \u2014 is the server running?");
   }
 });
+
+setMode("login");
 </script>
 </body>
 </html>

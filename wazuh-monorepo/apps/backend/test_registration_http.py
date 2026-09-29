@@ -71,17 +71,33 @@ check("200", r.status_code, 200)
 check("no token leaked in the response", "token" in r.get_data(as_text=True), False)
 check("warns that SMTP is unconfigured", "warning" in r.get_json(), True)
 
-print("\n4. Email enumeration is not possible")
+print("\n4. A duplicate email is reported, and still creates nothing")
+# The default flipped on 2026-09-29: telling the user beats hiding the fact.
+# What must NOT change is that the collision creates no account.
 r = c.post("/api/auth/register", json={
     "username": "someoneelse", "password": "password123",
     "email": "alice@example.com"})
-check("duplicate email returns 200, not 400", r.status_code, 200)
-check("body matches the success body", r.get_json().get("message"),
-      server._REGISTER_OK)
+check("duplicate email returns 409", r.status_code, 409)
+check("the message names the problem",
+      "already registered" in r.get_json().get("error", ""), True)
+check("and points at the email field", r.get_json().get("field"), "email")
 check("no account was created", auth.get_profile("someoneelse"), None)
 r = c.post("/api/auth/register", json={
     "username": "alice", "password": "password123", "email": "new@example.com"})
 check("duplicate USERNAME is still reported", r.status_code, 400)
+
+# The old silent behaviour is one env var away, and must still work.
+server._REVEAL_EMAIL_COLLISION = False
+try:
+    r = c.post("/api/auth/register", json={
+        "username": "yetanother", "password": "password123",
+        "email": "alice@example.com"})
+    check("with the flag off it returns 200", r.status_code, 200)
+    check("and the generic success body", r.get_json().get("message"),
+          server._REGISTER_OK)
+    check("still creating nothing", auth.get_profile("yetanother"), None)
+finally:
+    server._REVEAL_EMAIL_COLLISION = True
 
 print("\n5. Unverified account cannot download a collector")
 login = c.post("/api/auth/login", json={"username": "alice", "password": "password123"})
@@ -196,6 +212,78 @@ r = anon.get("/api/auth/verify?token=not-a-real-token")
 check("a bad token is a 400, not a 401", r.status_code, 400)
 r = anon.get(f"/api/auth/verify?token={tok}")
 check("the token is single-use", r.status_code, 400)
+
+print("\n11. Forgot-password: the public half stays blind")
+anon2 = app.test_client()
+check("/api/auth/password/forgot is exempt from the gate",
+      "/api/auth/password/forgot" in server._AUTH_EXEMPT_PATHS, True)
+check("/api/auth/password/reset is exempt too",
+      "/api/auth/password/reset" in server._AUTH_EXEMPT_PATHS, True)
+check("and so is the page it lands on",
+      "/reset.html" in server._AUTH_EXEMPT_PATHS, True)
+
+# An address nobody holds and one that exists must be indistinguishable —
+# otherwise this endpoint is a bulk checker for "does this person use Selenne".
+r_unknown = anon2.post("/api/auth/password/forgot",
+                       json={"email": "nobody@example.com"})
+r_known = anon2.post("/api/auth/password/forgot",
+                     json={"email": "link@example.com"})
+check("unknown address -> 200", r_unknown.status_code, 200)
+check("known address -> 200", r_known.status_code, 200)
+check("identical bodies", r_unknown.get_json().get("message"),
+      r_known.get_json().get("message"))
+check("and no token is ever in the response",
+      "token" in r_known.get_data(as_text=True), False)
+check("a malformed address is not an oracle either",
+      anon2.post("/api/auth/password/forgot",
+                 json={"email": "not-an-email"}).status_code, 200)
+
+print("\n12. Forgot-password: the token half actually resets")
+tok2, uname2, err2 = auth.issue_password_reset("link@example.com")
+# issue_password_reset was just called by the route above, so the per-account
+# cooldown is running — that refusal is itself the behaviour under test.
+check("the cooldown refuses a second mint", tok2, None)
+check("and names the account for the log", uname2, "linkuser")
+import sqlite3                                     # noqa: E402
+_c = sqlite3.connect(auth.DB_PATH)
+_c.execute("UPDATE users SET reset_sent_at='' WHERE username='linkuser'")
+_c.commit(); _c.close()
+tok2, uname2, err2 = auth.issue_password_reset("link@example.com")
+check("a token is minted after the cooldown", err2, None)
+
+r = anon2.get(f"/api/auth/password/reset?token={tok2}")
+check("GET says the link is live", r.get_json().get("valid"), True)
+check("and names the account", r.get_json().get("username"), "linkuser")
+check("a junk token is a 400", anon2.get(
+    "/api/auth/password/reset?token=not-a-real-token").status_code, 400)
+
+# A live session must not survive the reset: the premise is that the account
+# may already be in someone else's hands.
+login = anon2.post("/api/auth/login",
+                   json={"username": "linkuser", "password": "password123"})
+check("the old password still works before the reset", login.status_code, 200)
+
+r = anon2.post("/api/auth/password/reset",
+               json={"token": tok2, "new_password": "short"})
+check("a too-short new password is refused", r.status_code, 400)
+r = anon2.post("/api/auth/password/reset",
+               json={"token": tok2, "new_password": "brand-new-password"})
+check("the reset succeeds", r.status_code, 200)
+check("and names the account", r.get_json().get("username"), "linkuser")
+
+check("the token is single-use", anon2.post(
+    "/api/auth/password/reset",
+    json={"token": tok2, "new_password": "another-password"}).status_code, 400)
+fresh = app.test_client()
+check("the OLD password no longer works", fresh.post(
+    "/api/auth/login",
+    json={"username": "linkuser", "password": "password123"}).status_code, 401)
+check("the new one does", fresh.post(
+    "/api/auth/login",
+    json={"username": "linkuser", "password": "brand-new-password"}).status_code, 200)
+# anon2 still holds the pre-reset cookie.
+check("and the session held from before the reset is dead",
+      anon2.get("/api/auth/me").status_code, 401)
 
 print()
 if _fails:

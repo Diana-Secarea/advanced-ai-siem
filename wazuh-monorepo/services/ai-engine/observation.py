@@ -23,6 +23,8 @@ The lifecycle
          └───────────────────── reset / re-baseline ────────────────────────────┘
 
   COLLECTING  score everything, fire nothing. The host is being learned.
+              Entered automatically on the first observed event, or explicitly
+              by the operator pressing "Start collecting" (see start()).
   READY       enough evidence to fit. Waiting on a human, deliberately — the
               transition from "silent" to "can page you" is not automatic.
   ARMED       normal operation.
@@ -49,7 +51,15 @@ MIN_DAYS = float(os.environ.get("OBSERVATION_MIN_DAYS", "7"))
 
 #: …and enough events that the distribution means something. A host that
 #: emitted 40 events in a week has not been observed, it has been idle.
-MIN_EVENTS = int(os.environ.get("OBSERVATION_MIN_EVENTS", "500"))
+#:
+#: Raised 500 -> 2000 on 2026-09-29. 500 was the bar for "did anything happen
+#: at all", not for "can a model be fitted on this". The per-feature statistics
+#: the detectors depend on are what break first at low n: the saturation bug
+#: traced to a feature whose training standard deviation was 0.05, and a few
+#: hundred samples is exactly the regime where one quiet week produces that.
+#: Both conditions still have to hold (AND, not OR) — a host that ran for ten
+#: days and emitted 200 events has not been observed either.
+MIN_EVENTS = int(os.environ.get("OBSERVATION_MIN_EVENTS", "2000"))
 
 #: Seconds between forced flushes. Progress towards a 7-day window is the
 #: state worth losing least, and a quiet host may take days to reach the
@@ -104,6 +114,12 @@ class ObservationMode:
                 json.dump(payload, fh, indent=2)
             os.replace(tmp, self.path)
             self._dirty = 0
+            # Must be stamped here, not only in __init__. It was not, so once
+            # the process had been up for SAVE_INTERVAL the time condition in
+            # observe() was permanently true and EVERY observed event wrote the
+            # whole JSON file and did an os.replace — thousands of rewrites a
+            # minute on a busy host, for a file that only needs one a minute.
+            self._last_save = time.time()
         except OSError:
             try:
                 os.unlink(tmp)
@@ -230,6 +246,25 @@ class ObservationMode:
             e["state"] = ARMED
         self.save()
         return True, None
+
+    def start(self, owner, force=False, now=None):
+        """Begin an observation window for `owner`. Returns (ok, error).
+
+        Distinct from reset() in who may call it and what it refuses to do.
+        reset() is an admin re-baseline and always wipes. start() is the
+        tenant's own button, so it refuses when a window is already running
+        unless the caller passed force after being told what it costs —
+        otherwise a stray click silently throws away six days of progress and
+        the only symptom is alerts staying quiet for another week.
+        """
+        with self._lock:
+            existing = self._state.get(str(owner))
+        if existing and not force:
+            state = existing.get("state", COLLECTING)
+            if state == ARMED:
+                return False, "already armed — alerting is live for this host"
+            return False, "already collecting"
+        return self.reset(owner, now=now)
 
     def reset(self, owner, now=None):
         """Start observation again. For a host that changed shape enough that

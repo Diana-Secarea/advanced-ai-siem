@@ -1,4 +1,4 @@
-"""Minimal SMTP sender for transactional mail (email verification).
+"""Minimal SMTP sender for transactional mail (email verification, password reset).
 
 Separate from tickets.py because that one is bound to the ticket table: it
 writes its outcome back to a row and always sends to a fixed operator address.
@@ -114,3 +114,30 @@ def send_verification(to_address, username, token):
         log.warning("%s is unset — verification mail carries a bare token "
                     "instead of a link", PUBLIC_URL_ENV)
     return send(to_address, "Confirm your Selenne account", body)
+
+
+def send_password_reset(to_address, username, token, ttl_minutes=60):
+    """Compose and send the password-reset mail. Returns (ok, status).
+
+    The mail carries a LINK, never a password. A generated password mailed in
+    clear text stays valid in the recipient's inbox (and in every backup and
+    mail-server log it passed through) until someone thinks to change it; a
+    one-shot link expires, and the password the user ends up with was never
+    transmitted at all.
+    """
+    base = public_url()
+    link = f"{base}/reset.html?token={token}" if base else None
+    body = (
+        f"Hi {username},\n\n"
+        "Someone asked to reset the password for your Selenne account.\n\n"
+        + (f"Choose a new password here:\n\n{link}\n\n" if link
+           else f"Your reset code:\n\n    {token}\n\n"
+                "Enter it on the password-reset page.\n\n")
+        + f"The link works once and expires in {ttl_minutes} minutes.\n\n"
+          "If you did not ask for this, ignore this message — your password "
+          "has not been changed and nothing else happened to your account.\n"
+    )
+    if not base:
+        log.warning("%s is unset — reset mail carries a bare token "
+                    "instead of a link", PUBLIC_URL_ENV)
+    return send(to_address, "Reset your Selenne password", body)

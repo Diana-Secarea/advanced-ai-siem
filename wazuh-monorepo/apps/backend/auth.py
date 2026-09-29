@@ -188,7 +188,15 @@ def init_db():
                           ("email_verified", "INTEGER DEFAULT 0"),
                           ("verify_token_hash", "TEXT DEFAULT ''"),
                           ("verify_expires_at", "TEXT DEFAULT ''"),
-                          ("verify_sent_at", "TEXT DEFAULT ''")):
+                          ("verify_sent_at", "TEXT DEFAULT ''"),
+                          # Password reset. Separate columns from the
+                          # verification ones on purpose: a reset link must not
+                          # be usable as a verification link or vice versa, and
+                          # sharing one column would make that a one-character
+                          # bug rather than an impossible state.
+                          ("reset_token_hash", "TEXT DEFAULT ''"),
+                          ("reset_expires_at", "TEXT DEFAULT ''"),
+                          ("reset_sent_at", "TEXT DEFAULT ''")):
             try:
                 conn.execute(f"ALTER TABLE users ADD COLUMN {col} {decl}")
             except sqlite3.OperationalError:
@@ -342,6 +350,114 @@ def is_email_verified(username):
             "SELECT email_verified FROM users WHERE username = ?",
             (username,)).fetchone()
     return bool(row and row["email_verified"])
+
+
+# --------------------------------------------------------------------------- #
+#  Password reset ("forgot password")
+# --------------------------------------------------------------------------- #
+#: How long a reset link stays usable. Much shorter than the 24h verification
+#: window: a verification link only confirms an address, a reset link IS a
+#: credential — anyone holding it can take the account over.
+RESET_TTL_MINUTES = int(os.environ.get("AUTH_RESET_TTL_MINUTES", "60"))
+#: Minimum gap between reset emails for one account (anti mail-bombing). The
+#: per-IP rate limit on the route bounds the attacker; this bounds what one
+#: victim's inbox can be made to receive.
+RESET_RESEND_SECONDS = 120
+
+
+def issue_password_reset(email):
+    """Mint a reset token for the account holding `email`.
+
+    Returns (raw_token, username, error). A caller on a public route must NOT
+    surface `error` to the client: "no account with that address" and "wait
+    120s" both answer the question "does this person have an account here",
+    which is exactly what the generic response on the route exists to hide.
+    The error is for the log.
+
+    Only the SHA-256 digest is stored, like sessions and verification tokens.
+    """
+    email, err = identity.normalise_email(email)
+    if err:
+        return None, None, err
+    now = _now()
+    with _db_lock, _conn() as conn:
+        row = conn.execute(
+            "SELECT username, reset_sent_at FROM users WHERE email = ? LIMIT 1",
+            (email,)).fetchone()
+        if row is None:
+            return None, None, "No account with that address"
+        last = _parse_iso(row["reset_sent_at"])
+        if last and (now - last).total_seconds() < RESET_RESEND_SECONDS:
+            wait = int(RESET_RESEND_SECONDS - (now - last).total_seconds())
+            return None, row["username"], f"Resend cooldown, {wait}s remaining"
+        token = secrets.token_urlsafe(32)
+        conn.execute(
+            "UPDATE users SET reset_token_hash = ?, reset_expires_at = ?, "
+            "reset_sent_at = ? WHERE username = ?",
+            (_token_digest(token),
+             _iso(now + datetime.timedelta(minutes=RESET_TTL_MINUTES)),
+             _iso(now), row["username"]))
+    return token, row["username"], None
+
+
+def peek_password_reset(raw_token):
+    """Username a live reset token belongs to, or (None, error).
+
+    Lets the reset PAGE tell the visitor the link is dead before they type a
+    new password twice, without consuming anything.
+    """
+    if not isinstance(raw_token, str) or not (16 <= len(raw_token) <= 200):
+        return None, "Invalid reset link"
+    with _db_lock, _conn() as conn:
+        row = conn.execute(
+            "SELECT username, reset_expires_at FROM users "
+            "WHERE reset_token_hash = ? AND reset_token_hash != ''",
+            (_token_digest(raw_token),)).fetchone()
+    if row is None:
+        return None, "This reset link is invalid or has already been used"
+    expires = _parse_iso(row["reset_expires_at"])
+    if expires is None or _now() > expires:
+        return None, "This reset link has expired — request a new one"
+    return row["username"], None
+
+
+def reset_password(raw_token, new_password):
+    """Consume a reset token and set a new password. Returns (username, error).
+
+    Every session of that account is dropped. The whole premise of a reset is
+    that the owner may have lost control of the account, so leaving live
+    cookies alive would hand the attacker the thing the reset was meant to
+    take back.
+    """
+    new_password, err = identity.check_password(new_password)
+    if err:
+        return None, err
+    username, err = peek_password_reset(raw_token)
+    if err:
+        return None, err
+    with _db_lock, _conn() as conn:
+        # Re-check the digest inside the write transaction: peek() released the
+        # lock, so two clicks on the same link could otherwise both pass.
+        row = conn.execute(
+            "SELECT username FROM users WHERE reset_token_hash = ? "
+            "AND reset_token_hash != ''", (_token_digest(raw_token),)).fetchone()
+        if row is None:
+            return None, "This reset link is invalid or has already been used"
+        conn.execute(
+            "UPDATE users SET password_hash = ?, reset_token_hash = '', "
+            "reset_expires_at = '' WHERE username = ?",
+            (generate_password_hash(new_password), username))
+        conn.execute("DELETE FROM sessions WHERE username = ?", (username,))
+    # The link was delivered to the address on file and came back, so that
+    # address is demonstrably reachable and controlled by whoever holds the
+    # account now. Clearing the lockout lets a user who locked themselves out
+    # by guessing sign in immediately with the password they just set.
+    with _failed_lock:
+        prefix = f"{identity.canonical_username(username)}|"
+        for k in [k for k in _failed_logins if k.startswith(prefix)]:
+            _failed_logins.pop(k, None)
+    log.info("Password reset completed for '%s' — all sessions revoked", username)
+    return username, None
 
 
 def login(username, password, ip="?"):

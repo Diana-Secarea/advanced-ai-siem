@@ -94,8 +94,13 @@ main, .page { position: relative; z-index: 1; }
 .nav {
   position: sticky; top: 14px; z-index: 50;
   margin: 8px auto 0;
-  width: min(1120px, calc(100% - 32px));
-  display: flex; align-items: center; gap: 6px;
+  /* Wider than the 1120px content column, and always ONE line: labels never
+     wrap, and a viewport too narrow for the items scrolls the bar sideways
+     rather than breaking it onto a second row. */
+  width: min(1440px, calc(100% - 32px));
+  display: flex; flex-wrap: nowrap; align-items: center; gap: 4px;
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none;
   padding: 10px 14px;
   border-radius: 20px;
   background: rgba(10,12,26,.62);
@@ -106,6 +111,10 @@ main, .page { position: relative; z-index: 1; }
   animation: navIn .8s var(--ease-out) both;
   transition: padding .35s var(--ease-out), transform .35s var(--ease-out);
 }
+.nav::-webkit-scrollbar { display: none; }
+.nav > * { flex-shrink: 0; }
+.nav a.link { white-space: nowrap; }
+.nav .spacer { flex: 1 0 8px; }
 .nav.shrunk { padding: 5px 14px; transform: scale(.97); }
 @keyframes navIn { from { opacity: 0; transform: translateY(-26px); } }
 
@@ -135,7 +144,7 @@ main, .page { position: relative; z-index: 1; }
 }
 
 .nav a.link {
-  padding: 9px 15px; border-radius: 12px;
+  padding: 9px 12px; border-radius: 12px;
   color: var(--text-soft); text-decoration: none;
   font-size: 13.5px; font-weight: 500;
   transition: color .25s, background .25s, transform .25s;
@@ -148,6 +157,38 @@ main, .page { position: relative; z-index: 1; }
   border: 1px solid rgba(167,139,250,.35);
 }
 .nav .spacer { flex: 1; }
+
+/* ---------- Product switcher (SIEM ⇄ AI Agents) ---------- */
+.product-switch { position: relative; margin-right: 8px; }
+.product-switch .ps-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 12px; border-radius: 11px;
+  border: 1px solid rgba(167,139,250,.35);
+  background: linear-gradient(120deg, rgba(34,211,238,.10), rgba(167,139,250,.14));
+  color: var(--text); cursor: pointer;
+  font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; letter-spacing: .6px;
+  transition: background .25s, transform .25s, box-shadow .25s;
+}
+.product-switch .ps-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(167,139,250,.25); }
+.product-switch .ps-caret { opacity: .7; font-size: 10px; }
+.ps-menu {
+  position: fixed; z-index: 80;   /* placed by product-switch.js */
+  min-width: 260px; padding: 6px; border-radius: 14px;
+  background: rgba(10,12,26,.96); border: 1px solid var(--stroke);
+  box-shadow: 0 18px 50px rgba(0,0,0,.55);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+}
+.ps-menu[hidden] { display: none; }
+.ps-item {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 10px 12px; border-radius: 10px;
+  color: var(--text-soft); text-decoration: none;
+  border: 1px solid transparent;
+}
+.ps-item b { color: var(--text); font-family: var(--font-display); font-size: 14px; font-weight: 600; }
+.ps-item span { font-size: 12px; }
+.ps-item:hover { background: var(--glass-hi); }
+.ps-item.active { border-color: rgba(167,139,250,.35); background: rgba(167,139,250,.08); }
 
 /* ---------- List-manager nav buttons (constant tab bar) ---------- */
 .nav .nav-mgr-btn {
@@ -169,7 +210,29 @@ main, .page { position: relative; z-index: 1; }
 }
 .nav-susp-btn .nav-mgr-count   { background: var(--amber); }
 .nav-benign-btn .nav-mgr-count { background: var(--green); }
-@media (max-width: 1080px) { .nav .nav-mgr-btn .nav-mgr-count { display: none; } }
+
+/* "Lists" menu (Benign + Suspicious managers). The menu is attached to <body>
+   and fixed-positioned by app.js, so the one-line nav cannot clip it. */
+.nav-lists .nl-btn { white-space: nowrap; }
+.nav-lists .nl-caret { font-size: 10px; opacity: .7; }
+.nav-lists .nl-total { background: var(--violet); }
+.nl-menu {
+  position: fixed; z-index: 80; min-width: 230px; padding: 6px; border-radius: 14px;
+  background: rgba(10,12,26,.96); border: 1px solid var(--stroke);
+  box-shadow: 0 18px 50px rgba(0,0,0,.55);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.nl-menu[hidden] { display: none; }
+.nl-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 10px 12px; border-radius: 10px; border: 1px solid transparent;
+  background: transparent; cursor: pointer; text-align: left;
+  font-family: var(--font-body); font-size: 13px; font-weight: 600;
+}
+.nl-item:hover { background: var(--glass-hi); }
+.nl-item.nav-benign-btn { color: var(--green); }
+.nl-item.nav-susp-btn { color: var(--amber); }
 
 .status-pill {
   display: flex; align-items: center; gap: 8px;

@@ -443,6 +443,41 @@ footer a:hover { color: var(--text); }
   .cursor-light { display: none; }
 }
 :focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; border-radius: 6px; }
+
+/* ---------- launch dropdown: pick SIEM or AI Agents ---------- */
+.launch { position: relative; }
+.launch .caret { font-size: 10px; opacity: .75; }
+.launch-menu {
+  position: absolute; top: calc(100% + 10px); right: 0; z-index: 70;
+  min-width: 280px; padding: 6px; border-radius: 14px;
+  background: rgba(8,10,22,.97); border: 1px solid var(--stroke-hi);
+  box-shadow: 0 22px 60px rgba(0,0,0,.6);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+}
+.launch-menu[hidden] { display: none; }
+.launch-menu a {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 11px 13px; border-radius: 10px; text-decoration: none; color: var(--text-soft);
+}
+.launch-menu a b { color: var(--text); font-family: var(--font-display); font-size: 14.5px; font-weight: 600; }
+.launch-menu a span { font-size: 12.5px; }
+.launch-menu a:hover { background: var(--glass-hi); }
+
+/* ---------- AI agents ---------- */
+.btn-agents {
+  color: var(--text); background: linear-gradient(100deg, rgba(244,114,182,.18), rgba(167,139,250,.22));
+  border-color: rgba(244,114,182,.45);
+}
+.btn-agents:hover { transform: translateY(-2px); box-shadow: 0 16px 44px -12px rgba(244,114,182,.55); }
+.agents-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+.agents-steps .step-no { font-family: var(--font-mono); font-size: 12px; letter-spacing: 2px; color: var(--pink, #f472b6); }
+.agents-steps code {
+  display: block; margin-top: 12px; padding: 10px 12px; border-radius: 10px;
+  background: rgba(0,0,0,.35); font-family: var(--font-mono); font-size: 11.5px;
+  color: var(--text); white-space: pre-wrap; word-break: break-all; text-align: left;
+}
+.agents-ctas { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-top: 40px; }
+@media (max-width: 1024px) { .agents-steps { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -468,6 +503,7 @@ footer a:hover { color: var(--text); }
 <nav class="nav" id="nav" aria-label="Main">
   <a class="brand" href="landing.html"><span class="logo">◈</span><em>SELENNE</em></a>
   <a class="link" href="#features">Platform</a>
+  <a class="link" href="#agents">AI Agents</a>
   <a class="link" href="#showcase">Live engine</a>
   <a class="link" href="#pricing">Pricing</a>
   <a class="link" href="#faq">FAQ</a>
@@ -478,7 +514,16 @@ footer a:hover { color: var(--text); }
        target in place. Same arming pattern as the collector buttons. -->
   <a class="link" id="nav-user" href="profile.html" hidden></a>
   <a class="btn btn-ghost btn-sm" id="nav-auth" href="login.html">Sign in</a>
-  <a class="btn btn-primary btn-sm" href="index.html">Launch console</a>
+  <!-- One account, two consoles: the SIEM and Selenne Agents. Both targets
+       are gated by their own servers, so signed-out visitors land on sign-in. -->
+  <div class="launch" id="launch">
+    <button class="btn btn-primary btn-sm" type="button" id="launchBtn"
+            aria-haspopup="true" aria-expanded="false">Launch console <span class="caret">▾</span></button>
+    <div class="launch-menu" id="launchMenu" role="menu" hidden>
+      <a role="menuitem" href="index.html"><b>SIEM console</b><span>Endpoints, live alerts, ML engine</span></a>
+      <a role="menuitem" href="/agents/"><b>AI Agents console</b><span>Monitor &amp; secure AI agents and chatbots</span></a>
+    </div>
+  </div>
 </nav>
 
 <main>
@@ -521,6 +566,9 @@ footer a:hover { color: var(--text); }
       <a class="btn btn-primary collector-dl" id="dlMac" data-plat="macos"
          href="login.html" data-dl="/api/download/agent/macos"
          data-dlname="selenne-collector-macos.zip">⬇ Collector for macOS</a>
+      <!-- Not a download: AI agents are monitored by adding an exporter, not
+           by installing a collector. -->
+      <a class="btn btn-agents" id="agentsCta" href="/agents/">🤖 Monitor &amp; secure your AI agents</a>
       <a class="btn btn-ghost" href="#showcase">See it in action</a>
     </div>
     <div class="hero-dl-note r3d" data-delay="3" style="margin-top:8px;font-size:12px;color:var(--muted,#8b93a7);">
@@ -534,6 +582,9 @@ footer a:hover { color: var(--text); }
       <code style="font-size:11px;">sudo bash install-selenne-collector.sh</code>
       &nbsp;·&nbsp;
       <code style="font-size:11px;">sudo bash install-selenne-collector-macos.sh</code>
+      <br>
+      <b>AI agents &amp; chatbots:</b> nothing to install — create an ingestion key and point
+      OpenTelemetry at <code style="font-size:11px;">ingest.selenne.app</code>.
       <br>
       <span style="opacity:.75;">Running your own server instead?
         <a href="/api/download/linux" download>Download the full self-hosted engine for Linux</a>.</span>
@@ -607,6 +658,43 @@ footer a:hover { color: var(--text); }
         <p>Waitress WSGI, health probes, structured logs, Prometheus metrics and Grafana dashboards — hardened auth with lockout built in.</p>
         <div class="metric">/health · /ready · /metrics</div>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==== Selenne Agents ==== -->
+<section class="features" id="agents">
+  <div class="float-obj orb near" data-depth="0.6" style="--c:#f472b6; width:96px; height:96px; top:10%; left:6%;"></div>
+  <div class="float-obj ring-obj far" data-depth="0.2" style="width:150px; height:150px; bottom:8%; right:9%;"></div>
+  <div class="wrap">
+    <div class="section-head stage">
+      <span class="eyebrow r3d">Selenne Agents · new</span>
+      <h2 class="r3d" data-delay="1">Your AI agents act. <span class="grad-text">Now you can see how.</span></h2>
+      <p class="r3d" data-delay="2">Every run of your agents and chatbots — prompts, tool calls, model calls — traced,
+        grouped into sessions and kept under the same account as your SIEM.</p>
+    </div>
+    <div class="agents-steps stage">
+      <div class="card r3d tilt"><div class="glow"></div>
+        <div class="step-no">01 · KEY</div>
+        <h3>Create an ingestion key</h3>
+        <p>One key per agent or environment, from your profile. Revoke it any time — traffic stops within a minute.</p>
+      </div>
+      <div class="card r3d tilt" data-delay="1"><div class="glow"></div>
+        <div class="step-no">02 · CONNECT</div>
+        <h3>Point OpenTelemetry at Selenne</h3>
+        <p>Already on OTel? No code change. Otherwise, post JSON spans to one endpoint.</p>
+        <code>OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=
+https://ingest.selenne.app/v1/traces</code>
+      </div>
+      <div class="card r3d tilt" data-delay="2"><div class="glow"></div>
+        <div class="step-no">03 · WATCH</div>
+        <h3>See every session</h3>
+        <p>Each agent run as a timeline of spans and tool calls, in the AI Agents console — one switch away from your SIEM.</p>
+      </div>
+    </div>
+    <div class="agents-ctas stage">
+      <a class="btn btn-primary r3d" href="/agents/">Open the AI Agents console</a>
+      <a class="btn btn-ghost r3d" href="profile.html#agent-keys">Get your ingestion key</a>
     </div>
   </div>
 </section>
@@ -736,6 +824,11 @@ footer a:hover { color: var(--text); }
         <button class="faq-q" aria-expanded="false">Do I need labeled attack data to train the models?
           <span class="chev"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></button>
         <div class="faq-a"><p>No. The ensemble is trained one-class on your clean baseline: the Isolation Forest and autoencoder learn what normal looks like, and UEBA profiles each entity individually. Anything that deviates gets scored — including attacks nobody has written a signature for yet.</p></div>
+      </div>
+      <div class="faq-item r3d">
+        <button class="faq-q" aria-expanded="false">Can Selenne monitor AI agents and chatbots?
+          <span class="chev"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></button>
+        <div class="faq-a"><p>Yes — that is Selenne Agents. Your agents send their traces (OpenTelemetry or plain JSON) to <code>ingest.selenne.app</code> with a per-project key, and every run shows up as a session in the AI Agents console. Same account, same sign-in as the SIEM; switch between the two from the product menu in the console.</p></div>
       </div>
       <div class="faq-item r3d">
         <button class="faq-q" aria-expanded="false">How is this different from plain Wazuh?
@@ -1061,6 +1154,21 @@ footer a:hover { color: var(--text); }
      lands before this script runs all skip a click handler and would save the
      401 body as install-selenne-agent.cmd. */
   var collectors = Array.prototype.slice.call(document.querySelectorAll(".collector-dl"));
+
+  /* ---------- Launch console dropdown: SIEM or AI Agents ---------- */
+  (function launchMenu() {
+    var btn = document.getElementById("launchBtn");
+    var menu = document.getElementById("launchMenu");
+    var wrap = document.getElementById("launch");
+    if (!btn || !menu || !wrap) return;
+    function setOpen(open) {
+      menu.hidden = !open;
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+    btn.addEventListener("click", function (e) { e.stopPropagation(); setOpen(menu.hidden); });
+    document.addEventListener("click", function (e) { if (!wrap.contains(e.target)) setOpen(false); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") setOpen(false); });
+  })();
 
   /* The nav used to be hardcoded to "Sign in", so arriving here with a live
      session looked exactly like being logged out — while the session was in

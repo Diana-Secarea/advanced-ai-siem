@@ -58,6 +58,24 @@ server {
         proxy_read_timeout 300s;
     }
 
+    # Selenne Agents console — its own container (advanced-selenne-agents,
+    # docker compose service "console"). Same origin on purpose: the session
+    # cookie is host-only, so /agents/ gets the SIEM login for free and checks
+    # it against /api/auth/me.
+    location = /agents { return 301 /agents/; }
+    location /agents/ {
+        proxy_pass http://127.0.0.1:4319;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Container-to-backend endpoints (Selenne Agents key verification). Never
+    # public: the backend also refuses anything carrying X-Forwarded-For.
+    location /internal/ { return 404; }
+
     # The console — every page except /landing.html and /login.html sits behind
     # the session cookie, and /admin.html additionally behind the admin role.
     # Both checks live in the backend; nginx just forwards.

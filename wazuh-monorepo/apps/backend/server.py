@@ -13,6 +13,7 @@ import uuid
 import json
 import zipfile
 import glob as glob_mod
+import hmac
 import socket
 import threading
 import datetime
@@ -79,6 +80,7 @@ import logging_setup
 import tenancy as _tenancy
 import identity as _identity
 import mailer as _mailer
+import agent_keys as _agent_keys
 
 logging_setup.setup_logging()
 log = logging_setup.get_logger("backend")
@@ -89,6 +91,7 @@ AUTH_ENABLED = os.environ.get("AUTH_ENABLED", "1") == "1"
 if AUTH_ENABLED:
     _auth.init_db()
     _tenancy.init_db()
+    _agent_keys.init_db()
 
 # Paths reachable without a session: the login page + its assets, and the
 # auth endpoints themselves.
@@ -116,6 +119,9 @@ _AUTH_EXEMPT_PATHS = {
     "/reset.html",
     "/metrics",   # Prometheus scrape — read-only counters, no alert content
     "/health", "/ready",  # liveness/readiness probes for monitoring & LB
+    # Called by the Selenne Agents ingest container, which has no session —
+    # it authenticates with SELENNE_INTERNAL_SECRET instead (see the route).
+    "/internal/keys/verify",
 }
 
 
@@ -526,11 +532,82 @@ def auth_me():
         # auth-disabled dev mode, where there is no account to verify.
         return jsonify({"auth_enabled": False,
                         "user": {"username": "anonymous", "role": "admin",
-                                 "email_verified": True}})
+                                 "email_verified": True, "agents": True}})
     user = _auth.validate_token(_request_token())
     if not user:
         return jsonify({"auth_enabled": True, "user": None}), 401
+    # Selenne Agents reads this same probe (forwarding the session cookie) to
+    # decide whether its console opens, so the entitlement rides along here.
+    user["agents"] = _agent_keys.is_entitled(user["username"], user.get("role"))
     return jsonify({"auth_enabled": True, "user": user})
+
+
+# ==================== Selenne Agents: ingestion keys ====================
+# Keys for ingest.selenne.app live in users.db (agent_keys.py). The browser
+# manages them here; the Agents ingest container verifies them through
+# /internal/keys/verify and never touches users.db itself.
+SELENNE_INTERNAL_SECRET = os.environ.get("SELENNE_INTERNAL_SECRET", "")
+
+
+@app.route("/api/keys", methods=["GET", "POST"])
+@limiter.limit("30 per minute")
+def agent_keys_collection():
+    username, _ = _current_username()
+    if not username or username == "anonymous":
+        return jsonify({"error": "Sign in to manage ingestion keys"}), 401
+    if request.method == "GET":
+        return jsonify({"keys": _agent_keys.list_keys(username)})
+    # Same bar as the collector download: a key lets traffic into this
+    # account, so it needs an address somebody has confirmed.
+    if not _auth.is_email_verified(username):
+        return jsonify({"error": "Confirm your email address before creating ingestion keys",
+                        "action": "verify_email"}), 403
+    body = request.get_json(silent=True) or {}
+    raw, record, err = _agent_keys.create_key(username, _scalar_str(body.get("project")))
+    if err:
+        return jsonify({"error": err}), 400
+    logging_setup.agents_audit("agent_key_created", username=username, key_id=record["id"],
+                        project=record["project"], src_ip=get_remote_address())
+    # The only time the raw key ever leaves the server.
+    return jsonify({"key": raw, "record": record}), 201
+
+
+@app.route("/api/keys/<key_id>", methods=["DELETE"])
+@limiter.limit("30 per minute")
+def agent_keys_revoke(key_id):
+    username, _ = _current_username()
+    if not username or username == "anonymous":
+        return jsonify({"error": "Sign in to manage ingestion keys"}), 401
+    if not _agent_keys.revoke_key(username, key_id):
+        return jsonify({"error": "No such active key"}), 404
+    logging_setup.agents_audit("agent_key_revoked", username=username, key_id=key_id,
+                        src_ip=get_remote_address())
+    return jsonify({"status": "ok"})
+
+
+@app.route("/internal/keys/verify", methods=["POST"])
+@limiter.exempt
+def internal_keys_verify():
+    """Key check for the Agents ingest container (contract in the
+    advanced-selenne-agents README).
+
+    Not for browsers: nginx refuses /internal/ publicly, and anything that
+    arrives through a proxy (X-Forwarded-For present) is refused here as well,
+    so the shared secret is never the only barrier. Exempt from the rate
+    limiter because every call comes from the one ingest container IP; ingest
+    caches answers, which bounds the call rate per key.
+    """
+    if request.headers.get("X-Forwarded-For"):
+        return jsonify({"error": "Not found"}), 404
+    if not SELENNE_INTERNAL_SECRET:
+        return jsonify({"error": "SELENNE_INTERNAL_SECRET is not configured"}), 503
+    supplied = request.headers.get("X-Selenne-Internal", "")
+    if not hmac.compare_digest(supplied.encode(), SELENNE_INTERNAL_SECRET.encode()):
+        logging_setup.agents_audit("internal_verify_denied", reason="bad_secret",
+                            outcome="denied", src_ip=get_remote_address())
+        return jsonify({"error": "Forbidden"}), 403
+    body = request.get_json(silent=True) or {}
+    return jsonify(_agent_keys.verify(body.get("key")))
 
 
 @app.route("/api/auth/users", methods=["GET"])
@@ -1023,6 +1100,19 @@ def _security_headers(resp):
     return resp
 
 
+def _is_agents_request():
+    """Requests that belong to Selenne Agents rather than the SIEM: the key
+    endpoints, the container-only /internal/ routes, and the Agents console's
+    session probes (marked with the shared secret, so the marker cannot be
+    forged to hide ordinary traffic from the access log)."""
+    path = request.path
+    if path.startswith(("/internal/", "/api/keys")):
+        return True
+    marker = request.headers.get("X-Selenne-Internal", "")
+    return bool(marker and SELENNE_INTERNAL_SECRET
+                and hmac.compare_digest(marker.encode(), SELENNE_INTERNAL_SECRET.encode()))
+
+
 @app.after_request
 def _access_log(resp):
     """Write one Apache-combined line per request to ACCESS_LOG.
@@ -1040,6 +1130,16 @@ def _access_log(resp):
     try:
         user = getattr(request, "auth_user", None)
         username = (user.get("username") if isinstance(user, dict) else user) or "-"
+        if _is_agents_request():
+            # Selenne Agents traffic stays out of the collector-facing access
+            # log: its service calls (a key check every minute, session probes
+            # that 401 for signed-out visitors) would otherwise read as a 401
+            # storm and raise SIEM alerts.
+            logging_setup.agents_audit(
+                "http", method=request.method, path=request.path,
+                status=resp.status_code, username=username,
+                src_ip=get_remote_address() or "-")
+            return resp
         # content_length is None for streamed responses (SSE chat); reading it
         # is safe, materialising the body to measure it would not be.
         size = resp.content_length if resp.content_length is not None else 0

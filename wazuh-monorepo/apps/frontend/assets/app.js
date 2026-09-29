@@ -243,6 +243,53 @@ document.addEventListener("keydown", e => {
      suspicious → GET/POST /api/suspicious-groups, DELETE /api/suspicious-groups/<name>
    plus the curated suggestion lists (suggested-* endpoints).
    ============================================================ */
+/* The "Lists" dropdown that holds the list managers. The nav is one line and
+   scrolls sideways when narrow, and its backdrop-filter/transform make it the
+   containing block even for position:fixed children — so the menu lives on
+   <body>, is placed under its button, follows it while the page or the nav
+   scrolls, and closes only once the button is off-screen. */
+function closeNavMenus() {
+  document.querySelectorAll(".nl-menu").forEach((m) => { m.hidden = true; });
+  document.querySelectorAll(".nav-lists .nl-btn").forEach((b) => b.setAttribute("aria-expanded", "false"));
+}
+function navListsMenu() {
+  const nav = document.querySelector(".nav");
+  if (!nav) return null;
+  const existing = document.querySelector("body > .nl-menu");
+  if (existing) return existing;
+  const wrap = document.createElement("div");
+  wrap.className = "nav-lists";
+  wrap.innerHTML = '<button type="button" class="nav-mgr-btn nl-btn" aria-haspopup="true" aria-expanded="false">' +
+    '☰ Lists <span class="nav-mgr-count nl-total">0</span><span class="nl-caret" aria-hidden="true">▾</span></button>' +
+    '<div class="nl-menu" role="menu" hidden></div>';
+  const btn = wrap.querySelector(".nl-btn"), menu = wrap.querySelector(".nl-menu");
+  document.body.appendChild(menu);
+  function place() {
+    if (menu.hidden) return;
+    const r = btn.getBoundingClientRect();
+    if (r.bottom < 0 || r.right < 0 || r.left > innerWidth) { closeNavMenus(); return; }
+    menu.style.top = (r.bottom + 8) + "px";
+    menu.style.left = Math.max(8, Math.min(r.left, innerWidth - menu.offsetWidth - 8)) + "px";
+  }
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const open = menu.hidden;
+    closeNavMenus();
+    if (!open) return;
+    menu.hidden = false;
+    btn.setAttribute("aria-expanded", "true");
+    place();
+  });
+  document.addEventListener("click", (e) => { if (!wrap.contains(e.target) && !menu.contains(e.target)) closeNavMenus(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeNavMenus(); });
+  addEventListener("resize", place);
+  addEventListener("scroll", place, { passive: true });
+  nav.addEventListener("scroll", place, { passive: true });
+  const pill = nav.querySelector(".status-pill");
+  if (pill) nav.insertBefore(wrap, pill); else nav.appendChild(wrap);
+  return menu;
+}
+
 function makeNavManager(cfg) {
   const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   let items = [];       // [{name, desc}] mirrored from the backend
@@ -294,16 +341,24 @@ function makeNavManager(cfg) {
   NX[cfg.api] = api;
 
   let modal, editing = null;
+  // Each list is an item in the shared "Lists" menu rather than its own nav
+  // button: two always-visible buttons were what pushed the nav past one line.
   function injectNavButton() {
-    const nav = document.querySelector(".nav");
-    if (!nav || nav.querySelector("." + cfg.btnClass)) return;
-    const btn = document.createElement("button");
-    btn.type = "button"; btn.className = "nav-mgr-btn " + cfg.btnClass;
-    btn.innerHTML = `${cfg.icon} ${cfg.short} <span class="nav-mgr-count">0</span>`;
-    btn.addEventListener("click", openModal);
-    const pill = nav.querySelector(".status-pill");
-    if (pill) nav.insertBefore(btn, pill); else nav.appendChild(btn);
-    window.addEventListener(cfg.evt, () => { const c = btn.querySelector(".nav-mgr-count"); if (c) c.textContent = items.length; });
+    const menu = navListsMenu();
+    if (!menu || menu.querySelector("." + cfg.btnClass)) return;
+    const item = document.createElement("button");
+    item.type = "button"; item.className = "nl-item " + cfg.btnClass;
+    item.setAttribute("role", "menuitem");
+    item.innerHTML = `<span>${cfg.icon} ${cfg.short}</span><span class="nav-mgr-count">0</span>`;
+    item.addEventListener("click", () => { closeNavMenus(); openModal(); });
+    menu.appendChild(item);
+    window.addEventListener(cfg.evt, () => {
+      item.querySelector(".nav-mgr-count").textContent = items.length;
+      item.dataset.count = items.length;
+      const total = [...menu.querySelectorAll(".nl-item")].reduce((n, el) => n + (+el.dataset.count || 0), 0);
+      const t = document.querySelector(".nav-lists .nl-total");
+      if (t) t.textContent = total;
+    });
   }
   function buildModal() {
     modal = document.createElement("div");
@@ -381,7 +436,7 @@ function makeNavManager(cfg) {
   else init();
 }
 
-// Benign first (appears left), then Suspicious — both in the constant tab bar.
+// Benign first, then Suspicious — both items of the nav's 'Lists' menu.
 makeNavManager({
   evt: "benign-changed", api: "benign",
   endpoint: "/api/benign-rules", suggestedEndpoint: "/api/suggested-benign-rules",
@@ -434,6 +489,16 @@ document.addEventListener("click", (ev) => {
     })
     .catch((e) => NX.toast(e.message || "Network error — try again.", 6000));
 });
+
+/* ---------- Product switcher (SIEM ⇄ AI Agents) ---------- */
+/* Lives in its own file so the Selenne Agents console can load the very same
+   switcher without pulling in the SIEM-only parts of this one. */
+(function loadProductSwitch() {
+  if (/\/(login|reset)\.html$/.test(location.pathname)) return;
+  const s = document.createElement("script");
+  s.src = "/assets/product-switch.js";
+  document.head.appendChild(s);
+})();
 
 /* ---------- Auth session guard ---------- */
 /* Every page except login.html: verify the session cookie; bounce to the

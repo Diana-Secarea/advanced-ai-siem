@@ -21,6 +21,13 @@
   .tk-row { padding:12px 16px; border-left:3px solid var(--cyan); }
   .tk-row.high, .tk-row.critical { border-left-color:var(--red); }
   .tk-row.closed { opacity:.55; }
+  .ak-row { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
+    padding:12px 16px; border-left:3px solid var(--violet); }
+  .ak-row.revoked { opacity:.5; border-left-color:var(--text-dim); }
+  .ak-reveal { margin-top:16px; padding:16px; border-radius:12px;
+    border:1px solid rgba(52,211,153,.4); background:rgba(52,211,153,.06); }
+  .ak-code { font-family:var(--font-mono); font-size:12px; white-space:pre-wrap; word-break:break-all;
+    background:rgba(0,0,0,.35); border-radius:10px; padding:12px 14px; margin-top:8px; color:var(--text); }
 </style>
 </head>
 <body>
@@ -135,6 +142,37 @@
           <span class="mono" id="tkSent" style="font-family:var(--font-mono);font-size:11px;color:var(--green);"></span>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- Selenne Agents ingestion keys -->
+  <section id="agent-keys" style="padding:14px 0 0;scroll-margin-top:90px;">
+    <div class="card reveal" style="padding:22px 24px;">
+      <h3 style="margin:0 0 4px;">🤖 AI agent ingestion keys</h3>
+      <p style="font-size:12px;color:var(--text-dim);margin:0;">
+        One key per agent or environment. Your agents send traces to
+        <code>ingest.selenne.app</code> with it, and they show up in the
+        <a href="/agents/" style="color:var(--cyan);">AI Agents console</a>. A key is shown once — store it as a secret.
+      </p>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+        <div class="pf-field" style="flex:1;min-width:220px;">
+          <label>PROJECT</label>
+          <input id="akProject" placeholder="e.g. support-bot or cve-agent-prod" maxlength="64">
+        </div>
+        <button class="btn btn-primary" style="padding:10px 20px;" onclick="createAgentKey()">Create key</button>
+      </div>
+      <span class="mono" id="akMsg" style="font-family:var(--font-mono);font-size:11px;display:block;margin-top:8px;"></span>
+      <div class="ak-reveal" id="akReveal" hidden>
+        <b style="font-size:13px;">Copy this key now — it will not be shown again.</b>
+        <div class="ak-code" id="akKey"></div>
+        <div style="display:flex;gap:10px;margin-top:10px;">
+          <button class="btn btn-ghost" style="padding:8px 14px;font-size:12px;" onclick="copyAgentKey()">Copy key</button>
+          <button class="btn btn-ghost" style="padding:8px 14px;font-size:12px;" onclick="hideAgentKey()">Done</button>
+        </div>
+        <div style="font-size:12px;color:var(--text-soft);margin-top:14px;">Already using OpenTelemetry? Just set:</div>
+        <div class="ak-code" id="akSnippet"></div>
+      </div>
+      <div id="akList" style="display:flex;flex-direction:column;gap:8px;margin-top:16px;"></div>
     </div>
   </section>
 
@@ -280,7 +318,80 @@ async function loadTickets(){
   }catch(_){}
 }
 
-loadProfile(); loadTickets();
+/* ---------- Selenne Agents ingestion keys ---------- */
+let akRaw = "";
+
+function akShow(text, ok){
+  const m = document.getElementById("akMsg");
+  m.textContent = text;
+  m.style.color = ok ? "var(--green)" : "var(--red, #ff6b6b)";
+}
+
+async function loadAgentKeys(){
+  try{
+    const r = await fetch("/api/keys");
+    if(!r.ok) return;
+    const keys = (await r.json()).keys || [];
+    const when = t => t ? esc(t.replace("T"," ").slice(0,16)) : "never";
+    document.getElementById("akList").innerHTML = keys.length ? keys.map(k=>`
+      <div class="card ak-row ${k.active ? "" : "revoked"}">
+        <div style="font-size:13px;"><b>${esc(k.project)}</b>
+          <span class="mono" style="font-family:var(--font-mono);font-size:11px;color:var(--text-soft);margin-left:8px;">${esc(k.hint)}</span>
+          ${k.active ? '<span class="badge low">active</span>' : '<span class="badge med">revoked</span>'}
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;">
+          <span class="mono" style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);">created ${when(k.created_at)} · last used ${when(k.last_used_at)}</span>
+          ${k.active ? `<button class="btn btn-ghost" style="padding:6px 12px;font-size:11px;" data-id="${esc(k.id)}" data-project="${esc(k.project)}" onclick="revokeAgentKey(this.dataset.id, this.dataset.project)">Revoke</button>` : ""}
+        </div>
+      </div>`).join("")
+      : '<div style="font-size:12px;color:var(--text-dim);">No keys yet.</div>';
+  }catch(_){}
+}
+
+async function createAgentKey(){
+  const project = document.getElementById("akProject").value.trim();
+  if(!project) return akShow("Name the project first", false);
+  try{
+    const r = await fetch("/api/keys", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({project})});
+    const d = await r.json();
+    if(!r.ok) return akShow(d.error || "Could not create the key", false);
+    akRaw = d.key;
+    document.getElementById("akKey").textContent = akRaw;
+    document.getElementById("akSnippet").textContent =
+      "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://ingest.selenne.app/v1/traces\n" +
+      "OTEL_EXPORTER_OTLP_TRACES_HEADERS=\"Authorization=Bearer " + akRaw + "\"\n" +
+      "OTEL_SERVICE_NAME=" + d.record.project;
+    document.getElementById("akReveal").hidden = false;
+    document.getElementById("akProject").value = "";
+    akShow("", true);
+    loadAgentKeys();
+  }catch(_){ akShow("Network error", false); }
+}
+
+async function copyAgentKey(){
+  try{ await navigator.clipboard.writeText(akRaw); NX.toast("Key copied"); }
+  catch(_){ NX.toast("Copy failed — select the key and copy it manually"); }
+}
+
+function hideAgentKey(){
+  akRaw = "";
+  document.getElementById("akKey").textContent = "";
+  document.getElementById("akSnippet").textContent = "";
+  document.getElementById("akReveal").hidden = true;
+}
+
+async function revokeAgentKey(id, project){
+  if(!confirm(`Revoke the key for "${project}"? Agents using it stop sending within a minute.`)) return;
+  try{
+    const r = await fetch("/api/keys/" + encodeURIComponent(id), {method:"DELETE"});
+    if(!r.ok){ NX.toast((await r.json()).error || "Revoke failed"); return; }
+    NX.toast("Key revoked");
+    loadAgentKeys();
+  }catch(_){ NX.toast("Revoke failed"); }
+}
+
+loadProfile(); loadTickets(); loadAgentKeys();
 setInterval(loadTickets, 20000);
 </script>
 </body>

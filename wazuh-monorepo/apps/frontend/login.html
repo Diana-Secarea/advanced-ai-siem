@@ -170,8 +170,17 @@ function succeed(text) {
   }
 })();
 
-// Already signed in? Straight to the dashboard.
-fetch("/api/auth/me").then(r => { if (r.ok) location.href = "/"; }).catch(()=>{});
+// Where to go after sign-in. ?next= lets the AI Agents console (/agents/,
+// a different server on the same origin) send people here and get them back.
+// Only a same-origin PATH is accepted: "//evil.com" or "/\\evil.com" would
+// be read by the browser as another host, i.e. an open redirect.
+function nextTarget() {
+  const n = new URLSearchParams(location.search).get("next") || "";
+  return /^\/(?![\/\\])[^\s]*$/.test(n) ? n : "/";
+}
+
+// Already signed in? Straight to where they were going.
+fetch("/api/auth/me").then(r => { if (r.ok) location.href = nextTarget(); }).catch(()=>{});
 
 $("toggleLink").addEventListener("click", () => setMode(MODES[mode].toggleTo));
 $("forgotLink").addEventListener("click", () => setMode("forgot"));
@@ -215,7 +224,7 @@ $("authForm").addEventListener("submit", async (e) => {
     }
     const [r, d] = await post("/api/auth/login", { username, password });
     if (!r.ok) { fail(d.error || "Login failed"); return; }
-    location.href = "/";
+    location.href = nextTarget();
   } catch (err) {
     fail("Backend unreachable \u2014 is the server running?");
   }

@@ -14,6 +14,13 @@ nothing to point a log shipper at). This wires a root logger that writes to:
     alerts; see AUDIT_LOG below)
   * a rotating file  logs/flask_access.log (Apache combined format — HTTP access
     log for the same collector; see ACCESS_LOG below)
+  * a rotating file  logs/selenne-agents.json  (Selenne Agents only — ingestion
+    keys and the Agents containers' calls into this backend; see AGENTS_LOG)
+
+Selenne Agents (the AI-agent monitoring product) must never feed the SIEM's
+alerting: nothing it does is written to the two collector-facing files above.
+Its records go to their own file, namespaced "selenne_agents" instead of
+"selenne", so even a collector pointed at it by mistake matches no Selenne rule.
 
 The last two exist because a human-readable line in backend.log is invisible to
 the console: nothing in ossec.conf watches this directory, and the decoders
@@ -49,6 +56,8 @@ AUDIT_SCHEMA = 1
 
 
 class _JsonLineFormatter(logging.Formatter):
+    namespace = "selenne"
+
     """Render one flat JSON object per line for the Wazuh json decoder.
 
     Wazuh flattens nested JSON into dotted field names, so the payload is
@@ -64,9 +73,13 @@ class _JsonLineFormatter(logging.Formatter):
         doc = {
             "timestamp": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
             "host": _HOSTNAME,
-            "selenne": dict(payload, schema=AUDIT_SCHEMA, level=record.levelname),
+            self.namespace: dict(payload, schema=AUDIT_SCHEMA, level=record.levelname),
         }
         return json.dumps(doc, default=str, ensure_ascii=False)
+
+
+class _AgentsJsonLineFormatter(_JsonLineFormatter):
+    namespace = "selenne_agents"
 
 
 def setup_logging():
@@ -113,9 +126,13 @@ def setup_logging():
                                          log_dir / "selenne-audit.json"))
         access_path = Path(os.environ.get("ACCESS_LOG",
                                           log_dir / "flask_access.log"))
+        # NOT collector-facing: Selenne Agents events live apart from the SIEM.
+        agents_path = Path(os.environ.get("AGENTS_LOG",
+                                          log_dir / "selenne-agents.json"))
         for path, logger_name, formatter in (
                 (audit_path, "audit", _JsonLineFormatter()),
-                (access_path, "access", logging.Formatter("%(message)s"))):
+                (access_path, "access", logging.Formatter("%(message)s")),
+                (agents_path, "agents_audit", _AgentsJsonLineFormatter())):
             try:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 handler = RotatingFileHandler(
@@ -159,6 +176,16 @@ def audit(event, **fields):
             event, extra={"audit": dict(fields, event=event)})
     except Exception:            # noqa: BLE001 - deliberately swallowing
         logging.getLogger("backend").exception("audit sink failed for %s", event)
+
+
+def agents_audit(event, **fields):
+    """Record one Selenne Agents event in AGENTS_LOG — never in AUDIT_LOG,
+    so AI-agent activity cannot raise SIEM alerts. Never raises."""
+    try:
+        logging.getLogger("agents_audit").info(
+            event, extra={"audit": dict(fields, event=event)})
+    except Exception:            # noqa: BLE001 - deliberately swallowing
+        logging.getLogger("backend").exception("agents audit sink failed for %s", event)
 
 
 def access(line):

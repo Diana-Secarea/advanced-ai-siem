@@ -133,6 +133,42 @@ for i in range(agent_keys.MAX_ACTIVE_KEYS):
 check("one over the cap is refused",
       bob.post("/api/keys", json={"project": "extra"}).status_code, 400)
 
+print("\n6b. Send test event: own key only, forwarded to ingest on loopback")
+from unittest import mock                         # noqa: E402
+import requests                                    # noqa: E402
+
+tk = diana.post("/api/keys", json={"project": "tester"}).get_json()["key"]
+
+
+def _ingest_answer(status, body):
+    resp = mock.Mock(status_code=status)
+    resp.json.return_value = body
+    return resp
+
+
+with mock.patch("requests.post", return_value=_ingest_answer(200, {"accepted": 1, "rejected": 0})) as post:
+    r = diana.post("/api/keys/test", json={"key": tk})
+    check("own key is 200", r.status_code, 200)
+    check("answer names the project", r.get_json().get("project"), "tester")
+    url, sent = post.call_args.args[0], post.call_args.kwargs
+    check("posted to loopback ingest /v1/events", url, "http://127.0.0.1:4318/v1/events")
+    check("with the key as bearer", sent["headers"]["Authorization"], f"Bearer {tk}")
+    check("span carries the project as service.name",
+          sent["json"]["resource"]["service.name"], "tester")
+    check("span trace id matches the answer",
+          sent["json"]["spans"][0]["trace_id"], r.get_json()["trace_id"])
+    post.reset_mock()
+    check("anonymous is 401", anon.post("/api/keys/test", json={"key": tk}).status_code, 401)
+    check("someone else's key is 400", bob.post("/api/keys/test", json={"key": tk}).status_code, 400)
+    check("garbage key is 400", diana.post("/api/keys/test", json={"key": {"a": 1}}).status_code, 400)
+    check("refused keys never reach ingest", post.called, False)
+with mock.patch("requests.post", return_value=_ingest_answer(401, {"error": "unknown key"})):
+    r = diana.post("/api/keys/test", json={"key": tk})
+    check("ingest refusal is 502", r.status_code, 502)
+    check("and passes the reason on", r.get_json().get("error"), "unknown key")
+with mock.patch("requests.post", side_effect=requests.ConnectionError()):
+    check("ingest down is 503", diana.post("/api/keys/test", json={"key": tk}).status_code, 503)
+
 print("\n7. Deleted account kills its keys")
 k2 =diana.post("/api/keys", json={"project": "later"}).get_json()["key"]
 with auth._conn() as conn:
@@ -157,7 +193,7 @@ def _read(name):
 
 audit_log, access_log = _read("selenne-audit.json"), _read("flask_access.log")
 agents_log = _read("selenne-agents.json")
-for ev in ("agent_key_created", "agent_key_revoked", "internal_verify_denied"):
+for ev in ("agent_key_created", "agent_key_revoked", "agent_key_tested", "internal_verify_denied"):
     check(f"{ev} not in selenne-audit.json", ev in audit_log, False)
     check(f"{ev} in selenne-agents.json", ev in agents_log, True)
 check("no /api/keys lines in flask_access.log", "/api/keys" in access_log, False)

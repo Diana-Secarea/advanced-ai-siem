@@ -1,6 +1,8 @@
-# Selenne CI — the app's own tests, separate from the 146 upstream Wazuh
-# workflows in this directory (all of which are workflow_dispatch/schedule and
-# never fire on a push here).
+# Selenne CI — the app's own tests, separate from the upstream Wazuh workflows
+# in this directory. Those are either manual/scheduled or path-filtered to
+# upstream trees (src/, api/, framework/, packages/…) that Selenne never
+# changes, so they do not fire here. The one that ran on every pull request
+# (clang-format) is parked in .github/workflows-disabled/.
 #
 # The point is to catch, before merge, the class of bug that reached production
 # on 2026-09-16: /api/auth/verify was missing from the auth gate's exempt list,
@@ -21,6 +23,8 @@ on:
       - 'wazuh-monorepo/apps/**'
       - 'wazuh-monorepo/services/ai-engine/**'
       - 'wazuh-monorepo/infra/**'
+      - '.github/workflows/selenne-ci.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -60,15 +64,20 @@ jobs:
       - name: Python compiles
         run: python -m compileall -q wazuh-monorepo/apps/backend
 
-      - name: Auth, identity and tenancy suites
+      - name: Frontend scripts parse
+        run: |
+          for f in wazuh-monorepo/apps/frontend/assets/*.js; do
+            node --check "$f" || { echo "syntax error in $f"; exit 1; }
+          done
+
+      - name: Backend suites (every test_*.py)
         working-directory: wazuh-monorepo/apps/backend
         run: |
+          # A glob, not a list: a new test file is picked up without editing
+          # this workflow (test_agent_keys_http.py and test_observation_wiring.py
+          # were missed by the old list).
           fail=0
-          for t in test_identity_security.py \
-                   test_registration_flow.py \
-                   test_registration_http.py \
-                   test_credential_paths.py \
-                   test_request_context.py; do
+          for t in test_*.py; do
             echo "::group::$t"
             python "$t" || fail=1
             echo "::endgroup::"

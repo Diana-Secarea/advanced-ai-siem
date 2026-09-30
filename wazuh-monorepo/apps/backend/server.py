@@ -585,6 +585,55 @@ def agent_keys_revoke(key_id):
     return jsonify({"status": "ok"})
 
 
+# Where the "Send test event" button delivers its span. Loopback on purpose:
+# the browser never talks to ingest.selenne.app, so there is no CORS to set up
+# and the test does not depend on the visitor's DNS or Cloudflare.
+AGENTS_INGEST_URL = os.environ.get("AGENTS_INGEST_URL", "http://127.0.0.1:4318").rstrip("/")
+
+
+@app.route("/api/keys/test", methods=["POST"])
+@limiter.limit("10 per minute")
+def agent_keys_test():
+    """Send one span to ingest with a key the user just created.
+
+    The raw key only exists in the browser (users.db keeps a hash), so the
+    page posts it back here. It must belong to the signed-in user — this is a
+    way to test your own key, not an oracle for anybody else's.
+    """
+    import requests
+    username, _ = _current_username()
+    if not username or username == "anonymous":
+        return jsonify({"error": "Sign in to test ingestion keys"}), 401
+    body = request.get_json(silent=True) or {}
+    raw = _scalar_str(body.get("key"))
+    info = _agent_keys.verify(raw)
+    if not info.get("valid") or info.get("username") != username:
+        return jsonify({"error": "That key is not one of your active keys"}), 400
+    now_ns = time.time_ns()
+    trace_id = uuid.uuid4().hex
+    payload = {"resource": {"service.name": info["project"]},
+               "spans": [{"trace_id": trace_id, "span_id": uuid.uuid4().hex[:16],
+                          "name": "selenne.test_event", "kind": "internal",
+                          "start_time_unix_nano": now_ns - 250_000_000,
+                          "end_time_unix_nano": now_ns, "status": "ok",
+                          "attributes": {"selenne.test": True,
+                                         "note": "Sent by the Send test event button"}}]}
+    try:
+        r = requests.post(f"{AGENTS_INGEST_URL}/v1/events", json=payload, timeout=8,
+                          headers={"Authorization": f"Bearer {raw}"})
+    except requests.RequestException:
+        return jsonify({"error": "The ingest service is not reachable right now"}), 503
+    try:
+        answer = r.json()
+    except ValueError:
+        answer = {}
+    if r.status_code != 200 or not answer.get("accepted"):
+        return jsonify({"error": answer.get("error") or f"Ingest answered HTTP {r.status_code}"}), 502
+    logging_setup.agents_audit("agent_key_tested", username=username, key_id=info["key_id"],
+                        project=info["project"], src_ip=get_remote_address())
+    return jsonify({"status": "ok", "trace_id": trace_id, "project": info["project"]})
+
+
 @app.route("/internal/keys/verify", methods=["POST"])
 @limiter.exempt
 def internal_keys_verify():

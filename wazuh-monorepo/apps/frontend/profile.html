@@ -28,6 +28,18 @@
     border:1px solid rgba(52,211,153,.4); background:rgba(52,211,153,.06); }
   .ak-code { font-family:var(--font-mono); font-size:12px; white-space:pre-wrap; word-break:break-all;
     background:rgba(0,0,0,.35); border-radius:10px; padding:12px 14px; margin-top:8px; color:var(--text); }
+  .ak-live { font-family:var(--font-mono); font-size:12px; margin-top:12px; color:var(--text-soft); }
+  .ak-live.ok { color:var(--green); }
+  .ak-live.err { color:var(--red, #ff6b6b); }
+  .ak-live a { color:var(--cyan); }
+  .ak-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .ak-tab { padding:6px 12px; border-radius:8px; border:1px solid rgba(255,255,255,.12); background:transparent;
+    color:var(--text-soft); font-family:var(--font-mono); font-size:11px; cursor:pointer; }
+  .ak-tab[aria-selected="true"] { border-color:rgba(34,211,238,.55); color:var(--text); background:rgba(34,211,238,.08); }
+  .ak-snip { position:relative; }
+  .ak-snip .ak-code { padding-right:74px; white-space:pre; overflow-x:auto; word-break:normal; }
+  .ak-snip-copy { position:absolute; top:8px; right:8px; padding:5px 10px; font-size:11px; }
+  .ak-note { font-size:11px; color:var(--text-dim); margin-top:6px; }
 </style>
 </head>
 <body>
@@ -165,12 +177,20 @@
       <div class="ak-reveal" id="akReveal" hidden>
         <b style="font-size:13px;">Copy this key now — it will not be shown again.</b>
         <div class="ak-code" id="akKey"></div>
-        <div style="display:flex;gap:10px;margin-top:10px;">
+        <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
           <button class="btn btn-ghost" style="padding:8px 14px;font-size:12px;" onclick="copyAgentKey()">Copy key</button>
+          <button class="btn btn-ghost" style="padding:8px 14px;font-size:12px;" onclick="downloadAgentEnv()">Download .env</button>
+          <button class="btn btn-primary" style="padding:8px 14px;font-size:12px;" id="akTestBtn" onclick="testAgentKey()">Send test event</button>
           <button class="btn btn-ghost" style="padding:8px 14px;font-size:12px;" onclick="hideAgentKey()">Done</button>
         </div>
-        <div style="font-size:12px;color:var(--text-soft);margin-top:14px;">Already using OpenTelemetry? Just set:</div>
-        <div class="ak-code" id="akSnippet"></div>
+        <div class="ak-live" id="akLive"></div>
+        <div style="font-size:12px;color:var(--text-soft);margin-top:16px;">Connect your agent — pick what you use, the key is already filled in:</div>
+        <div class="ak-tabs" id="akTabs" role="tablist"></div>
+        <div class="ak-snip">
+          <button class="btn btn-ghost ak-snip-copy" onclick="copyAgentSnippet()">Copy</button>
+          <div class="ak-code" id="akSnippet" role="tabpanel"></div>
+        </div>
+        <div class="ak-note" id="akNote"></div>
       </div>
       <div id="akList" style="display:flex;flex-direction:column;gap:8px;margin-top:16px;"></div>
     </div>
@@ -357,16 +377,170 @@ async function createAgentKey(){
     const d = await r.json();
     if(!r.ok) return akShow(d.error || "Could not create the key", false);
     akRaw = d.key;
+    akProjectName = d.record.project;
     document.getElementById("akKey").textContent = akRaw;
-    document.getElementById("akSnippet").textContent =
-      "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://ingest.selenne.app/v1/traces\n" +
-      "OTEL_EXPORTER_OTLP_TRACES_HEADERS=\"Authorization=Bearer " + akRaw + "\"\n" +
-      "OTEL_SERVICE_NAME=" + d.record.project;
+    renderAgentTabs();
     document.getElementById("akReveal").hidden = false;
     document.getElementById("akProject").value = "";
     akShow("", true);
     loadAgentKeys();
+    watchFirstTrace();
   }catch(_){ akShow("Network error", false); }
+}
+
+/* Connection snippets — every one carries the key, so they only exist while
+   the key is on screen and are wiped with it by hideAgentKey(). */
+const INGEST = "https://ingest.selenne.app";
+let akProjectName = "", akTab = "curl";
+
+function akHex(n){
+  const b = new Uint8Array(n / 2);
+  crypto.getRandomValues(b);
+  return Array.from(b, x => x.toString(16).padStart(2, "0")).join("");
+}
+
+function akEnvLines(){
+  return "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=" + INGEST + "/v1/traces\n" +
+         "OTEL_EXPORTER_OTLP_TRACES_HEADERS=Authorization=Bearer " + akRaw + "\n" +
+         "OTEL_SERVICE_NAME=" + akProjectName + "\n";
+}
+
+const AK_SNIPPETS = {
+  curl: {label: "curl", note: "Paste into a terminal — it answers {\"accepted\":1,\"rejected\":0}.", text: () => {
+    const start = new Date(), end = new Date(start.getTime() + 360);
+    return "curl " + INGEST + "/v1/events \\\n" +
+      "  -H \"Authorization: Bearer " + akRaw + "\" \\\n" +
+      "  -H \"Content-Type: application/json\" \\\n" +
+      "  -d '{\"resource\": {\"service.name\": \"" + akProjectName + "\"},\n" +
+      "       \"spans\": [{\"trace_id\": \"" + akHex(32) + "\",\n" +
+      "                  \"span_id\": \"" + akHex(16) + "\",\n" +
+      "                  \"name\": \"tool.read_file\", \"kind\": \"internal\",\n" +
+      "                  \"start_time\": \"" + start.toISOString() + "\",\n" +
+      "                  \"end_time\":   \"" + end.toISOString() + "\",\n" +
+      "                  \"status\": \"ok\",\n" +
+      "                  \"attributes\": {\"gen_ai.tool.name\": \"read_file\"}}]}'";
+  }},
+  otel: {label: "OpenTelemetry", note: "Already instrumented? No code change — set these where the agent runs.", text: () =>
+    "export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=" + INGEST + "/v1/traces\n" +
+    "export OTEL_EXPORTER_OTLP_TRACES_HEADERS=\"Authorization=Bearer " + akRaw + "\"\n" +
+    "export OTEL_SERVICE_NAME=" + akProjectName + "\n\n" +
+    "# OTLP/gRPC instead of HTTP:\n" +
+    "# export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=" + INGEST + "\n" +
+    "# export OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=grpc"
+  },
+  python: {label: "Python", note: "pip install opentelemetry-sdk opentelemetry-exporter-otlp-proto-http", text: () =>
+    "from opentelemetry import trace\n" +
+    "from opentelemetry.sdk.resources import Resource\n" +
+    "from opentelemetry.sdk.trace import TracerProvider\n" +
+    "from opentelemetry.sdk.trace.export import BatchSpanProcessor\n" +
+    "from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter\n\n" +
+    "provider = TracerProvider(resource=Resource.create({\"service.name\": \"" + akProjectName + "\"}))\n" +
+    "provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(\n" +
+    "    endpoint=\"" + INGEST + "/v1/traces\",\n" +
+    "    headers={\"Authorization\": \"Bearer " + akRaw + "\"})))\n" +
+    "trace.set_tracer_provider(provider)\n\n" +
+    "tracer = trace.get_tracer(\"" + akProjectName + "\")\n" +
+    "with tracer.start_as_current_span(\"tool.read_file\") as span:\n" +
+    "    span.set_attribute(\"gen_ai.tool.name\", \"read_file\")"
+  },
+  node: {label: "Node", note: "npm install @opentelemetry/sdk-trace-node @opentelemetry/exporter-trace-otlp-http @opentelemetry/resources  (OpenTelemetry JS 2.x)", text: () =>
+    "const { NodeTracerProvider, BatchSpanProcessor } = require(\"@opentelemetry/sdk-trace-node\");\n" +
+    "const { OTLPTraceExporter } = require(\"@opentelemetry/exporter-trace-otlp-http\");\n" +
+    "const { resourceFromAttributes } = require(\"@opentelemetry/resources\");\n\n" +
+    "const provider = new NodeTracerProvider({\n" +
+    "  resource: resourceFromAttributes({ \"service.name\": \"" + akProjectName + "\" }),\n" +
+    "  spanProcessors: [new BatchSpanProcessor(new OTLPTraceExporter({\n" +
+    "    url: \"" + INGEST + "/v1/traces\",\n" +
+    "    headers: { Authorization: \"Bearer " + akRaw + "\" },\n" +
+    "  }))],\n" +
+    "});\n" +
+    "provider.register();\n\n" +
+    "const tracer = provider.getTracer(\"" + akProjectName + "\");\n" +
+    "tracer.startActiveSpan(\"tool.read_file\", span => {\n" +
+    "  span.setAttribute(\"gen_ai.tool.name\", \"read_file\");\n" +
+    "  span.end();\n" +
+    "});\n" +
+    "provider.shutdown();   // flushes before a short script exits"
+  },
+  env: {label: ".env / Docker", note: "Same as Download .env. In docker-compose.yml:  env_file: selenne-agents.env", text: () =>
+    "# selenne-agents.env — keep it out of git\n" + akEnvLines() + "\n" +
+    "# docker-compose.yml\n" +
+    "# services:\n" +
+    "#   my-agent:\n" +
+    "#     env_file: selenne-agents.env"
+  },
+};
+
+function renderAgentTabs(){
+  document.getElementById("akTabs").innerHTML = Object.entries(AK_SNIPPETS).map(([id, s]) =>
+    `<button class="ak-tab" role="tab" aria-selected="${id === akTab}" onclick="showAgentTab('${id}')">${esc(s.label)}</button>`
+  ).join("");
+  document.getElementById("akSnippet").textContent = AK_SNIPPETS[akTab].text();
+  document.getElementById("akNote").textContent = AK_SNIPPETS[akTab].note;
+}
+
+function showAgentTab(id){ akTab = id; renderAgentTabs(); }
+
+async function copyAgentSnippet(){
+  try{ await navigator.clipboard.writeText(document.getElementById("akSnippet").textContent); NX.toast("Copied"); }
+  catch(_){ NX.toast("Copy failed — select the text and copy it manually"); }
+}
+
+function downloadAgentEnv(){
+  const blob = new Blob(["# Selenne Agents — project " + akProjectName + ". Keep this file out of git.\n" + akEnvLines()],
+                        {type: "text/plain"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "selenne-agents.env";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/* "Waiting for first trace…" — polls the Agents console for a session in this
+   project that started after the key was created. Gives up after 15 minutes. */
+let akWatch = null;
+
+function akLive(html, cls){
+  const el = document.getElementById("akLive");
+  el.className = "ak-live" + (cls ? " " + cls : "");
+  el.innerHTML = html;
+}
+
+function stopTraceWatch(){ if(akWatch){ clearInterval(akWatch); akWatch = null; } }
+
+function watchFirstTrace(){
+  stopTraceWatch();
+  const project = akProjectName, since = Date.now() - 60000, giveUp = Date.now() + 15 * 60000;
+  akLive("⏳ Waiting for the first trace from <b>" + esc(project) + "</b>… send one with the button above or a snippet below.");
+  const tick = async () => {
+    if(Date.now() > giveUp){
+      stopTraceWatch();
+      return akLive("No trace yet. When your agent sends one it appears in the <a href=\"/agents/\">AI Agents console</a>.");
+    }
+    try{
+      const r = await fetch("/agents/api/sessions?hours=1&limit=20&project=" + encodeURIComponent(project));
+      if(!r.ok) return;
+      const hit = ((await r.json()).sessions || []).find(s => s.start_ms >= since);
+      if(!hit) return;
+      stopTraceWatch();
+      akLive("✓ First trace received — <a href=\"/agents/\">open the console →</a>", "ok");
+    }catch(_){}
+  };
+  akWatch = setInterval(tick, 4000);
+}
+
+async function testAgentKey(){
+  const btn = document.getElementById("akTestBtn");
+  btn.disabled = true;
+  try{
+    const r = await fetch("/api/keys/test", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({key: akRaw})});
+    const d = await r.json().catch(() => ({}));
+    if(!r.ok) return akLive("✗ Test failed: " + esc(d.error || ("HTTP " + r.status)), "err");
+    stopTraceWatch();
+    akLive("✓ Test event received — <a href=\"/agents/\">open the console →</a>", "ok");
+  }catch(_){ akLive("✗ Test failed: network error", "err"); }
+  finally{ btn.disabled = false; }
 }
 
 async function copyAgentKey(){
@@ -375,9 +549,13 @@ async function copyAgentKey(){
 }
 
 function hideAgentKey(){
-  akRaw = "";
+  stopTraceWatch();
+  akRaw = ""; akProjectName = "";
   document.getElementById("akKey").textContent = "";
   document.getElementById("akSnippet").textContent = "";
+  document.getElementById("akTabs").innerHTML = "";
+  document.getElementById("akNote").textContent = "";
+  akLive("");
   document.getElementById("akReveal").hidden = true;
 }
 

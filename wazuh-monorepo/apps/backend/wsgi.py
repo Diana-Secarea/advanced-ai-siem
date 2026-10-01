@@ -5,7 +5,8 @@ explicitly "not for production").
 
     ../../services/ai-engine/venv/bin/python wsgi.py
 
-Config via env: BIND_HOST, BIND_PORT (default 127.0.0.1:5000),
+Config via env: BIND_HOST, BIND_PORT (default 127.0.0.1:5000), EXTRA_LISTEN
+(extra "addr:port" listeners, e.g. 172.17.0.1:5000 for the Agents containers),
 WAITRESS_THREADS (default 8 — sized for SSE chat fan-out + API concurrency).
 TRUST_PROXY=1 makes waitress accept X-Forwarded-* from TRUSTED_PROXY_IP
 (default 127.0.0.1); without it waitress discards them and the backend sees
@@ -16,6 +17,7 @@ warm-up, reactor + CVE-agent boot) is triggered here too so behavior matches.
 """
 
 import os
+import socket
 
 from waitress import serve
 
@@ -54,7 +56,23 @@ if __name__ == "__main__":
         )
         server.log.info("trusting forwarding headers from %s", proxy_kw["trusted_proxy"])
 
-    server.log.info("waitress serving on %s:%s (%s threads)", host, port, threads)
-    serve(server.app, host=host, port=port, threads=threads,
+    # EXTRA_LISTEN: more "addr:port" pairs (space-separated) next to BIND_HOST.
+    # Used for 172.17.0.1:5000 (docker0) so the Selenne Agents containers can
+    # reach /internal/keys/verify and /api/auth/me via host.docker.internal,
+    # without exposing the backend on the public interface. An address the
+    # host doesn't have yet (docker not up) is skipped with a warning instead
+    # of taking the whole backend down.
+    listen = [f"{host}:{port}"]
+    for addr in os.environ.get("EXTRA_LISTEN", "").split():
+        h, _, p = addr.rpartition(":")
+        try:
+            with socket.socket() as probe:
+                probe.bind((h, 0))
+            listen.append(f"{h}:{int(p)}")
+        except (OSError, ValueError) as e:
+            server.log.warning("EXTRA_LISTEN %s skipped: %s", addr, e)
+
+    server.log.info("waitress serving on %s (%s threads)", " ".join(listen), threads)
+    serve(server.app, listen=" ".join(listen), threads=threads,
           channel_timeout=300,   # allow long-lived SSE chat streams
           **proxy_kw)
